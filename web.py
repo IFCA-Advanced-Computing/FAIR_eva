@@ -66,7 +66,6 @@ def get_global_language():
     g.language = get_locale()
 
 
-@babel.localeselector
 def get_locale():
     lang = request.path[1:].split('/', 1)[0]
 
@@ -80,6 +79,8 @@ def get_locale():
     default_lang = fallback_lang()
     session['lang'] = default_lang
     return default_lang
+
+babel.init_app(app, locale_selector=get_locale)
 
 
 def lang_in_session():
