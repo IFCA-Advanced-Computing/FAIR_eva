@@ -57,6 +57,9 @@ app.config.update({'SECRET_KEY': 'sdafasfwefq3egthyjtyhwef',
                    'FLASK_DEBUG': 1,
                    'PATHS': ['about_us', 'evaluator', 'export_pdf', 'evaluations'],
                    'BABEL_DEFAULT_LOCALE': 'es',
+                   'LAST_JSON_OUTPUT': '',
+                   'LAST_ITEM_ID': '',
+                   'LAST_RESULT_POINTS': '',
                    'BABEL_LOCALES': ['en', 'en-CA', 'en-IE', 'en-GB', 'en-US', 'es', 'es-ES', 'es-MX']})
 
 babel = Babel(app)
@@ -231,6 +234,7 @@ def evaluator():
         url = 'http://localhost:9090/v1.0/rda/rda_all'
         result = requests.post(url, data=body, headers={'Content-Type': 'application/json'})
         result = json.loads(result.json())
+        
         result_points = 0
         weight_of_tests = 0
         for key in result:
@@ -282,6 +286,11 @@ def evaluator():
         data_test = result['data_test']
     else:
         data_test = None
+    
+    app.config['LAST_JSON_OUTPUT'] = result
+    app.config['LAST_ITEM_ID'] = item_id
+    app.config['LAST_RESULT_POINTS'] ="%f" % result_points
+    session.permanent = True
     return render_template(to_render, item_id=ut.pid_to_url(item_id, ut.get_persistent_id_type(item_id)[0]),
                            findable=result['findable'],
                            accessible=result['accessible'],
@@ -299,110 +308,33 @@ def evaluator():
 @app.route("/es/export_pdf", endpoint="export_pdf_es")
 @app.route("/en/export_pdf", endpoint="export_pdf_en")
 def export_pdf():
-    app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
-    logging.debug(app.config['BABEL_TRANSLATION_DIRECTORIES'])
-    babel.init_app(app, locale_selector=get_locale)
-    try:
-        args = request.args
-        oai_base = None
-        item_id = args['item_id']
-        logger.debug("ARGS_evaluator: %s" % args)
-        sp = Smart_plugin(config['Repositories'])
-        if config['local']['only_local'] == "True":
-            logger.debug("Only local TRUE")
-            repo = config['local']['repo']
-        elif 'repo' not in args:
-            plugin, url = sp.doi_flow(args['item_id'])
-            repo = plugin
-            oai_base = url
-        else:
-            logger.debug("Only local FALSE")
-            repo = args['repo']
-        logger.debug("ITEM_ID: %s | REPO: %s" % (item_id, repo))
-        result_points = 0
-        num_of_tests = 41
+    logger.debug(session)
+    result = app.config['LAST_JSON_OUTPUT']
+    item_id = app.config['LAST_ITEM_ID']
+    result_points = float(app.config['LAST_RESULT_POINTS'])
+    logger.debug("Exporting PDF evaluating ID: %s and result: %s" % (item_id, result_points))
 
-        findable = {}
-        accessible = {}
-        interoperable = {}
-        reusable = {}
-        if oai_base is None:
-            oai_base = repo_oai_base(repo)
-        logger.debug("OAI_BASE: %s" % oai_base)
+    pdf_out = pdf_gen.create_pdf(result, 'fair_report.pdf', 
+            ut.pid_to_url(item_id, ut.get_persistent_id_type(item_id)[0]),
+            'static/img/logo_fair_eosc_2.png', 'static/img/csic.png', result_points)
+    # pdf_output = pdfkit.from_file('fair_report.pdf','.')
+    logger.debug("Tipo PDF")
+    logger.debug(type(pdf_out))
+    response = make_response(pdf_out)
+    response.headers['Content-Disposition'] = "attachment; filename=fair_report.pdf"
+    response.mimetype = 'application/pdf'
 
-        try:
-            if 'oai_base' in args:
-                if args['oai_base'] != "" and ut.check_url(args['oai_base'] + '?verb=Identify'):
-                    oai_base = args['oai_base']
-                    logger.debug("Aqui OAI: %s" % oai_base)
-            else:
-                if ut.check_url(oai_base + '?verb=Identify') == False:
-                    oai_base = ''
-                    logger.debug("Aqui OAI: %s" % oai_base)
-        except Exception as e:
-            logger.error("Problem getting args")
-        logger.debug("SESSION LANG: %s" % session.get('lang'))
-        if repo is None or repo == "None":
-            repo, oai_base = sp.doi_flow(item_id)
-        body = json.dumps({'id': item_id, 'repo': repo, 'oai_base': oai_base, 'lang': session.get('lang')})
-        logger.debug("BODY: %s" % body)
-    except Exception as e:
-        logger.error("Problem creating the object")
-        logger.error(e)
-        
-    try:
-        if os.path.exists("plugins/%s/translations" % repo):
-            app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'plugins/%s/translations' % repo
-            logging.debug(app.config['BABEL_TRANSLATION_DIRECTORIES'])
-            babel.init_app(app, locale_selector=get_locale)
-        url = 'http://localhost:9090/v1.0/rda/rda_all'
-        result = requests.post(url, data=body, headers={
-                               'Content-Type': 'application/json'})
-        result = json.loads(result.json())
-        result_points = 0
-        weight_of_tests = 0
-        for key in result:
-            g_weight = 0
-            g_points = 0
-            for kk in result[key]:
-                result[key][kk]['indicator'] = gettext("%s.indicator" % result[key][kk]['name'])
-                result[key][kk]['name_smart'] = gettext("%s" % result[key][kk]['name'])
-                # pesos
-                weight = result[key][kk]['score']['weight']
-                weight_of_tests += weight
-                g_weight += weight
-                result_points += result[key][kk]['points'] * weight
-                g_points += result[key][kk]['points'] * weight
-            result[key].update({'result': {'points': round((g_points / g_weight), 2),
-                                'color': ut.get_color(round((g_points / g_weight), 2))}})
-            logger.debug("%s has %f points and %s color" % (key, round((g_points / g_weight)), ut.get_color(round((g_points / g_weight), 2))))
-
-        result_points = round((result_points / weight_of_tests), 2)
-
-        pdf_out = pdf_gen.create_pdf(result, 'fair_report.pdf', 
-                ut.pid_to_url(item_id, ut.get_persistent_id_type(item_id)[0]),
-                'static/img/logo_fair_eosc_2.png', 'static/img/csic.png', result_points)
-        # pdf_output = pdfkit.from_file('fair_report.pdf','.')
-        logger.debug("Tipo PDF")
-        logger.debug(type(pdf_out))
-        response = make_response(pdf_out)
-        response.headers['Content-Disposition'] = "attachment; filename=fair_report.pdf"
-        response.mimetype = 'application/pdf'
-
-        return response
-    except Exception as e:
-        logger.error("Problem parsing API result")
-        logger.error(e)
+    return response
 
 
 def group_chart(result):
-    data_groups = [pd.DataFrame.from_dict(result['findable'], orient='index'),
-                   pd.DataFrame.from_dict(result['accessible'], orient='index'),
-                   pd.DataFrame.from_dict(result['interoperable'], orient='index'),
-                   pd.DataFrame.from_dict(result['reusable'], orient='index')]
+    data_groups = [pd.DataFrame.from_dict({clave: valor for clave, valor in result['findable'].items() if clave != 'result'}, orient='index'),
+                   pd.DataFrame.from_dict({clave: valor for clave, valor in result['accessible'].items() if clave != 'result'}, orient='index'),
+                   pd.DataFrame.from_dict({clave: valor for clave, valor in result['interoperable'].items() if clave != 'result'}, orient='index'),
+                   pd.DataFrame.from_dict({clave: valor for clave, valor in result['reusable'].items() if clave != 'result'}, orient='index')]
 
     figures = []
-    types = ['Findable', 'Accesible', 'Interoperable', 'Reusable', 'FAIR']
+    types = ['Findable', 'Accesible', 'Interoperable', 'Reusable']
     i = 0
 
     for data in data_groups:
