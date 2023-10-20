@@ -165,7 +165,7 @@ def evaluations():
 
 @app.route("/es/evaluator", endpoint="evaluator_es", methods=['GET', 'POST'])
 @app.route("/en/evaluator", endpoint="evaluator_en", methods=['GET', 'POST'])
-def evaluator():
+def evaluator(export_pdf=False):
     app.config['BABEL_TRANSLATION_DIRECTORIES'] = 'translations'
     logging.debug(app.config['BABEL_TRANSLATION_DIRECTORIES'])
     babel.init_app(app, locale_selector=get_locale)
@@ -291,28 +291,40 @@ def evaluator():
     app.config['LAST_ITEM_ID'] = item_id
     app.config['LAST_RESULT_POINTS'] ="%f" % result_points
     session.permanent = True
-    return render_template(to_render, item_id=ut.pid_to_url(item_id, ut.get_persistent_id_type(item_id)[0]),
-                           findable=result['findable'],
-                           accessible=result['accessible'],
-                           interoperable=result['interoperable'],
-                           reusable=result['reusable'],
-                           data_test=data_test,
-                           result_points=result_points,
-                           result_color=ut.get_color(result_points),
-                           script=script,
-                           div=div,
-                           script_f=script_f,
-                           div_f=div_f)
+    
+    if export_pdf:
+        pdf_out = pdf_gen.create_pdf(result, 'fair_report.pdf', 
+                                      ut.pid_to_url(item_id, ut.get_persistent_id_type(item_id)[0]),
+                                      'static/img/logo_fair_eosc_2.png', 'static/img/csic.png', result_points)
+        response = make_response(pdf_out)
+        response.headers['Content-Disposition'] = "attachment; filename=fair_report.pdf"
+        response.mimetype = 'application/pdf'
+        return response
+    else:
+        return render_template(to_render, item_id=ut.pid_to_url(item_id, ut.get_persistent_id_type(item_id)[0]),
+                               findable=result['findable'],
+                               accessible=result['accessible'],
+                               interoperable=result['interoperable'],
+                               reusable=result['reusable'],
+                               data_test=data_test,
+                               result_points=result_points,
+                               result_color=ut.get_color(result_points),
+                               script=script,
+                               div=div,
+                               script_f=script_f,
+                               div_f=div_f)
 
 
 @app.route("/es/export_pdf", endpoint="export_pdf_es")
 @app.route("/en/export_pdf", endpoint="export_pdf_en")
 def export_pdf():
-    logger.debug(session)
-    result = app.config['LAST_JSON_OUTPUT']
-    item_id = app.config['LAST_ITEM_ID']
-    result_points = float(app.config['LAST_RESULT_POINTS'])
-    logger.debug("Exporting PDF evaluating ID: %s and result: %s" % (item_id, result_points))
+    try:
+        result = app.config['LAST_JSON_OUTPUT']
+        item_id = app.config['LAST_ITEM_ID']
+        result_points = float(app.config['LAST_RESULT_POINTS'])
+        logger.debug("Exporting PDF evaluating ID: %s and result: %s" % (item_id, result_points))
+    except Exception as e:
+        return evaluator(True)
 
     pdf_out = pdf_gen.create_pdf(result, 'fair_report.pdf', 
             ut.pid_to_url(item_id, ut.get_persistent_id_type(item_id)[0]),
