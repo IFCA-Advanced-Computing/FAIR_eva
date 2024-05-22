@@ -568,6 +568,7 @@ class Evaluator(object):
         msg
             Statement about the assessment exercise
         """
+        logging.debug("THIS IS OK 1")
         msg_list = []
         points = 0
         term_data = kwargs["identifier_term_data"]
@@ -575,14 +576,8 @@ class Evaluator(object):
 
         # ConfigTerms already enforces term_metadata not to be empty
         id_list = term_metadata.text_value.values[0]
+        logging.debug("THIS IS OK 2")
         points = 100
-        msg_list.append(
-            {
-                "message": _("Metadata includes identifier/s for the data:")
-                + " %s" % id_list,
-                "points": points,
-            }
-        )
 
         return (points, msg_list)
 
