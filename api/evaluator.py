@@ -576,13 +576,6 @@ class Evaluator(object):
         # ConfigTerms already enforces term_metadata not to be empty
         id_list = term_metadata.text_value.values[0]
         points = 100
-        msg_list.append(
-            {
-                "message": _("Metadata includes identifier/s for the data:")
-                + " %s" % id_list,
-                "points": points,
-            }
-        )
 
         return (points, msg_list)
 
