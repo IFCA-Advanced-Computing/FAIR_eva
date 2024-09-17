@@ -37,8 +37,7 @@ from utils.smart_plugin import Smart_plugin
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
 )
-
-logger = logging.getLogger(os.path.basename(__file__))
+logger = logging.getLogger("web")
 
 
 def set_parser():

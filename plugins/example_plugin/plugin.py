@@ -13,7 +13,7 @@ from api.evaluator import Evaluator
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
 )
-logger = logging.getLogger(os.path.basename(__file__))
+logger = logging.getLogger("api.plugin")
 
 
 class Plugin(Evaluator):
@@ -29,7 +29,7 @@ class Plugin(Evaluator):
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en"):
+    def __init__(self, item_id, oai_base=None, lang="en", config=None):
         plugin = "example_plugin"
         super().__init__(item_id, oai_base, lang, plugin)
         # TO REDEFINE - WHICH IS YOUR PID TYPE?
