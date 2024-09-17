@@ -16,58 +16,12 @@ import requests
 from bs4 import BeautifulSoup
 
 import api.utils as ut
-from api.evaluator import Evaluator
+from api.evaluator import ConfigTerms, Evaluator
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
 )
 logger = logging.getLogger("api.plugin")
-
-
-class ConfigTerms(property):
-    def __init__(self, term_id):
-        self.term_id = term_id
-
-    def __call__(self, wrapped_func):
-        @wraps(wrapped_func)
-        def wrapper(plugin, **kwargs):
-            metadata = plugin.metadata
-            has_metadata = True
-
-            term_list = ast.literal_eval(plugin.config[plugin.name][self.term_id])
-            # Get values in config for the given term
-            if not term_list:
-                msg = (
-                    "Cannot find any value for term <%s> in configuration"
-                    % self.term_id
-                )
-                has_metadata = False
-            else:
-                # Get metadata associated with the term ID
-                term_metadata = pd.DataFrame(
-                    term_list, columns=["element", "qualifier"]
-                )
-                term_metadata = ut.check_metadata_terms_with_values(
-                    metadata, term_metadata
-                )
-                if term_metadata.empty:
-                    msg = (
-                        "No access information can be found in the metadata for: %s. Please double-check the value/s provided for '%s' configuration parameter"
-                        % (term_list, self.term_id)
-                    )
-                    has_metadata = False
-
-            if not has_metadata:
-                logger.warning(msg)
-                return (0, [{"message": msg, "points": 0}])
-
-            # Update kwargs with collected metadata for the required terms
-            kwargs.update(
-                {self.term_id: {"list": term_list, "metadata": term_metadata}}
-            )
-            return wrapped_func(plugin, **kwargs)
-
-        return wrapper
 
 
 class Plugin(Evaluator):
