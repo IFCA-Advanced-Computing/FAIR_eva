@@ -12,7 +12,7 @@ import pandas as pd
 import requests
 
 from api.evaluator import Evaluator
-from plugins.gbif.gbif_data import ICA, gbif_doi_download
+from plugins.gbif.gbif_data import ICA, gbif_doi_download, gbif_doi_search
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
@@ -115,149 +115,65 @@ class Plugin(Evaluator):
             final_url = final_url.replace("www.gbif.org/", "api.gbif.org/v1/")
             final_url = final_url + "/document"
         response = requests.get(final_url, verify=False)
-        tree = ET.fromstring(response.text)
 
-        print("gbif5")
-        eml_schema = "{eml://ecoinformatics.org/eml-2.1.1}"
-        metadata_sample = []
-        elementos = tree.find(".//")
-        for e in elementos:
-            if e.text != "" or e.text != "\n    " or e.text != "\n":
-                metadata_sample.append([eml_schema, e.tag, e.text, None])
-            for i in e.iter():
-                if len(list(i.iter())) > 0:
-                    for se in i.iter():
-                        metadata_sample.append(
-                            [eml_schema, e.tag + "." + i.tag, se.text, se.tag]
-                        )
-                elif i.tag != e.tag and (
-                    i.text != "" or i.text != "\n    " or i.text != "\n"
-                ):
-                    metadata_sample.append([eml_schema, e.tag, i.text, i.tag])
+        def print_hierarchy_with_qualifier(elem, namespace, metadata_sample, path=""):
+            parts = path.split(".")
+            md_schema = parts[0]
+            quali = parts[-1]
+            if len(elem) == 0 and elem.text != None:
+                # Si el elemento no tiene hijos, y tiene un padre, lo guardamos en qualifier
+                if path:
+                    qualifier = f"{path}.{elem.tag}"
+                    metadata_sample.append(
+                        [
+                            namespace,
+                            path.replace(namespace + ".", ""),
+                            elem.text,
+                            elem.tag,
+                        ]
+                    )
+            else:
+                # Si tiene hijos, seguimos recorriendo la jerarquía
+                new_path = f"{path}.{elem.tag}" if path else elem.tag
+                for child in elem:
+                    print_hierarchy_with_qualifier(
+                        child, namespace, metadata_sample, new_path
+                    )
+
+        def parse_and_print_xml(response):
+            tree = ET.fromstring(response.text)
+            namespace = tree.tag
+            metadata_sample = []
+            print_hierarchy_with_qualifier(tree, namespace, metadata_sample)
+            return pd.DataFrame(
+                metadata_sample,
+                columns=["metadata_schema", "element", "text_value", "qualifier"],
+            )
+
+        metadata_sample = parse_and_print_xml(response)
+
         return metadata_sample
 
     def rda_a1_01m(self):
         # IF your ID is not an standard one (like internal), this method should be redefined
         points = 0
         msg = "Data is not accessible"
+        data_res = gbif_doi_search(self.item_id)
+        if len(data_res) > 0:
+            points = 100
+            msg = "Data found"
+
         return (points, msg)
 
     def rda_a1_02m(self):
         # IF your ID is not an standard one (like internal), this method should be redefined
         points = 0
         msg = "Data is not accessible"
-        return (points, msg)
+        data_res = gbif_doi_search(self.item_id)
+        if len(data_res) > 0:
+            points = 100
+            msg = "Data found"
 
-    def rda_i1_02m(self):
-        """Indicator RDA-A1-01M
-        This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
-        shared, and broadly applicable language for knowledge representation. More information
-        about that principle can be found here.
-
-        This indicator focuses on the machine-understandability aspect of the metadata. This means
-        that metadata should be readable and thus interoperable for machines without any
-        requirements such as specific translators or mappings.
-
-        Technical proposal:
-
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-
-        # TO REDEFINE
-        points = 0
-        msg = "No machine-actionable metadata format found. OAI-PMH endpoint may help"
-        return (points, msg)
-
-    def rda_i1_02d(self):
-        """Indicator RDA-A1-01M
-        This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
-        shared, and broadly applicable language for knowledge representation. More information
-        about that principle can be found here.
-
-        This indicator focuses on the machine-understandability aspect of the data. This means that
-        data should be readable and thus interoperable for machines without any requirements such
-        as specific translators or mappings.
-
-        Technical proposal:
-
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        return self.rda_i1_02m()
-
-    def rda_r1_3_01m(self):
-        """Indicator RDA-A1-01M
-        This indicator is linked to the following principle: R1.3: (Meta)data meet domain-relevant
-        community standards.
-
-        This indicator requires that metadata complies with community standards.
-
-        Technical proposal:
-
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        # TO REDEFINE
-        points = 0
-        msg = _(
-            "Currently, this repo does not include community-bsed schemas. If you need to include yours, please contact."
-        )
-        return (points, msg)
-
-    def rda_r1_3_01d(self):
-        """Indicator RDA_R1.3_01D.
-
-        Technical proposal:
-
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        # TO REDEFINE
-        points = 0
-        msg = _(
-            "Currently, this repo does not include community-bsed schemas. If you need to include yours, please contact."
-        )
         return (points, msg)
 
     def data_01(self):
