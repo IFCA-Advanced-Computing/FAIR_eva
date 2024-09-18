@@ -1428,6 +1428,7 @@ class Evaluator(object):
             if row["text_value"].split("/")[-1] not in self.item_id:
                 id_list.append(row["text_value"])
         points, msg_list = self.eval_persistency(id_list)
+        return (points, msg_list)
 
     def rda_i3_01d(self):
         """Indicator RDA-A1-01M.
@@ -1854,14 +1855,16 @@ class Evaluator(object):
         terms_reusability_richness_list = terms_reusability_richness["list"]
         terms_reusability_richness_metadata = terms_reusability_richness["metadata"]
 
-        element = terms_reusability_richness_metadata.loc[
-            terms_reusability_richness_metadata["element"].isin(["availableFormats"]),
-            "text_value",
-        ].values[0]
-        for form in element:
-            availableFormats.append(form["label"])
-
         try:
+            element = terms_reusability_richness_metadata.loc[
+                terms_reusability_richness_metadata["element"].isin(
+                    ["availableFormats"]
+                ),
+                "text_value",
+            ].values[0]
+            for form in element:
+                availableFormats.append(form["label"])
+
             f = open(path)
             f.close()
 
