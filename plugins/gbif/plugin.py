@@ -190,16 +190,41 @@ class Plugin(Evaluator):
             Message with the results or recommendations to improve this indicator
         """
         # Search and download GBIF data
-        try:
-            auth = (
-                self.config["gbif"]["api_mail"],
-                self.config["gbif"]["api_user"],
-                self.config["gbif"]["api_pass"],
-            )
-            download_dict = gbif_doi_download(self.item_id, auth=auth)
-        except Exception as e:
-            logger.debug(e)
-            return (0, "")
+        short_name = None
+        for key, e in self.metadata[
+            self.metadata["qualifier"] == "alternateIdentifier"
+        ].iterrows():
+            if "ipt.gbif" in e["text_value"]:
+                short_name = e["text_value"].split("r=", 1)[1]
+                url = "https://ipt.gbif.es/archive.do?r=" + short_name
+                logger.debug(url)
+        # Descarga los datos del conjunto
+        logger.debug("Descarga")
+        if short_name is not None:
+            download_dict = {}
+            download_dict["path"] = f"/FAIR_eva/plugins/gbif/downloads/{short_name}.zip"
+            try:
+                os.makedirs("/FAIR_eva/plugins/gbif/downloads/", exist_ok=True)
+                with open(download_dict["path"], "wb") as f:
+                    # Itera sobre los bloques del archivo descargado
+                    for data in requests.get(
+                        url,
+                        stream=True,
+                    ).iter_content(chunk_size=1024):
+                        f.write(data)
+            except Exception as e:
+                logger.debug(f"ERROR Downloading Data: {e}")
+        if not os.path.exists(download_dict["path"]):
+            try:
+                auth = (
+                    self.config["gbif"]["api_mail"],
+                    self.config["gbif"]["api_user"],
+                    self.config["gbif"]["api_pass"],
+                )
+                download_dict = gbif_doi_download(self.item_id, auth=auth)
+            except Exception as e:
+                logger.debug(e)
+                return (0, "")
 
         # Calculates ICA
         logger.debug("Calculo ICA")
