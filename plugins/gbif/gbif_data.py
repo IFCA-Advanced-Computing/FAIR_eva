@@ -25,7 +25,6 @@ logging.basicConfig(
 
 # Configura el nivel de registro para GeoPandas y Fiona
 logging.getLogger("geopandas").setLevel(logging.ERROR)
-logging.getLogger("fiona").setLevel(logging.ERROR)
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -319,6 +318,7 @@ def taxonomic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR genus - {e}")
         percentaje_genus = 0
@@ -364,10 +364,10 @@ def taxonomic_percentajes(df):
 
     return {
         "Taxonomic": percentaje_taxonomic,
-        "Genus": percentaje_genus,
-        "Species": percentaje_species,
-        "Hierarchy": percentaje_hierarchy,
-        "Identifiers": percentaje_identifiers,
+        "Genus": 0.2 * percentaje_genus,
+        "Species": 0.1 * percentaje_species,
+        "Hierarchy": 0.09 * percentaje_hierarchy,
+        "Identifiers": 0.06 * percentaje_identifiers,
     }
 
 
@@ -400,10 +400,9 @@ def geographic_percentajes(df):
     {'Geographic': 63.45, 'Coordinates': 25.6, 'Countries': 15.2, 'CoordinatesUncertainty': 18.9, 'IncorrectCoordinates': 3.75}
     """
     try:
-        __BD_BORDERS = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+        __BD_BORDERS = gpd.read_file("static/ne_110m_admin_0_countries.shp")
         # Total de ocurrencias
         total_data = len(df)
-
         # Porcentaje de ocurrencias con coordenadas válidas (latitud y longitud presentes)
         percentaje_coordinates = (
             len(df[df["decimalLatitude"].notnull() & df["decimalLongitude"].notnull()])
@@ -427,6 +426,7 @@ def geographic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR countries - {e}")
         percentaje_countries = 0
@@ -454,6 +454,7 @@ def geographic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR incorrect coordinates - {e}")
         percentaje_incorrect_coordinates = 0
@@ -470,10 +471,10 @@ def geographic_percentajes(df):
         logging.error(e)
     return {
         "Geographic": percentaje_geographic,
-        "Coordinates": percentaje_coordinates,
-        "Countries": percentaje_countries,
-        "CoordinatesUncertainty": percentaje_coordinates_uncertainty,
-        "IncorrectCoordinates": percentaje_incorrect_coordinates,
+        "Coordinates": 0.2 * percentaje_coordinates,
+        "Countries": 0.1 * percentaje_countries,
+        "CoordinatesUncertainty": 0.05 * percentaje_coordinates_uncertainty,
+        "IncorrectCoordinates": -0.2 * percentaje_incorrect_coordinates,
     }
 
 
@@ -518,7 +519,13 @@ def temporal_percentajes(df):
     # Columna de fechas
     dates = df[df.eventDate.notnull()].copy()
     if dates.empty:
-        return {"Temporal": 0, "Years": 0, "Months": 0, "Days": 0, "IncorrectDates": 0}
+        return {
+            "Temporal": -15 / 0.2,
+            "Years": 0,
+            "Months": 0,
+            "Days": 0,
+            "IncorrectDates": -15,
+        }
     dates["date"] = dates.eventDate.apply(safe_date)
 
     # Porcentaje de años validos
@@ -573,10 +580,10 @@ def temporal_percentajes(df):
 
     return {
         "Temporal": percentaje_temporal,
-        "Years": percentaje_years,
-        "Months": percentaje_months,
-        "Days": percentaje_days,
-        "IncorrectDates": percentaje_incorrect_dates,
+        "Years": 0.11 * percentaje_years,
+        "Months": 0.07 * percentaje_months,
+        "Days": 0.02 * percentaje_days,
+        "IncorrectDates": 0.15 * percentaje_incorrect_dates,
     }
 
 
