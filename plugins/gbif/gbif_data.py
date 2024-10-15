@@ -269,9 +269,9 @@ def ICA(filepath):
 
     # Calcula el ICA utilizando una combinación ponderada de los porcentajes de calidad
     percentajes_ica["ICA"] = (
-        0.45 * percentajes_ica["Taxonomic"]
-        + 0.35 * percentajes_ica["Geographic"]
-        + 0.2 * percentajes_ica["Temporal"]
+        percentajes_ica["Taxonomic"]
+        + percentajes_ica["Geographic"]
+        + percentajes_ica["Temporal"]
     )
 
     return percentajes_ica
@@ -360,7 +360,7 @@ def taxonomic_percentajes(df):
         + 0.1 * percentaje_species
         + 0.09 * percentaje_hierarchy
         + 0.06 * percentaje_identifiers
-    ) / 0.45
+    )
 
     return {
         "Taxonomic": percentaje_taxonomic,
@@ -466,7 +466,7 @@ def geographic_percentajes(df):
         percentaje_geographic += 0.1 * percentaje_countries
         percentaje_geographic += 0.05 * percentaje_coordinates_uncertainty
         percentaje_geographic -= 0.2 * percentaje_incorrect_coordinates
-        percentaje_geographic = percentaje_geographic / 0.35
+        percentaje_geographic = percentaje_geographic
     except Exception as e:
         logging.error(e)
     return {
@@ -520,7 +520,7 @@ def temporal_percentajes(df):
     dates = df[df.eventDate.notnull()].copy()
     if dates.empty:
         return {
-            "Temporal": -15 / 0.2,
+            "Temporal": -15 * 0.2,
             "Years": 0,
             "Months": 0,
             "Days": 0,
@@ -576,7 +576,7 @@ def temporal_percentajes(df):
         + 0.07 * percentaje_months
         + 0.02 * percentaje_days
         - 0.15 * percentaje_incorrect_dates
-    ) / 0.2
+    )
 
     return {
         "Temporal": percentaje_temporal,
