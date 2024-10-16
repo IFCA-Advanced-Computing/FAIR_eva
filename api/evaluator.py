@@ -6,6 +6,7 @@ import os
 import sys
 import urllib
 import xml.etree.ElementTree as ET
+from abc import ABC, abstractmethod
 from functools import wraps
 
 import idutils
@@ -63,53 +64,7 @@ class ConfigTerms(property):
         return wrapper
 
 
-class ConfigTerms(property):
-    def __init__(self, term_id):
-        self.term_id = term_id
-
-    def __call__(self, wrapped_func):
-        @wraps(wrapped_func)
-        def wrapper(plugin, **kwargs):
-            metadata = plugin.metadata
-            has_metadata = True
-
-            term_list = ast.literal_eval(plugin.config[plugin.name][self.term_id])
-            # Get values in config for the given term
-            if not term_list:
-                msg = (
-                    "Cannot find any value for term <%s> in configuration"
-                    % self.term_id
-                )
-                has_metadata = False
-            else:
-                # Get metadata associated with the term ID
-                term_metadata = pd.DataFrame(
-                    term_list, columns=["element", "qualifier"]
-                )
-                term_metadata = ut.check_metadata_terms_with_values(
-                    metadata, term_metadata
-                )
-                if term_metadata.empty:
-                    msg = (
-                        "No access information can be found in the metadata for: %s. Please double-check the value/s provided for '%s' configuration parameter"
-                        % (term_list, self.term_id)
-                    )
-                    has_metadata = False
-
-            if not has_metadata:
-                logger.warning(msg)
-                return (0, [{"message": msg, "points": 0}])
-
-            # Update kwargs with collected metadata for the required terms
-            kwargs.update(
-                {self.term_id: {"list": term_list, "metadata": term_metadata}}
-            )
-            return wrapped_func(plugin, **kwargs)
-
-        return wrapper
-
-
-class Evaluator(object):
+class EvaluatorBase(ABC):
     """A class used to define FAIR indicators tests. It contains all the references to all the tests
 
     ...
@@ -126,115 +81,79 @@ class Evaluator(object):
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", plugin=None, config=None):
+    def __init__(self, item_id, oai_base=None, lang="en", config=None, name=None):
         self.item_id = item_id
         self.oai_base = oai_base
         self.metadata = None
-        self.access_protocols = []
         self.cvs = []
-        self.config = config
-        # configuration terms
-        self.terms_access_metadata = pd.DataFrame()
-        self.terms_license_metadata = pd.DataFrame()
-
-        logger.debug("OAI_BASE IN evaluator: %s" % oai_base)
-        if oai_base is not None and oai_base != "" and self.metadata is None:
-            metadataFormats = ut.oai_metadataFormats(oai_base)
-            dc_prefix = ""
-            for e in metadataFormats:
-                if metadataFormats[e] == "http://www.openarchives.org/OAI/2.0/oai_dc/":
-                    dc_prefix = e
-            logger.debug("DC_PREFIX: %s" % dc_prefix)
-
-            try:
-                id_type = idutils.detect_identifier_schemes(self.item_id)[0]
-            except Exception as e:
-                id_type = "internal"
-
-            logger.debug("Trying to get metadata")
-            try:
-                item_metadata = ut.oai_get_metadata(
-                    ut.oai_check_record_url(oai_base, dc_prefix, self.item_id)
-                ).find(".//{http://www.openarchives.org/OAI/2.0/}metadata")
-            except Exception as e:
-                logger.error("Problem getting metadata: %s" % e)
-                item_metadata = ET.fromstring("<metadata></metadata>")
-            data = []
-            for tags in item_metadata.findall(".//"):
-                metadata_schema = tags.tag[0 : tags.tag.rfind("}") + 1]
-                element = tags.tag[tags.tag.rfind("}") + 1 : len(tags.tag)]
-                text_value = tags.text
-                qualifier = None
-                data.append([metadata_schema, element, text_value, qualifier])
-            self.metadata = pd.DataFrame(
-                data, columns=["metadata_schema", "element", "text_value", "qualifier"]
-            )
-
-        if self.metadata is not None:
-            if len(self.metadata) > 0:
-                self.access_protocols = ["http", "oai-pmh"]
 
         # Config attributes
-        self.name = plugin
-        if self.name == None:
-            self.name = "oai-pmh"
-        try:
-            self.identifier_term = ast.literal_eval(
-                self.config[self.name]["identifier_term"]
-            )
-            self.terms_quali_generic = ast.literal_eval(
-                self.config[self.name]["terms_quali_generic"]
-            )
-            self.terms_quali_disciplinar = ast.literal_eval(
-                self.config[self.name]["terms_quali_disciplinar"]
-            )
-            self.terms_access = ast.literal_eval(self.config[self.name]["terms_access"])
-            self.terms_cv = ast.literal_eval(self.config[self.name]["terms_cv"])
-            self.supported_data_formats = ast.literal_eval(
-                self.config[self.name]["supported_data_formats"]
-            )
-            self.terms_qualified_references = ast.literal_eval(
-                self.config[self.name]["terms_qualified_references"]
-            )
-            self.terms_relations = ast.literal_eval(
-                self.config[self.name]["terms_relations"]
-            )
-            self.terms_license = ast.literal_eval(
-                self.config[self.name]["terms_license"]
-            )
-            self.metadata_quality = 100  # Value for metadata quality
-            self.terms_access_protocols = ast.literal_eval(
-                self.config[self.name]["terms_access_protocols"]
-            )
-            self.metadata_standard = ast.literal_eval(
-                self.config[self.name]["metadata_standard"]
-            )
-            self.fairsharing_username = ast.literal_eval(
-                self.config["fairsharing"]["username"]
-            )
+        self.identifier_term = ast.literal_eval(
+            self.config[self.name]["identifier_term"]
+        )
+        self.terms_quali_generic = ast.literal_eval(
+            self.config[self.name]["terms_quali_generic"]
+        )
+        self.terms_quali_disciplinar = ast.literal_eval(
+            self.config[self.name]["terms_quali_disciplinar"]
+        )
+        self.terms_cv = ast.literal_eval(self.config[self.name]["terms_cv"])
+        self.supported_data_formats = ast.literal_eval(
+            self.config[self.name]["supported_data_formats"]
+        )
+        self.terms_qualified_references = ast.literal_eval(
+            self.config[self.name]["terms_qualified_references"]
+        )
+        self.terms_relations = ast.literal_eval(
+            self.config[self.name]["terms_relations"]
+        )
+        self.metadata_access_manual = ast.literal_eval(
+            self.config[self.name]["metadata_access_manual"]
+        )
+        self.data_access_manual = ast.literal_eval(
+            self.config[self.name]["data_access_manual"]
+        )
+        self.terms_access_protocols = ast.literal_eval(
+            self.config[self.name]["terms_access_protocols"]
+        )
 
-            self.fairsharing_password = ast.literal_eval(
-                self.config["fairsharing"]["password"]
-            )
-            self.fairsharing_metadata_path = ast.literal_eval(
-                self.config["fairsharing"]["metadata_path"]
-            )
-            self.fairsharing_formats_path = ast.literal_eval(
-                self.config["fairsharing"]["formats_path"]
-            )
-            self.internet_media_types_path = ast.literal_eval(
-                self.config["internet media types"]["path"]
-            )
-            self.metadata_schemas = ast.literal_eval(
-                self.config[self.name]["metadata_schemas"]
-            )
-        except Exception as e:
-            logger.error("Problem loading plugin config: %s" % e)
+        # self.vocabularies = ast.literal_eval(self.config[self.name]["vocabularies"])
 
-        # Translations
-        self.lang = lang
-        logger.debug("El idioma es: %s" % self.lang)
-        logger.debug("METAdata: %s" % self.metadata)
+        self.dict_vocabularies = ast.literal_eval(
+            self.config[self.name]["dict_vocabularies"]
+        )
+
+        self.vocabularies = list(self.dict_vocabularies.keys())
+        self.metadata_standard = ast.literal_eval(
+            self.config[self.name]["metadata_standard"]
+        )
+
+        self.metadata_authentication = ast.literal_eval(
+            self.config[self.name]["metadata_authentication"]
+        )
+        self.metadata_persistence = ast.literal_eval(
+            self.config[self.name]["metadata_persistence"]
+        )
+        self.terms_vocabularies = ast.literal_eval(
+            self.config[self.name]["terms_vocabularies"]
+        )
+
+        self.fairsharing_username = ast.literal_eval(
+            self.config["fairsharing"]["username"]
+        )
+
+        self.fairsharing_password = ast.literal_eval(
+            self.config["fairsharing"]["password"]
+        )
+        self.fairsharing_metadata_path = ast.literal_eval(
+            self.config["fairsharing"]["metadata_path"]
+        )
+        self.fairsharing_formats_path = ast.literal_eval(
+            self.config["fairsharing"]["formats_path"]
+        )
+        self.internet_media_types_path = ast.literal_eval(
+            self.config["internet media types"]["path"]
+        )
         global _
         _ = self.translation()
 
@@ -266,6 +185,11 @@ class Evaluator(object):
             msg_list.append({"message": _msg, "points": _points})
 
         return (points, msg_list)
+
+    @abstractmethod
+    def get_metadata(self):
+        """Method to be implemented by plugins."""
+        raise NotImplementedError("Derived class mus implement get_metadata method")
 
     def eval_uniqueness(self, id_list, data_or_metadata="(meta)data"):
         points = 0
@@ -2066,49 +1990,3 @@ class Evaluator(object):
                             % _url
                         )
         return license_name
-
-
-class ConfigTerms(property):
-    def __init__(self, term_id):
-        self.term_id = term_id
-
-    def __call__(self, wrapped_func):
-        @wraps(wrapped_func)
-        def wrapper(plugin, **kwargs):
-            metadata = plugin.metadata
-            has_metadata = True
-
-            term_list = ast.literal_eval(plugin.config[plugin.name][self.term_id])
-            # Get values in config for the given term
-            if not term_list:
-                msg = (
-                    "Cannot find any value for term <%s> in configuration"
-                    % self.term_id
-                )
-                has_metadata = False
-            else:
-                # Get metadata associated with the term ID
-                term_metadata = pd.DataFrame(
-                    term_list, columns=["element", "qualifier"]
-                )
-                term_metadata = ut.check_metadata_terms_with_values(
-                    metadata, term_metadata
-                )
-                if term_metadata.empty:
-                    msg = (
-                        "No access information can be found in the metadata for: %s. Please double-check the value/s provided for '%s' configuration parameter"
-                        % (term_list, self.term_id)
-                    )
-                    has_metadata = False
-
-            if not has_metadata:
-                logger.warning(msg)
-                return (0, msg)
-
-            # Update kwargs with collected metadata for the required terms
-            kwargs.update(
-                {self.term_id: {"list": term_list, "metadata": term_metadata}}
-            )
-            return wrapped_func(plugin, **kwargs)
-
-        return wrapper
