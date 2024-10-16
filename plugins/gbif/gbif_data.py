@@ -291,7 +291,7 @@ def taxonomic_percentajes(df):
     1. Calcula el total de ocurrencias en el DataFrame.
     2. Calcula el porcentaje de géneros que están presentes en el catálogo de vida (Species2000).
     3. Calcula el porcentaje de especies presentes en el DataFrame.
-    4. Calcula el porcentaje de calidad para la jerarquía taxonómica.
+    4. Calcula el porcentaje de calidad para la jerarquía taxonómica en tres partes: reuino, clase/orden y familia
     5. Calcula el porcentaje de identificadores disponibles en el DataFrame.
     6. Calcula el porcentaje total de calidad taxonómica combinando los porcentajes ponderados.
     7. Imprime el resultado del porcentaje total de calidad taxonómica.
@@ -330,22 +330,56 @@ def taxonomic_percentajes(df):
         logger.debug(f"ERROR specificEpithet - {e}")
         percentaje_species = 0
 
-    # Porcentaje de calidad para la jerarquía taxonómica
+    # Porcentaje de calidad para el reino
     try:
-        percentaje_hierarchy = (
+        percentaje_kingdom = (
             df.value_counts(
-                subset=["higherClassification", "kingdom", "class", "order", "family"],
+                subset=["kingdom"],
                 dropna=False,
             )
             .reset_index(name="N")
-            .apply(hierarchy_weights, axis=1)
+            .apply(kingdom_weights, axis=1)
             .sum()
             / total_data
             * 100
         )
     except Exception as e:
-        logger.debug(f"ERROR hierarchy - {e}")
-        percentaje_hierarchy = 0
+        logger.debug(f"ERROR kingdom - {e}")
+        percentaje_kingdom = 0
+
+    # Porcentaje de calidad para la jerarquía taxonómica
+    try:
+        percentaje_class_order = (
+            df.value_counts(
+                subset=["class", "order"],
+                dropna=False,
+            )
+            .reset_index(name="N")
+            .apply(class_order_weights, axis=1)
+            .sum()
+            / total_data
+            * 100
+        )
+    except Exception as e:
+        logger.debug(f"ERROR class_order - {e}")
+        percentaje_class_order = 0
+
+    # Porcentaje de calidad para la jerarquía taxonómica
+    try:
+        percentaje_family = (
+            df.value_counts(
+                subset=["family"],
+                dropna=False,
+            )
+            .reset_index(name="N")
+            .apply(family_weights, axis=1)
+            .sum()
+            / total_data
+            * 100
+        )
+    except Exception as e:
+        logger.debug(f"ERROR family - {e}")
+        percentaje_family = 0
 
     # Porcentaje de identificadores disponibles en el DataFrame
     try:
@@ -358,7 +392,9 @@ def taxonomic_percentajes(df):
     percentaje_taxonomic = (
         0.2 * percentaje_genus
         + 0.1 * percentaje_species
-        + 0.09 * percentaje_hierarchy
+        + 0.03 * percentaje_kingdom
+        + 0.03 * percentaje_class_order
+        + 0.03 * percentaje_family
         + 0.06 * percentaje_identifiers
     )
 
@@ -366,7 +402,9 @@ def taxonomic_percentajes(df):
         "Taxonomic": percentaje_taxonomic,
         "Genus": 0.2 * percentaje_genus,
         "Species": 0.1 * percentaje_species,
-        "Hierarchy": 0.09 * percentaje_hierarchy,
+        "Kingdom": 0.03 * percentaje_kingdom,
+        "Class/Order": 0.03 * percentaje_class_order,
+        "Family": 0.03 * percentaje_family,
         "Identifiers": 0.06 * percentaje_identifiers,
     }
 
@@ -627,6 +665,24 @@ def hierarchy_weights(row):
             N / 3 if pd.notnull(row.family) else 0,
         ]
     )
+
+
+def kingdom_weights(row):
+    """Returns N for each not empty sublevel (kingdom)."""
+    N = row.N
+    return N if pd.notnull(row.kingdom) else 0
+
+
+def class_order_weights(row):
+    """Returns N for each not empty sublevel (class/order)."""
+    N = row.N
+    return N if pd.notnull(row["class"]) or pd.notnull(row.order) else 0
+
+
+def family_weights(row):
+    """Returns N for each not empty sublevel (family)."""
+    N = row.N
+    return N if pd.notnull(row.family) else 0
 
 
 def is_valid_country_code(row):
