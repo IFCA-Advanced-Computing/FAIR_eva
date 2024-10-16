@@ -25,7 +25,6 @@ logging.basicConfig(
 
 # Configura el nivel de registro para GeoPandas y Fiona
 logging.getLogger("geopandas").setLevel(logging.ERROR)
-logging.getLogger("fiona").setLevel(logging.ERROR)
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -270,9 +269,9 @@ def ICA(filepath):
 
     # Calcula el ICA utilizando una combinación ponderada de los porcentajes de calidad
     percentajes_ica["ICA"] = (
-        0.45 * percentajes_ica["Taxonomic"]
-        + 0.35 * percentajes_ica["Geographic"]
-        + 0.2 * percentajes_ica["Temporal"]
+        percentajes_ica["Taxonomic"]
+        + percentajes_ica["Geographic"]
+        + percentajes_ica["Temporal"]
     )
 
     return percentajes_ica
@@ -292,7 +291,7 @@ def taxonomic_percentajes(df):
     1. Calcula el total de ocurrencias en el DataFrame.
     2. Calcula el porcentaje de géneros que están presentes en el catálogo de vida (Species2000).
     3. Calcula el porcentaje de especies presentes en el DataFrame.
-    4. Calcula el porcentaje de calidad para la jerarquía taxonómica.
+    4. Calcula el porcentaje de calidad para la jerarquía taxonómica en tres partes: reuino, clase/orden y familia
     5. Calcula el porcentaje de identificadores disponibles en el DataFrame.
     6. Calcula el porcentaje total de calidad taxonómica combinando los porcentajes ponderados.
     7. Imprime el resultado del porcentaje total de calidad taxonómica.
@@ -319,6 +318,7 @@ def taxonomic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR genus - {e}")
         percentaje_genus = 0
@@ -330,22 +330,56 @@ def taxonomic_percentajes(df):
         logger.debug(f"ERROR specificEpithet - {e}")
         percentaje_species = 0
 
-    # Porcentaje de calidad para la jerarquía taxonómica
+    # Porcentaje de calidad para el reino
     try:
-        percentaje_hierarchy = (
+        percentaje_kingdom = (
             df.value_counts(
-                subset=["higherClassification", "kingdom", "class", "order", "family"],
+                subset=["kingdom"],
                 dropna=False,
             )
             .reset_index(name="N")
-            .apply(hierarchy_weights, axis=1)
+            .apply(kingdom_weights, axis=1)
             .sum()
             / total_data
             * 100
         )
     except Exception as e:
-        logger.debug(f"ERROR hierarchy - {e}")
-        percentaje_hierarchy = 0
+        logger.debug(f"ERROR kingdom - {e}")
+        percentaje_kingdom = 0
+
+    # Porcentaje de calidad para la jerarquía taxonómica
+    try:
+        percentaje_class_order = (
+            df.value_counts(
+                subset=["class", "order"],
+                dropna=False,
+            )
+            .reset_index(name="N")
+            .apply(class_order_weights, axis=1)
+            .sum()
+            / total_data
+            * 100
+        )
+    except Exception as e:
+        logger.debug(f"ERROR class_order - {e}")
+        percentaje_class_order = 0
+
+    # Porcentaje de calidad para la jerarquía taxonómica
+    try:
+        percentaje_family = (
+            df.value_counts(
+                subset=["family"],
+                dropna=False,
+            )
+            .reset_index(name="N")
+            .apply(family_weights, axis=1)
+            .sum()
+            / total_data
+            * 100
+        )
+    except Exception as e:
+        logger.debug(f"ERROR family - {e}")
+        percentaje_family = 0
 
     # Porcentaje de identificadores disponibles en el DataFrame
     try:
@@ -358,16 +392,20 @@ def taxonomic_percentajes(df):
     percentaje_taxonomic = (
         0.2 * percentaje_genus
         + 0.1 * percentaje_species
-        + 0.09 * percentaje_hierarchy
+        + 0.03 * percentaje_kingdom
+        + 0.03 * percentaje_class_order
+        + 0.03 * percentaje_family
         + 0.06 * percentaje_identifiers
-    ) / 0.45
+    )
 
     return {
         "Taxonomic": percentaje_taxonomic,
-        "Genus": percentaje_genus,
-        "Species": percentaje_species,
-        "Hierarchy": percentaje_hierarchy,
-        "Identifiers": percentaje_identifiers,
+        "Genus": 0.2 * percentaje_genus,
+        "Species": 0.1 * percentaje_species,
+        "Kingdom": 0.03 * percentaje_kingdom,
+        "Class/Order": 0.03 * percentaje_class_order,
+        "Family": 0.03 * percentaje_family,
+        "Identifiers": 0.06 * percentaje_identifiers,
     }
 
 
@@ -400,10 +438,9 @@ def geographic_percentajes(df):
     {'Geographic': 63.45, 'Coordinates': 25.6, 'Countries': 15.2, 'CoordinatesUncertainty': 18.9, 'IncorrectCoordinates': 3.75}
     """
     try:
-        __BD_BORDERS = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+        __BD_BORDERS = gpd.read_file("static/ne_110m_admin_0_countries.shp")
         # Total de ocurrencias
         total_data = len(df)
-
         # Porcentaje de ocurrencias con coordenadas válidas (latitud y longitud presentes)
         percentaje_coordinates = (
             len(df[df["decimalLatitude"].notnull() & df["decimalLongitude"].notnull()])
@@ -427,6 +464,7 @@ def geographic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR countries - {e}")
         percentaje_countries = 0
@@ -454,6 +492,7 @@ def geographic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR incorrect coordinates - {e}")
         percentaje_incorrect_coordinates = 0
@@ -465,15 +504,15 @@ def geographic_percentajes(df):
         percentaje_geographic += 0.1 * percentaje_countries
         percentaje_geographic += 0.05 * percentaje_coordinates_uncertainty
         percentaje_geographic -= 0.2 * percentaje_incorrect_coordinates
-        percentaje_geographic = percentaje_geographic / 0.35
+        percentaje_geographic = percentaje_geographic
     except Exception as e:
         logging.error(e)
     return {
         "Geographic": percentaje_geographic,
-        "Coordinates": percentaje_coordinates,
-        "Countries": percentaje_countries,
-        "CoordinatesUncertainty": percentaje_coordinates_uncertainty,
-        "IncorrectCoordinates": percentaje_incorrect_coordinates,
+        "Coordinates": 0.2 * percentaje_coordinates,
+        "Countries": 0.1 * percentaje_countries,
+        "CoordinatesUncertainty": 0.05 * percentaje_coordinates_uncertainty,
+        "IncorrectCoordinates": -0.2 * percentaje_incorrect_coordinates,
     }
 
 
@@ -518,7 +557,13 @@ def temporal_percentajes(df):
     # Columna de fechas
     dates = df[df.eventDate.notnull()].copy()
     if dates.empty:
-        return {"Temporal": 0, "Years": 0, "Months": 0, "Days": 0, "IncorrectDates": 0}
+        return {
+            "Temporal": -15 * 0.2,
+            "Years": 0,
+            "Months": 0,
+            "Days": 0,
+            "IncorrectDates": -15,
+        }
     dates["date"] = dates.eventDate.apply(safe_date)
 
     # Porcentaje de años validos
@@ -569,14 +614,14 @@ def temporal_percentajes(df):
         + 0.07 * percentaje_months
         + 0.02 * percentaje_days
         - 0.15 * percentaje_incorrect_dates
-    ) / 0.2
+    )
 
     return {
         "Temporal": percentaje_temporal,
-        "Years": percentaje_years,
-        "Months": percentaje_months,
-        "Days": percentaje_days,
-        "IncorrectDates": percentaje_incorrect_dates,
+        "Years": 0.11 * percentaje_years,
+        "Months": 0.07 * percentaje_months,
+        "Days": 0.02 * percentaje_days,
+        "IncorrectDates": 0.15 * percentaje_incorrect_dates,
     }
 
 
@@ -620,6 +665,24 @@ def hierarchy_weights(row):
             N / 3 if pd.notnull(row.family) else 0,
         ]
     )
+
+
+def kingdom_weights(row):
+    """Returns N for each not empty sublevel (kingdom)."""
+    N = row.N
+    return N if pd.notnull(row.kingdom) else 0
+
+
+def class_order_weights(row):
+    """Returns N for each not empty sublevel (class/order)."""
+    N = row.N
+    return N if pd.notnull(row["class"]) or pd.notnull(row.order) else 0
+
+
+def family_weights(row):
+    """Returns N for each not empty sublevel (family)."""
+    N = row.N
+    return N if pd.notnull(row.family) else 0
 
 
 def is_valid_country_code(row):
