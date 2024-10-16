@@ -1347,11 +1347,12 @@ class EvaluatorBase(ABC):
         term_metadata = term_data["metadata"]
         id_list = []
         for index, row in term_metadata.iterrows():
-            logging.debug(self.item_id)
+            logger.debug(self.item_id)
 
             if row["text_value"].split("/")[-1] not in self.item_id:
                 id_list.append(row["text_value"])
         points, msg_list = self.eval_persistency(id_list)
+        return (points, msg_list)
 
     def rda_i3_01d(self):
         """Indicator RDA-A1-01M.
