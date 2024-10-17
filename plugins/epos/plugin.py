@@ -17,7 +17,7 @@ import requests
 from dicttoxml import dicttoxml
 
 import api.utils as ut
-from api.evaluator import ConfigTerms, Evaluator
+from api.evaluator import ConfigTerms, EvaluatorBase
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
@@ -25,7 +25,7 @@ logging.basicConfig(
 logger = logging.getLogger("api.plugin")
 
 
-class Plugin(Evaluator):
+class Plugin(EvaluatorBase):
     """A class used to define FAIR indicators tests. It is tailored towards the EPOS repository
 
     ...
