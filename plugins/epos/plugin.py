@@ -139,8 +139,8 @@ class Plugin(Evaluator):
         )
 
     @staticmethod
-    def get_ids(oai_base, pattern_to_query=""):
-        url = oai_base + "/resources/search?facets=false&q=" + pattern_to_query
+    def get_ids(api_endpoint, pattern_to_query=""):
+        url = api_endpoint + "/resources/search?facets=false&q=" + pattern_to_query
         response_payload = ut.make_http_request(url=url)
         results = response_payload.get("results", [])
         return [
@@ -529,7 +529,7 @@ class Plugin(Evaluator):
         else:
             msg = (
                 "Could not gather metadata from endpoint: %s. Metadata cannot be harvested and indexed."
-                % self.oai_base
+                % self.api_endpoint
             )
             points = 0
 
@@ -847,7 +847,7 @@ class Plugin(Evaluator):
         """
         points = 0
 
-        protocol = ut.get_protocol_scheme(self.oai_base)
+        protocol = ut.get_protocol_scheme(self.api_endpoint)
         if protocol in self.terms_access_protocols:
             points = 100
             msg = "Found a standarised protocol to access the metadata record: " + str(
