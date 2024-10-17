@@ -36,7 +36,7 @@ def load_evaluator(wrapped_func):
         # Get the identifiers through a search query
         ids = [item_id]
 
-        downstream_logger = evaluator.logger
+        downstream_logger = None
         try:
             logger.debug("Trying to import plugin from plugins.%s.plugin" % (repo))
             plugin = importlib.import_module("plugins.%s.plugin" % (repo), ".")
