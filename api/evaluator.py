@@ -1172,6 +1172,7 @@ class EvaluatorBase(ABC):
         return (points, msg_list)
 
     def rda_i1_02m(self):
+        # TOFIX - This is very OAI-PMH dependant
         """Indicator RDA-A1-01M.
 
         This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
@@ -1460,56 +1461,58 @@ class EvaluatorBase(ABC):
         return self.rda_i3_03m()
 
     # REUSABLE
-    def rda_r1_01m(self):
-        """Indicator RDA-A1-01M
+    @ConfigTerms(term_id="terms_reusability_richness")
+    def rda_r1_01m(self, **kwargs):
+        """Indicator RDA-R1-01M: Plurality of accurate and relevant attributes are provided to allow reuse.
+
         This indicator is linked to the following principle: R1: (Meta)data are richly described with a
         plurality of accurate and relevant attributes. More information about that principle can be
         found here.
+
         The indicator concerns the quantity but also the quality of metadata provided in order to
         enhance data reusability.
-        Technical proposal:
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
+
         Returns
         -------
         points
-            A number between 0 and 100 to indicate how well this indicator is supported
+            Proportional to the number of terms considered to enhance reusability
         msg
             Message with the results or recommendations to improve this indicator
         """
-        # Depending on the metadata schema used, checks that at least the mandatory terms are filled (75%)
-        # and the number of terms are high (25%)
-        msg_list = []
-        logger.debug(_("Checking Dublin Core as multidisciplinar schema"))
+        points = 0
 
-        md_term_list = pd.DataFrame(
-            self.terms_quali_disciplinar, columns=["term", "qualifier"]
-        )
-        md_term_list = ut.check_metadata_terms(self.metadata, md_term_list)
-        points = (
-            100
-            * (len(md_term_list) - (len(md_term_list) - sum(md_term_list["found"])))
-            / len(md_term_list)
-        )
-        if points == 100:
-            msg_list.append(
-                {"message": _("All mandatory terms included"), "points": points}
+        terms_reusability_richness = kwargs["terms_reusability_richness"]
+        terms_reusability_richness_list = terms_reusability_richness["list"]
+        terms_reusability_richness_metadata = terms_reusability_richness["metadata"]
+
+        reusability_element_list = []
+        for element in terms_reusability_richness_list:
+            element_df = terms_reusability_richness_metadata.loc[
+                terms_reusability_richness_metadata["element"].isin([element[0]]),
+                "text_value",
+            ]
+
+            element_values = element_df.values
+            if len(element_values) > 0:
+                reusability_element_list.extend(element_values)
+        if len(reusability_element_list) > 0:
+            msg = "Found %s metadata elements that enhance reusability: %s" % (
+                len(reusability_element_list),
+                reusability_element_list,
             )
         else:
-            for i, e in md_term_list.iterrows():
-                if e["found"] == 0:
-                    msg_list.append(
-                        {
-                            "message": _("Missing term")
-                            + ": %s, qualifier: %s" % (e["term"], e["qualifier"]),
-                            "points": points,
-                        }
-                    )
+            msg = "Could not find any metadata element that enhance reusability"
+        points = (
+            len(
+                terms_reusability_richness_metadata.groupby(
+                    ["element", "qualifier"]
+                ).count()
+            )
+            / len(terms_reusability_richness["list"])
+            * 100
+        )
 
-        return (points, msg_list)
+        return (points, [{"message": msg, "points": points}])
 
     @ConfigTerms(term_id="terms_license")
     def rda_r1_1_01m(self, license_list=[], **kwargs):
