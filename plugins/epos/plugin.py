@@ -26,7 +26,8 @@ logger = logging.getLogger("api.plugin")
 
 
 class Plugin(EvaluatorBase):
-    """A class used to define FAIR indicators tests, tailored to the DT-GEO prototype metadata catalog (EPOS ICS-C based)."""
+    """A class used to define FAIR indicators tests, tailored to the DT-GEO prototype
+    metadata catalog (EPOS ICS-C based)."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(
