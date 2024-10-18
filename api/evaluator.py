@@ -84,6 +84,9 @@ class EvaluatorBase(ABC):
     def __init__(self, item_id, oai_base=None, lang="en", config=None, name=None):
         self.item_id = item_id
         self.oai_base = oai_base
+        self.lang = lang
+        self.config = config
+        self.name = name
         self.metadata = None
         self.cvs = []
 
