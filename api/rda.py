@@ -21,11 +21,17 @@ logger = logging.getLogger("api")
 def load_evaluator(wrapped_func):
     @wraps(wrapped_func)
     def wrapper(body, **kwargs):
-        repo = body.get("repo")
-        item_id = body.get("id", "")
-        oai_base = body.get("oai_base")
-        lang = body.get("lang", "en")
-        pattern_to_query = body.get("q", "")
+        try:
+            repo = body["repo"]
+            item_id = body["id"]
+            oai_base = body["oai_base"]
+        except KeyError as e:
+            _msg = "Mandatory input parameters not provided: %s" % str(e)
+            logger.error(_msg)
+            return _msg, 400
+        else:
+            lang = body.get("lang", "en")
+            pattern_to_query = body.get("q", "")
 
         logger.debug("JSON payload received: %s" % body)
         # Exit if there is no way to obtain the identifier/s: either (i) provided through "id" or (ii) by a search query term
@@ -64,7 +70,9 @@ def load_evaluator(wrapped_func):
         result = {}
         exit_code = 200
         for item_id in ids:
-            eva = plugin.Plugin(item_id, oai_base, lang, name=repo, config=config_data)
+            eva = plugin.Plugin(
+                item_id, oai_base, name=repo, lang=lang, config=config_data
+            )
             _result, _exit_code = wrapped_func(body, eva=eva)
             logger.debug(
                 "Raw result returned for indicator ID '%s': %s" % (item_id, _result)
