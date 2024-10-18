@@ -11,7 +11,7 @@ import idutils
 import pandas as pd
 import requests
 
-from api.evaluator import Evaluator
+from api.evaluator import EvaluatorBase
 from plugins.gbif.gbif_data import ICA, gbif_doi_download
 
 logging.basicConfig(
@@ -20,7 +20,7 @@ logging.basicConfig(
 logger = logging.getLogger("api.plugin")
 
 
-class Plugin(Evaluator):
+class Plugin(EvaluatorBase):
     """A class used to define FAIR indicators tests. It is tailored towards the
     DigitalCSIC repository ...
 
@@ -36,16 +36,16 @@ class Plugin(Evaluator):
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None):
-        logger.debug("Creating GBIF")
-        plugin = "gbif"
-        super().__init__(item_id, oai_base, lang, plugin)
-        # TO REDEFINE - WHICH IS YOUR PID TYPE?
-        self.id_type = idutils.detect_identifier_schemes(item_id)[0]
-        print("Gbif")
+    def __init__(self, item_id, oai_base=None, lang="en", config=None, name="gbif"):
+
+        self.config = config
+        self.name = name
+        self.lang = lang
+        self.oai_base = oai_base
+        super().__init__(item_id, oai_base, self.lang, self.config, self.name)
+        logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
         global _
         _ = super().translation()
-
         # You need a way to get your metadata in a similar format
         metadata_sample = self.get_metadata()
         self.metadata = pd.DataFrame(
@@ -54,28 +54,10 @@ class Plugin(Evaluator):
         )
 
         logger.debug("METADATA: %s" % (self.metadata))
+
         # Protocol for (meta)data accessing
         if len(self.metadata) > 0:
             self.access_protocols = ["http"]
-
-        # Config attributes
-        self.identifier_term = self.config[plugin]["identifier_term"]
-        self.terms_quali_generic = ast.literal_eval(
-            self.config[plugin]["terms_quali_generic"]
-        )
-        self.terms_quali_disciplinar = ast.literal_eval(
-            self.config[plugin]["terms_quali_disciplinar"]
-        )
-        self.terms_access = ast.literal_eval(self.config[plugin]["terms_access"])
-        self.terms_cv = ast.literal_eval(self.config[plugin]["terms_cv"])
-        self.supported_data_formats = ast.literal_eval(
-            self.config[plugin]["supported_data_formats"]
-        )
-        self.terms_qualified_references = ast.literal_eval(
-            self.config[plugin]["terms_qualified_references"]
-        )
-        self.terms_relations = ast.literal_eval(self.config[plugin]["terms_relations"])
-        self.terms_license = ast.literal_eval(self.config[plugin]["terms_license"])
 
     # TO REDEFINE - HOW YOU ACCESS METADATA?
     def get_color(self, score):

@@ -1,0 +1,96 @@
+[Generic]
+endpoint=http://digital.csic.es/dspace-oai/request
+[digital_csic]
+db_host =
+db_port =
+db_user =
+db_pass =
+db_db   =
+oai_base = http://digital.csic.es/dspace-oai/request
+
+# (meta)data terms to find the resource identifier
+identifier_term = [['identifier', 'doi'], ['identifier', 'uri']]
+identifier_term_data = [['identifier', 'doi'], ['identifier', 'uri']]
+
+
+# Metadata terms to check richness (generic). These terms should be included
+terms_quali_generic = [['contributor','author'],
+            ['date', 'issued'],
+            ['title', ''],
+            ['identifier', 'citation'],
+            ['publisher', ''],
+            ['identifier', 'uri'],
+            ['type', ''],
+            ['language', 'iso'],
+            ['relation', 'csic'],
+            ['rights', '']]
+
+terms_quali_disciplinar = [['contributor','author'],
+            ['date', 'issued'],
+            ['title', ''],
+            ['identifier', 'citation'],
+            ['publisher', ''],
+            ['identifier', 'uri'],
+            ['type', ''],
+            ['language', 'iso'],
+            ['relation', 'csic'],
+            ['rights', '']]
+
+terms_access = [['access', ''], ['rights', '']]
+
+# Accepted access protocols
+terms_access_protocols =['http','https']
+
+# Manual metadata access
+metadata_access_manual = ['TODO']
+
+# Manual data access
+data_access_manual = ['TODO']
+
+#Policy of metadata persistence
+metadata_persistence = []
+
+#Authentication for EPOS
+metadata_authentication = []
+
+#terms that use vocabularies and vocabularies used
+dict_vocabularies= {'ROR': 'https://ror.org/', 'PIC': 'https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register', 'imtypes': 'https://www.iana.org/assignments/media-types/media-types.xhtml', 'TRL': 'TRL', 'temporal': 'https://www.iso.org/iso-8601-date-and-time-format.html', 'Rolecode': 'Rolecode', 'spdx': 'https://spdx.org/licenses/', 'ORCID': 'https://orcid.org/'}
+
+terms_vocabularies=[['identifiers','relatedDataProducts'],
+                   ['availableFormats',''],
+                   ['temporalCoverage','relatedDataProducts'],#no temporal metatdata
+                   ['license',''],
+                   ['contactPoints','relatedDataProducts']]
+
+
+terms_cv = [['coverage', 'spatial'], ['subject', 'lcsh'], ['subject', 'uri'], ['type', 'coar']]
+supported_data_formats = [".tif", ".aig", ".asc", ".agr", ".grd", ".nc", ".hdf", ".hdf5",
+                        ".pdf", ".odf", ".doc", ".docx", ".csv", ".jpg", ".png", ".gif",
+                        ".mp4", ".xml", ".rdf", ".txt", ".mp3", ".wav", ".zip", ".rar",
+                        ".tar", ".tar.gz", ".jpeg", ".xls", ".xlsx"]
+
+terms_qualified_references = [['identifier','funder']]
+terms_relations = [['relation', 'uri'], ['relation', ''], ['contributor','orcid'], ['contributor', 'funder']]
+terms_relations_only_data = [['relation', 'uri'], ['relation', ''], ['relation','isbasedon'], ['relation', 'isreferencedby)']]
+
+
+terms_license = [['rights', ''], ['license', '']]
+
+# Metadata terms to check reusability richness
+terms_reusability_richness = [['contributor','author'],
+                            ['date', 'issued'],
+                            ['title', ''],
+                            ['identifier', 'citation'],
+                            ['publisher', ''],
+                            ['identifier', 'uri'],
+                            ['type', ''],
+                            ['language', 'iso'],
+                            ['relation', 'csic'],
+                            ['rights', '']]
+
+#metadata standard
+metadata_standard = ['dc']
+
+metadata_schemas = {'dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/'}
+
+prov_terms = [['description', 'provenance']]
