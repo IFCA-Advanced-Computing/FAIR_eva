@@ -43,18 +43,12 @@ class Plugin(EvaluatorBase):
 
     """
 
-    name = "epos"
-
     def __init__(self, item_id, oai_base=None, lang="en", config=None, name="epos"):
-        # FIXME: Disable calls to parent class until a EvaluatorBase class is implemented
-        # super().__init__(item_id, oai_base, lang, self.name)
-        # global _
-        # _ = super().translation()
+        super().__init__(
+            item_id, oai_base=oai_base, lang=lang, config=config, name=name
+        )
 
-        self.name = name
-        self.item_id = item_id
-        self.api_endpoint = oai_base
-        self.config = config
+        self.api_endpoint = self.oai_base
 
         logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
 
