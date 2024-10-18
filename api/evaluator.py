@@ -78,7 +78,14 @@ class EvaluatorBase(ABC):
     oai_base : str
         Open Archives initiative , This is the place in which the API will ask for the metadata
 
-    lang : Language
+    lang : str
+        Two-letter language code
+
+    config : ConfigParser object
+        ConfigParser's object containing both plugin's and main configuration.
+
+    name : str
+        FAIR-EVA's plugin name.
     """
 
     def __init__(
