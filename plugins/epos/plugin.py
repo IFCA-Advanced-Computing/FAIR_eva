@@ -43,9 +43,10 @@ class Plugin(EvaluatorBase):
 
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None, name="epos"):
+    def __init__(self, *args, **kwargs):
         super().__init__(
-            item_id, oai_base=oai_base, lang=lang, config=config, name=name
+            *args,
+            **kwargs,
         )
 
         self.api_endpoint = self.oai_base

@@ -64,7 +64,7 @@ def load_evaluator(wrapped_func):
         result = {}
         exit_code = 200
         for item_id in ids:
-            eva = plugin.Plugin(item_id, oai_base, lang, config=config_data)
+            eva = plugin.Plugin(item_id, oai_base, lang, name=repo, config=config_data)
             _result, _exit_code = wrapped_func(body, eva=eva)
             logger.debug(
                 "Raw result returned for indicator ID '%s': %s" % (item_id, _result)

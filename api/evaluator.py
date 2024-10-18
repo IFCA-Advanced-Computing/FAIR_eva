@@ -81,7 +81,9 @@ class EvaluatorBase(ABC):
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None, name=None):
+    def __init__(
+        self, item_id, oai_base=None, lang="en", config=None, name=None, **kwargs
+    ):
         self.item_id = item_id
         self.oai_base = oai_base
         self.lang = lang
