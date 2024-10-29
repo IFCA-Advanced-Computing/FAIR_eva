@@ -75,7 +75,7 @@ class EvaluatorBase(ABC):
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
             identifier from the repo)
 
-    oai_base : str
+    api_endpoint : str
         Open Archives initiative , This is the place in which the API will ask for the metadata
 
     lang : str
@@ -89,10 +89,10 @@ class EvaluatorBase(ABC):
     """
 
     def __init__(
-        self, item_id, oai_base=None, lang="en", config=None, name=None, **kwargs
+        self, item_id, api_endpoint=None, lang="en", config=None, name=None, **kwargs
     ):
         self.item_id = item_id
-        self.oai_base = oai_base
+        self.api_endpoint = api_endpoint
         self.lang = lang
         self.config = config
         self.name = name
@@ -674,7 +674,7 @@ class EvaluatorBase(ABC):
             )
         except Exception as e:
             logger.error(e)
-            item_id_http = self.oai_base
+            item_id_http = self.api_endpoint
         points, msg = ut.metadata_human_accessibility(self.metadata, item_id_http)
         return (points, [{"message": msg, "points": points}])
 
@@ -788,7 +788,7 @@ class EvaluatorBase(ABC):
         msg_list = []
         points = 0
         try:
-            landing_url = urllib.parse.urlparse(self.oai_base).netloc
+            landing_url = urllib.parse.urlparse(self.api_endpoint).netloc
             item_id_http = idutils.to_url(
                 self.item_id,
                 idutils.detect_identifier_schemes(self.item_id)[0],
@@ -853,7 +853,7 @@ class EvaluatorBase(ABC):
         """
         points = 0
 
-        protocol = ut.get_protocol_scheme(self.oai_base)
+        protocol = ut.get_protocol_scheme(self.api_endpoint)
         if protocol in self.terms_access_protocols:
             points = 100
             msg = "Found a standarised protocol to access the metadata record: " + str(
@@ -1205,11 +1205,11 @@ class EvaluatorBase(ABC):
         points = 0
         msg_list = []
         try:
-            if self.oai_base is not None:
-                metadata_formats = ut.get_rdf_metadata_format(self.oai_base)
+            if self.api_endpoint is not None:
+                metadata_formats = ut.get_rdf_metadata_format(self.api_endpoint)
                 rdf_metadata = None
                 for e in metadata_formats:
-                    url = ut.oai_check_record_url(self.oai_base, e, self.item_id)
+                    url = ut.oai_check_record_url(self.api_endpoint, e, self.item_id)
                     rdf_metadata = ut.oai_get_metadata(url)
                     if rdf_metadata is not None:
                         points = 100

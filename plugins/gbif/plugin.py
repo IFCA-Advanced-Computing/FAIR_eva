@@ -30,19 +30,19 @@ class Plugin(EvaluatorBase):
     item_id : str
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. andentifier from the repo)
 
-    oai_base : str
+    api_endpoint : str
         Open Archives Initiative , This is the place in which the API will ask for the metadata. If you are working with  Digital CSIC http://digital.csic.es/dspace-oai/request
 
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None, name="gbif"):
+    def __init__(self, item_id, api_endpoint=None, lang="en", config=None, name="gbif"):
 
         self.config = config
         self.name = name
         self.lang = lang
-        self.oai_base = oai_base
-        super().__init__(item_id, oai_base, self.lang, self.config, self.name)
+        self.oai_base = api_endpoint
+        super().__init__(item_id, self.oai_base, self.lang, self.config, self.name)
         logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
         global _
         _ = super().translation()

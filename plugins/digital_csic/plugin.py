@@ -33,7 +33,7 @@ class Plugin(EvaluatorBase):
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
             identifier from the repo)
 
-    oai_base : str
+    api_endpoint : str
         Open Archives Initiative , This is the place in which the API will ask for the metadata. If you are working with  Digital CSIC http://digital.csic.es/dspace-oai/request
 
     lang : Language
@@ -42,7 +42,7 @@ class Plugin(EvaluatorBase):
     def __init__(
         self,
         item_id,
-        oai_base="http://digital.csic.es/dspace-oai/request",
+        api_endpoint="http://digital.csic.es/dspace-oai/request",
         lang="en",
         config=None,
         name="digital_csic",
@@ -50,10 +50,8 @@ class Plugin(EvaluatorBase):
         self.config = config
         self.name = name
         self.lang = lang
-        self.oai_base = oai_base
+        self.oai_base = api_endpoint
 
-        if oai_base == "":
-            self.oai_base = None
         if ut.get_doi_str(item_id) != "":
             self.item_id = ut.get_doi_str(item_id)
             self.id_type = "doi"
@@ -64,7 +62,7 @@ class Plugin(EvaluatorBase):
             self.item_id = item_id
             self.id_type = "internal"
 
-        super().__init__(self.item_id, oai_base, self.lang, self.config, self.name)
+        super().__init__(self.item_id, self.oai_base, self.lang, self.config, self.name)
 
         self.file_list = None
         self.metadata = self.get_metadata()

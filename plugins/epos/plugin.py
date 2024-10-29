@@ -35,8 +35,6 @@ class Plugin(EvaluatorBase):
             **kwargs,
         )
 
-        self.api_endpoint = self.oai_base
-
         logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
 
         # Metadata gathering
