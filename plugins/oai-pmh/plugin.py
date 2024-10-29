@@ -26,17 +26,19 @@ class Plugin(EvaluatorBase):
     ----------
     item_id : str
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an identifier from the repo)
-    oai_base : str
+    api_endpoint : str
         Open Archives initiative , This is the place in which the API will ask for the metadata
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None, name="oai-pmh"):
+    def __init__(
+        self, item_id, api_endpoint=None, lang="en", config=None, name="oai-pmh"
+    ):
         self.config = config
         self.name = name
         self.lang = lang
-        self.oai_base = oai_base
-        super().__init__(item_id, oai_base, self.lang, self.config, self.name)
+        self.oai_base = api_endpoint
+        super().__init__(item_id, self.oai_base, self.lang, self.config, self.name)
         logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
         global _
         _ = super().translation()

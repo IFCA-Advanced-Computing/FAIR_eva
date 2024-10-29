@@ -24,7 +24,7 @@ def load_evaluator(wrapped_func):
         try:
             repo = body["repo"]
             item_id = body["id"]
-            oai_base = body["oai_base"]
+            api_endpoint = body.get("api_endpoint")
         except KeyError as e:
             _msg = "Mandatory input parameters not provided: %s" % str(e)
             logger.error(_msg)
@@ -53,7 +53,7 @@ def load_evaluator(wrapped_func):
         if pattern_to_query:
             try:
                 ids = plugin.Plugin.get_ids(
-                    oai_base=oai_base, pattern_to_query=pattern_to_query
+                    api_endpoint=api_endpoint, pattern_to_query=pattern_to_query
                 )
             except Exception as e:
                 logger.error(str(e))
@@ -71,7 +71,7 @@ def load_evaluator(wrapped_func):
         exit_code = 200
         for item_id in ids:
             eva = plugin.Plugin(
-                item_id, oai_base, name=repo, lang=lang, config=config_data
+                item_id, api_endpoint, name=repo, lang=lang, config=config_data
             )
             _result, _exit_code = wrapped_func(body, eva=eva)
             logger.debug(
