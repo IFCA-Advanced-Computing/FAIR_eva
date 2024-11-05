@@ -37,8 +37,8 @@ class Plugin(EvaluatorBase):
         self.config = config
         self.name = name
         self.lang = lang
-        self.oai_base = api_endpoint
-        super().__init__(item_id, self.oai_base, self.lang, self.config, self.name)
+        self.api_endpoint = api_endpoint
+        super().__init__(item_id, self.api_endpoint, self.lang, self.config, self.name)
         logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
         global _
         _ = super().translation()
@@ -188,9 +188,13 @@ class Plugin(EvaluatorBase):
         return xmlTree
 
     def get_metadata(self):
-        logger.debug("OAI_BASE IN evaluator: %s" % self.oai_base)
-        if self.oai_base is not None and self.oai_base != "" and self.metadata is None:
-            metadataFormats = self.oai_metadataFormats(self.oai_base)
+        logger.debug("OAI_BASE IN evaluator: %s" % self.api_endpoint)
+        if (
+            self.api_endpoint is not None
+            and self.api_endpoint != ""
+            and self.metadata is None
+        ):
+            metadataFormats = self.oai_metadataFormats(self.api_endpoint)
             dc_prefix = ""
             for e in metadataFormats:
                 if metadataFormats[e] == "http://www.openarchives.org/OAI/2.0/oai_dc/":
@@ -205,7 +209,9 @@ class Plugin(EvaluatorBase):
             logger.debug("Trying to get metadata")
             try:
                 item_metadata = self.oai_get_metadata(
-                    self.oai_check_record_url(self.oai_base, dc_prefix, self.item_id)
+                    self.oai_check_record_url(
+                        self.api_endpoint, dc_prefix, self.item_id
+                    )
                 ).find(".//{http://www.openarchives.org/OAI/2.0/}metadata")
             except Exception as e:
                 logger.error("Problem getting metadata: %s" % e)
