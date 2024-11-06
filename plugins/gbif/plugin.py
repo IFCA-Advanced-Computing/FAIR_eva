@@ -36,14 +36,13 @@ class Plugin(EvaluatorBase):
     lang : Language
     """
 
-    def __init__(self, item_id, api_endpoint=None, lang="en", config=None, name="gbif"):
-
-        self.config = config
-        self.name = name
-        self.lang = lang
-        self.oai_base = api_endpoint
-        super().__init__(item_id, self.oai_base, self.lang, self.config, self.name)
-        logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
+    def __init__(self, item_id, oai_base=None, lang="en", config=None):
+        logger.debug("Creating GBIF")
+        plugin = "gbif"
+        super().__init__(item_id, oai_base, lang, plugin)
+        # TO REDEFINE - WHICH IS YOUR PID TYPE?
+        self.id_type = idutils.detect_identifier_schemes(item_id)[0]
+        print("Gbif")
         global _
         _ = super().translation()
         # You need a way to get your metadata in a similar format
