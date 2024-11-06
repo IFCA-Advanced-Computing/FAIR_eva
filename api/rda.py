@@ -23,7 +23,7 @@ def load_evaluator(wrapped_func):
     def wrapper(body, **kwargs):
         repo = body.get("repo")
         item_id = body.get("id", "")
-        oai_base = body.get("oai_base")
+        api_endpoint = body.get("api_endpoint")
         lang = body.get("lang", "en")
         pattern_to_query = body.get("q", "")
 
@@ -36,24 +36,22 @@ def load_evaluator(wrapped_func):
         # Get the identifiers through a search query
         ids = [item_id]
 
-        # FIXME oai-pmh should be no different
-        downstream_logger = evaluator.logger
-        if repo not in ["oai-pmh"]:
+        downstream_logger = None
+        try:
+            logger.debug("Trying to import plugin from plugins.%s.plugin" % (repo))
+            plugin = importlib.import_module("plugins.%s.plugin" % (repo), ".")
+            downstream_logger = plugin.logger
+        except Exception as e:
+            logger.error(str(e))
+            return str(e), 400
+        if pattern_to_query:
             try:
-                logger.debug("Trying to import plugin from plugins.%s.plugin" % (repo))
-                plugin = importlib.import_module("plugins.%s.plugin" % (repo), ".")
-                downstream_logger = plugin.logger
+                ids = plugin.Plugin.get_ids(
+                    api_endpoint=api_endpoint, pattern_to_query=pattern_to_query
+                )
             except Exception as e:
                 logger.error(str(e))
                 return str(e), 400
-            if pattern_to_query:
-                try:
-                    ids = plugin.Plugin.get_ids(
-                        oai_base=oai_base, pattern_to_query=pattern_to_query
-                    )
-                except Exception as e:
-                    logger.error(str(e))
-                    return str(e), 400
 
         # Set handler for evaluator logs
         evaluator_handler = ut.EvaluatorLogHandler()
@@ -66,11 +64,9 @@ def load_evaluator(wrapped_func):
         result = {}
         exit_code = 200
         for item_id in ids:
-            # FIXME oai-pmh should be no different
-            if repo in ["oai-pmh"]:
-                eva = evaluator.Evaluator(item_id, oai_base, lang, config=config_data)
-            else:
-                eva = plugin.Plugin(item_id, oai_base, lang, config=config_data)
+            eva = plugin.Plugin(
+                item_id, api_endpoint, lang, name=repo, config=config_data
+            )
             _result, _exit_code = wrapped_func(body, eva=eva)
             logger.debug(
                 "Raw result returned for indicator ID '%s': %s" % (item_id, _result)

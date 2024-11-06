@@ -27,17 +27,15 @@ class DSpace_7(Evaluator):
     ----------
     item_id : str
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an identifier from the repo)
-    oai_base : str
+    api_endpoint : str
         Open Archives initiative , This is the place in which the API will ask for the metadata
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None):
-        if oai_base == "":
-            oai_base = None
+    def __init__(self, item_id, api_endpoint=None, lang="en", config=None):
         logger.debug("Call parent")
         plugin = "dspace7"
-        super().__init__(item_id, oai_base, lang, plugin)
+        super().__init__(item_id, api_endpoint, lang, plugin)
         logger.debug("Parent called")
         if ut.get_doi_str(item_id) != "":
             self.item_id = ut.get_doi_str(item_id)
@@ -51,7 +49,7 @@ class DSpace_7(Evaluator):
         self.internal_id = self.get_internal_id(item_id)
         self.metadata = self.get_item_metadata(self.internal_id)
         self.access_protocol = []
-        self.oai_base = oai_base
+        self.oai_base = api_endpoint
         logging.debug("INTERNAL ID: %s ITEM ID: %s" % (self.internal_id, self.item_id))
         if len(self.metadata) > 0:
             self.access_protocols = ["http", "REST-API"]

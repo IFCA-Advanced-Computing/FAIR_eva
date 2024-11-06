@@ -4,7 +4,6 @@ import ast
 import csv
 import json
 import logging
-import os
 import sys
 import urllib
 from functools import wraps
@@ -16,7 +15,7 @@ import requests
 from bs4 import BeautifulSoup
 
 import api.utils as ut
-from api.evaluator import ConfigTerms, Evaluator
+from api.evaluator import ConfigTerms, EvaluatorBase
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
@@ -24,7 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger("api.plugin")
 
 
-class Plugin(Evaluator):
+class Plugin(EvaluatorBase):
     """A class used to define FAIR indicators tests. It is tailored towards the
     DigitalCSIC repository.
 
@@ -34,19 +33,25 @@ class Plugin(Evaluator):
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
             identifier from the repo)
 
-    oai_base : str
+    api_endpoint : str
         Open Archives Initiative , This is the place in which the API will ask for the metadata. If you are working with  Digital CSIC http://digital.csic.es/dspace-oai/request
 
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None):
-        logger.debug("Call parent")
-        plugin = "digital_csic"
-        super().__init__(item_id, oai_base, lang, plugin)
-        logger.debug("Parent called")
-        if oai_base == "":
-            self.oai_base = None
+    def __init__(
+        self,
+        item_id,
+        api_endpoint="http://digital.csic.es/dspace-oai/request",
+        lang="en",
+        config=None,
+        name="digital_csic",
+    ):
+        self.config = config
+        self.name = name
+        self.lang = lang
+        self.oai_base = api_endpoint
+
         if ut.get_doi_str(item_id) != "":
             self.item_id = ut.get_doi_str(item_id)
             self.id_type = "doi"
@@ -56,10 +61,26 @@ class Plugin(Evaluator):
         else:
             self.item_id = item_id
             self.id_type = "internal"
-        oai_metadata = self.metadata
-        self.metadata = None
-        self.file_list = None
 
+        super().__init__(self.item_id, self.oai_base, self.lang, self.config, self.name)
+
+        self.file_list = None
+        self.metadata = self.get_metadata()
+        self.metadata_schemas = ast.literal_eval(
+            self.config[self.name]["metadata_schemas"]
+        )
+
+        global _
+        _ = super().translation()
+
+        if self.metadata is None or len(self.metadata) == 0:
+            raise Exception(_("Problem accessing data and metadata. Please, try again"))
+            # self.metadata = oai_metadata
+        logger.debug("Metadata is: %s" % self.metadata)
+
+        self.metadata_quality = 100  # Value for metadata balancing
+
+    def get_metadata(self):
         if self.id_type == "doi" or self.id_type == "handle":
             api_endpoint = "https://digital.csic.es"
             api_metadata = None
@@ -109,68 +130,11 @@ class Plugin(Evaluator):
 
                 self.metadata = self.get_metadata_db()
                 logger.debug("METADATA: %s" % (self.metadata.to_string()))
+                self.metadata.to_csv("metadata_testing.csv")
             except Exception as e:
                 logger.error("Error connecting DB")
                 logger.error(e)
-        global _
-        _ = super().translation()
-
-        if self.metadata is None or len(self.metadata) == 0:
-            raise Exception(_("Problem accessing data and metadata. Please, try again"))
-            # self.metadata = oai_metadata
-        logger.debug("Metadata is: %s" % self.metadata)
-
-        try:
-            self.identifier_term = ast.literal_eval(
-                self.config[plugin]["identifier_term"]
-            )
-            self.terms_quali_generic = ast.literal_eval(
-                self.config[plugin]["terms_quali_generic"]
-            )
-            self.terms_quali_disciplinar = ast.literal_eval(
-                self.config[plugin]["terms_quali_disciplinar"]
-            )
-            if self.oai_base == None:
-                self.oai_base = self.config[plugin]["oai_base"]
-            self.terms_access = ast.literal_eval(self.config[plugin]["terms_access"])
-            self.terms_access_protocols = ast.literal_eval(
-                self.config[plugin]["terms_access_protocols"]
-            )
-            self.terms_cv = ast.literal_eval(self.config[plugin]["terms_cv"])
-            self.supported_data_formats = ast.literal_eval(
-                self.config[plugin]["supported_data_formats"]
-            )
-            self.terms_qualified_references = ast.literal_eval(
-                self.config[plugin]["terms_qualified_references"]
-            )
-            self.terms_relations = ast.literal_eval(
-                self.config[plugin]["terms_relations"]
-            )
-            self.terms_license = ast.literal_eval(self.config[plugin]["terms_license"])
-
-            self.fairsharing_username = ast.literal_eval(
-                self.config["fairsharing"]["username"]
-            )
-
-            self.fairsharing_password = ast.literal_eval(
-                self.config["fairsharing"]["password"]
-            )
-            self.fairsharing_metadata_path = ast.literal_eval(
-                self.config["fairsharing"]["metadata_path"]
-            )
-            self.fairsharing_formats_path = ast.literal_eval(
-                self.config["fairsharing"]["formats_path"]
-            )
-            self.internet_media_types_path = ast.literal_eval(
-                self.config["internet media types"]["path"]
-            )
-            self.metadata_schemas = ast.literal_eval(
-                self.config[self.name]["metadata_schemas"]
-            )
-
-            self.metadata_quality = 100  # Value for metadata balancing
-        except Exception as e:
-            logger.error("Problem loading plugin config: %s" % e)
+        return self.metadata
 
     def get_metadata_api(self, api_endpoint, item_pid, item_type):
         if item_type == "doi":
@@ -377,63 +341,6 @@ class Plugin(Evaluator):
                 }
             )
 
-        return (points, msg_list)
-
-    def rda_a1_02m(self):
-        """Indicator RDA-A1-02M
-        This indicator is linked to the following principle: A1: (Meta)data are retrievable by their
-        identifier using a standardised communication protocol.
-        The indicator refers to any human interactions that are needed if the requester wants to
-        access metadata. The FAIR principle refers mostly to automated interactions where a
-        machine is able to access the metadata, but there may also be metadata that require human
-        interactions. This may be important in cases where the metadata itself contains sensitive
-        information. Human interaction might involve sending an e-mail to the metadata owner, or
-        calling by telephone to receive instructions.
-        Technical proposal:
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        # 2 - Look for the metadata terms in HTML in order to know if they can be accessed manually
-        msg_list = []
-        item_id_http = idutils.to_url(
-            self.item_id,
-            idutils.detect_identifier_schemes(self.item_id)[0],
-            url_scheme="http",
-        )
-        resp = requests.head(item_id_http, allow_redirects=False, verify=False)
-        if resp.status_code == 302 or resp.status_code == 301:
-            item_id_http = resp.headers["Location"]
-            resp = requests.get(item_id_http + "?mode=full", verify=False)
-        item_id_http = resp.url
-        if resp.status_code == 200:
-            if "?mode=full" not in item_id_http:
-                item_id_http = item_id_http + "?mode=full"
-        logging.debug("URL TO VISIT: %s" % item_id_http)
-        logging.debug("TEST A102M: Metadata %s" % self.metadata["metadata_schema"])
-        for e in self.metadata["metadata_schema"]:
-            logging.debug("TEST A102M: Metadata schemas %s" % e)
-        metadata_dc = self.metadata[
-            self.metadata["metadata_schema"] == self.metadata_schemas["dc"]
-        ]
-        logging.debug("TEST A102M: Metadata %s" % metadata_dc)
-        for e in metadata_dc["metadata_schema"]:
-            logging.debug(e)
-        points, msg = ut.metadata_human_accessibility(metadata_dc, item_id_http)
-        msg_list.append({"message": msg, "points": points})
-        try:
-            points = (points * self.metadata_quality) / 100
-        except Exception as e:
-            logging.error(e)
-            msglist.append({"message": "%s | %s" % (msg, e), "points": points})
         return (points, msg_list)
 
     def rda_a1_03m(self):
