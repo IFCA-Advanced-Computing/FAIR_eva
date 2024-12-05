@@ -215,6 +215,55 @@ class FAIRsharingRegistry(VocabularyConnection):
         return content
 
 
+class GeoNames(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "GeoNames"
+        self._config_items = dict(config.items("vocabularies:geonames"))
+
+    def _remote_collect(self):
+        error_on_request = False
+        content = []
+        headers = {"Accept": "application/json"}
+        response = requests.request("GET", self.remote_path, headers=headers)
+        if response.ok:
+            try:
+                content = response.json().get("asciiName", [])
+                if content:
+                    logger.debug(
+                        "Successfully returned %s items from search query: %s"
+                        % (len(content), self.remote_path)
+                    )
+                else:
+                    error_on_request = True
+            except Exception as ex:
+                logger.warning(
+                    "Failed to obtain records from endpoint: %s" % response.text
+                )
+                error_on_request = True
+
+        return error_on_request, content
+
+    def collect(self, search_topic):
+        # Set specific query parameters for remote requests
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get GeoNames API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            query_parameter = "?geonameId=%s&username=frames" % search_topic
+            remote_path_with_query = remote_path + query_parameter
+            self._config_items["remote_path"] = remote_path_with_query
+            logger.debug(
+                "Request URL to GeoNames API with search topic '%s': %s"
+                % (search_topic, self._config_items["remote_path"])
+            )
+        super().__init__(**self._config_items)
+        content = super().collect()
+
+        return content
+
+
 class Vocabulary:
     def __init__(self, config):
         self.config = config
@@ -225,4 +274,8 @@ class Vocabulary:
 
     def get_fairsharing(self, search_topic):
         vocabulary = FAIRsharingRegistry(self.config)
+        return vocabulary.collect(search_topic=search_topic)
+
+    def get_geonames(self, search_topic):
+        vocabulary = GeoNames(self.config)
         return vocabulary.collect(search_topic=search_topic)

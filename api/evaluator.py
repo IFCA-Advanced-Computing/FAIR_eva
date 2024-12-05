@@ -14,6 +14,7 @@ import pandas as pd
 import requests
 
 import api.utils as ut
+from api.vocabulary import Vocabulary
 
 logger = logging.getLogger("api.plugin.evaluation_steps")
 logger_api = logging.getLogger("api.plugin")
@@ -114,13 +115,26 @@ class ConfigTerms(property):
                     % term_tuple
                 )
                 term_key_plugin = term_tuple[0]
+                if (
+                    len(term_tuple) > 1
+                    and term_tuple[1] != None
+                    and term_tuple[1] != ""
+                ):
+                    term_key_plugin = term_tuple
+
                 logger_api.debug(
                     "Using term key '%s' to find harmonized metadata term"
                     % term_key_plugin
                 )
-                try:
-                    term_key_harmonized = plugin.terms_map[term_key_plugin]
-                except KeyError:
+                term_key_harmonized = []
+                for key in plugin.terms_map:
+                    if isinstance(plugin.terms_map[key], list):
+                        if term_key_plugin in plugin.terms_map[key]:
+                            term_key_harmonized.append(key)
+                    else:
+                        if term_key_plugin == plugin.terms_map[key]:
+                            term_key_harmonized.append(key)
+                if term_key_harmonized is None:
                     raise NotImplementedError(
                         "No mapping found for the metadata term '%s': cannot proceed with the harmonization of the metadata term"
                         % term_key_plugin
@@ -132,9 +146,15 @@ class ConfigTerms(property):
                     )
 
                 # 2. Homogenize the data format and type (list) of the metadata values
-                term_values = term_metadata.loc[
-                    term_metadata["element"] == term_key_plugin
-                ].text_value.to_list()
+                if isinstance(term_key_plugin, list):
+                    term_values = term_metadata.loc[
+                        (term_metadata["element"] == term_key_plugin[0])
+                        & (term_metadata["qualifier"] == term_key_plugin[1])
+                    ].text_value.to_list()
+                else:
+                    term_values = term_metadata.loc[
+                        term_metadata["element"] == term_key_plugin
+                    ].text_value.to_list()
                 term_values_list = []
                 if not term_values:
                     logger.warning(
@@ -145,12 +165,8 @@ class ConfigTerms(property):
                         "Not proceeding with metadata value homogenization and validation"
                     )
                 else:
-                    term_values = term_values[
-                        0
-                    ]  # NOTE: is it safe to take always the first element?
                     logger_api.warning(
-                        "Considering only first element of the values returned: %s"
-                        % term_values
+                        "Considering list of the values returned: %s" % term_values
                     )
                     logger.debug(
                         "Values found for metadata element '%s': %s"
@@ -162,7 +178,7 @@ class ConfigTerms(property):
                         % term_values
                     )
                     term_values_list = plugin.metadata_utils.gather(
-                        term_values, element=term_key_harmonized
+                        term_values, element_list=term_key_harmonized
                     )
                     # Raise exception if the homogenization resulted in no values
                     if not term_values_list:
@@ -186,7 +202,7 @@ class ConfigTerms(property):
                         )
                         term_values_list_validated = plugin.metadata_utils.validate(
                             term_values_list,
-                            element=term_key_harmonized,
+                            element_list=term_key_harmonized,
                             plugin_obj=plugin,
                         )
                         if term_values_list_validated:
@@ -230,29 +246,34 @@ class ConfigTerms(property):
                             % (term_key_harmonized, _metadata_payload)
                         )
                     # Update 'kwargs'
-                    kwargs.update({term_key_harmonized: _metadata_payload})
+                    if isinstance(term_key_harmonized, list):
+                        for tkh in term_key_harmonized:
+                            kwargs.update({tkh: _metadata_payload})
+                    else:
+                        kwargs.update({term_key_harmonized: _metadata_payload})
                 else:
                     logger.debug(
                         "Not validating values from metadata element '%s'"
                         % term_key_harmonized
                     )
                     # Merge if the same harmonized metadata element points to multiple elements in the original metadata schema (see 'terms_map' config attribute)
-                    if term_key_harmonized in list(kwargs):
-                        _previous_values_list = kwargs[term_key_harmonized]
-                        logger.debug(
-                            "Merge with previously collected metadata values: %s"
-                            % _previous_values_list
-                        )
-                        term_values_list.extend(_previous_values_list)
-                        logger.debug(
-                            "Resulting metadata values for element '%s' (after merging): %s"
-                            % (term_key_harmonized, term_values_list)
-                        )
-                    # Update kwargs according to format:
-                    #       {
-                    #           <metadata_element_1>: [<metadata_value_1>, ..]
-                    #       }
-                    kwargs.update({term_key_harmonized: term_values_list})
+                    for term_key_harmonized_element in term_key_harmonized:
+                        if term_key_harmonized_element in list(kwargs):
+                            _previous_values_list = kwargs[term_key_harmonized_element]
+                            logger.debug(
+                                "Merge with previously collected metadata values: %s"
+                                % _previous_values_list
+                            )
+                            term_values_list.extend(_previous_values_list)
+                            logger.debug(
+                                "Resulting metadata values for element '%s' (after merging): %s"
+                                % (term_key_harmonized_element, term_values_list)
+                            )
+                        # Update kwargs according to format:
+                        #       {
+                        #           <metadata_element_1>: [<metadata_value_1>, ..]
+                        #       }
+                        kwargs.update({term_key_harmonized_element: term_values_list})
 
             logger.info(
                 "Passing metadata elements and associated values to wrapped method '%s': %s"
@@ -279,44 +300,57 @@ class MetadataValuesBase(property):
     """
 
     @classmethod
-    def gather(cls, element_values, element):
+    def gather(cls, element_values_list, element_list):
         """Gets the metadata value according to the given element.
 
         It calls the appropriate class method.
         """
         _values = []
         try:
-            if element == "Metadata Identifier":
-                _values = cls._get_identifiers_metadata(element_values)
-            elif element == "Data Identifier":
-                _values = cls._get_identifiers_data(element_values)
-            elif element == "Temporal Coverage":
-                _values = cls._get_temporal_coverage(element_values)
-            elif element == "Person Identifier":
-                _values = cls._get_person(element_values)
-            elif element == "Format":
-                _values = cls._get_formats(element_values)
-            else:
-                raise NotImplementedError("Self-invoking NotImplementedError exception")
+            for element_values in element_values_list:
+                for element in element_list:
+                    if element == "Metadata Identifier":
+                        _values = cls._get_identifiers_metadata(element_values)
+                    elif element == "Data Identifier":
+                        _values = cls._get_identifiers_data(element_values)
+                    elif element == "Temporal Coverage":
+                        temp_values = cls._get_temporal_coverage(element_values)
+                        if temp_values is not None:
+                            _values.append(temp_values)
+                    elif element == "Spatial Coverage":
+                        temp_values = cls._get_spatial_coverage(element_values)
+                        if temp_values is not None:
+                            _values.append(temp_values)
+                    elif element == "Person Identifier":
+                        _values = cls._get_person(element_values)
+                    elif element == "Format":
+                        _values = cls._get_formats(element_values)
+                    else:
+                        raise NotImplementedError(
+                            "Self-invoking NotImplementedError exception"
+                        )
         except Exception as e:
             logger_api.exception(str(e))
             _values = element_values
-            if isinstance(element_values, str):
-                _values = [element_values]
-            logger_api.warning(
-                "No specific plugin's gather method defined for metadata element '%s'. Returning input values formatted to list: %s"
-                % (element, _values)
-            )
+            for element_values in element_values_list:
+                for element in element_list:
+                    if isinstance(element_values, str):
+                        _values = [element_values]
+                    logger_api.warning(
+                        "No specific plugin's gather method defined for metadata element '%s'. Returning input values formatted to list: %s"
+                        % (element, _values)
+                    )
         else:
-            logger_api.debug(
-                "Successful call to plugin's gather method for the metadata element '%s'. Returning: %s"
-                % (element, _values)
-            )
+            for element in element_list:
+                logger_api.debug(
+                    "Successful call to plugin's gather method for the metadata element '%s'. Returning: %s"
+                    % (element, _values)
+                )
         finally:
             return _values
 
     @classmethod
-    def validate(cls, element_values, element, plugin_obj=None, **kwargs):
+    def validate(cls, element_values, element_list, plugin_obj=None, **kwargs):
         """Validates the metadata values provided with respect to the supported
         controlled vocabularies.
 
@@ -335,46 +369,50 @@ class MetadataValuesBase(property):
             raise Exception(msg)
         else:
             controlled_vocabularies = ast.literal_eval(controlled_vocabularies)
-        matching_vocabularies = controlled_vocabularies.get(element, {})
-        if matching_vocabularies:
-            logger_api.debug(
-                "Found matching vocabulary/ies for element <%s>: %s"
-                % (element, matching_vocabularies)
-            )
-        else:
-            logger_api.warning(
-                "No matching vocabulary found for element <%s>" % element
-            )
 
-        # Trigger validation
-        if element == "Format":
-            logger_api.debug(
-                "Calling _validate_format() method for element: <%s>" % element
-            )
-            _result_data = cls._validate_format(
-                cls,
-                element_values,
-                matching_vocabularies,
-                plugin_obj=plugin_obj,
-                **kwargs,
-            )
-        elif element == "License":
-            logger_api.debug(
-                "Calling _validate_license() method for element: <%s>" % element
-            )
-            _result_data = cls._validate_license(
-                cls, element_values, matching_vocabularies, **kwargs
-            )
-        elif element == "Person Identifier":
-            _result_data = {}
-            for vocabulary_id, vocabulary_url in matching_vocabularies.items():
-                _result_data[vocabulary_id] = {"valid": [], "non_valid": []}
-                for value in element_values:
-                    if ut.orcid_basic_info(value):
-                        _result_data[vocabulary_id]["valid"].append(value)
-        else:
-            logger_api.warning("Validation not implemented for element: <%s>" % element)
-            _result_data = {}
+        for element in element_list:
+            matching_vocabularies = controlled_vocabularies.get(element, {})
+            if matching_vocabularies:
+                logger_api.debug(
+                    "Found matching vocabulary/ies for element <%s>: %s"
+                    % (element, matching_vocabularies)
+                )
+            else:
+                logger_api.warning(
+                    "No matching vocabulary found for element <%s>" % element
+                )
+
+            # Trigger validation
+            if element == "Format":
+                logger_api.debug(
+                    "Calling _validate_format() method for element: <%s>" % element
+                )
+                _result_data = cls._validate_format(
+                    cls,
+                    element_values,
+                    matching_vocabularies,
+                    plugin_obj=plugin_obj,
+                    **kwargs,
+                )
+            elif element == "License":
+                logger_api.debug(
+                    "Calling _validate_license() method for element: <%s>" % element
+                )
+                _result_data = cls._validate_license(
+                    cls, element_values, matching_vocabularies, **kwargs
+                )
+            elif element == "Person Identifier":
+                _result_data = {}
+                for vocabulary_id, vocabulary_url in matching_vocabularies.items():
+                    _result_data[vocabulary_id] = {"valid": [], "non_valid": []}
+                    for value in element_values:
+                        if ut.orcid_basic_info(value):
+                            _result_data[vocabulary_id]["valid"].append(value)
+            else:
+                logger_api.warning(
+                    "Validation not implemented for element: <%s>" % element
+                )
+                _result_data = {}
 
         return _result_data
 
@@ -407,6 +445,10 @@ class MetadataValuesBase(property):
             }
         ]
         """
+        return NotImplementedError
+
+    @classmethod
+    def _get_spatial_coverage(cls, element_values):
         return NotImplementedError
 
     @classmethod
@@ -454,6 +496,7 @@ class EvaluatorBase(ABC):
         self.cvs = []
 
         # Config attributes
+        self.terms_map = ast.literal_eval(self.config[self.name]["terms_map"])
         self.identifier_term = ast.literal_eval(
             self.config[self.name]["identifier_term"]
         )
@@ -674,14 +717,17 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        term_data = kwargs["identifier_term"]
-        term_metadata = term_data["metadata"]
-
-        id_list = term_metadata.text_value.values
+        id_list = kwargs["Metadata Identifier"]
 
         points, msg_list = self.eval_persistency(id_list, data_or_metadata="metadata")
         logger.debug(msg_list)
 
+        if points == 0:
+            if self.metadata_persistence:
+                if self.check_link(self.metadata_persistence):
+                    points = 100
+                    msg = "Identifier found and persistence policy given "
+                    return (points, {"message": msg, "points": points})
         return (points, msg_list)
 
     @ConfigTerms(term_id="identifier_term_data")
@@ -708,10 +754,8 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        term_data = kwargs["identifier_term_data"]
-        term_metadata = term_data["metadata"]
-        identifiers = []
-        id_list = term_metadata.text_value.values
+        id_list = kwargs["Data Identifier"]
+
         points, msg_list = self.eval_persistency(id_list, data_or_metadata="data")
         logger.debug(msg_list)
 
@@ -739,10 +783,8 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        term_data = kwargs["identifier_term"]
-        term_metadata = term_data["metadata"]
+        id_list = kwargs["Metadata Identifier"]
 
-        id_list = term_metadata.text_value.values
         points, msg_list = self.eval_uniqueness(id_list, data_or_metadata="metadata")
         logger.debug(msg_list)
 
@@ -769,16 +811,15 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        term_data = kwargs["identifier_term_data"]
-        term_metadata = term_data["metadata"]
-        identifiers = []
-        id_list = term_metadata.text_value.values
+        id_list = kwargs["Data Identifier"]
+
         points, msg_list = self.eval_uniqueness(id_list, data_or_metadata="data")
         logger.debug(msg_list)
 
         return (points, msg_list)
 
-    def rda_f2_01m(self):
+    @ConfigTerms(term_id="terms_quali_generic")
+    def rda_f2_01m(self, **kwargs):
         """Indicator RDA-F2-01M
         This indicator is linked to the following principle: F2: Data are described with rich metadata.
         The indicator is about the presence of metadata, but also about how much metadata is
@@ -796,107 +837,33 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator.
         """
-        points_g, msg_g = self.rda_f2_01m_generic()
-        points_d, msg_d = self.rda_f2_01m_disciplinar()
-        points = (points_g + points_d) / 2
-        msg_list = []
-        msg_list.append({"message": msg_g, "points": points_g})
-        msg_list.append({"message": msg_d, "points": points_d})
-        self.metadata_quality = points  # Value for metadata quality
-
-        return points, msg_list
-
-    @ConfigTerms(term_id="terms_quali_generic")
-    def rda_f2_01m_generic(self, **kwargs):
-        """Indicator RDA-F2-01M_GENERIC
-        This indicator is linked to the following principle: F2: Data are described with rich metadata.
-        The indicator is about the presence of metadata, but also about how much metadata is
-        provided and how well the provided metadata supports discovery.
-        Technical proposal: Check if all the dublin core terms are OK
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        # TODO different generic metadata standards?
-        # Checkin Dublin Core
-        msg_list = []
-        logging.debug(_("Checking Dublin Core"))
-
-        term_data = kwargs["terms_quali_generic"]
-        md_term_list = ut.check_metadata_terms(
-            term_data["metadata"],
-            pd.DataFrame(term_data["list"], columns=["term", "qualifier"]),
-        )
-        points = (
-            100
-            * (len(md_term_list) - (len(md_term_list) - sum(md_term_list["found"])))
-            / len(md_term_list)
-        )
-        if points == 100:
-            msg_list.append(_("All generic mandatory terms included"))
+        term_presence_list = kwargs["Metadata for Resource Discovery"]
+        if not self.terms_quali_generic:
+            points, msg_list = (
+                0,
+                [
+                    "Terms/elements for 'Metadata for Resource Discovery' are not defined in configuration. Please do so within Metadata for Resource Discovery section."
+                ],
+            )
         else:
-            for i, e in md_term_list.iterrows():
-                if e["found"] == 0:
-                    msg_list.append(
-                        _(
-                            "Not Found generic term: %s, qualifier: %s"
-                            % (e["term"], e["qualifier"])
-                        )
-                    )
+            term_num = len(self.terms_quali_generic)
+            metadata_keys_not_empty_num = 0
+            for e in self.terms_quali_generic:
+                found = False
+                for index, row in self.metadata.iterrows():
+                    if e[0] == row["element"] and e[1] == row["qualifier"]:
+                        found = True
+                if found:
+                    metadata_keys_not_empty_num += 1
+            logger.debug(
+                "Found %s/%s metadata terms" % (metadata_keys_not_empty_num, term_num)
+            )
 
-        return (points, msg_list)
-
-    @ConfigTerms(term_id="terms_quali_disciplinar")
-    def rda_f2_01m_disciplinar(self, **kwargs):
-        """Indicator RDA-F2-01M_DISCIPLINAR
-        This indicator is linked to the following principle: F2: Data are described with rich metadata.
-        The indicator is about the presence of metadata, but also about how much metadata is
-        provided and how well the provided metadata supports discovery.
-        Technical proposal: This test should be more complex
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        msg_list = []
-        logging.debug(_("Checking Dublin Core as multidisciplinar schema"))
-
-        term_data = kwargs["terms_quali_disciplinar"]
-        md_term_list = ut.check_metadata_terms(
-            term_data["metadata"],
-            pd.DataFrame(term_data["list"], columns=["term", "qualifier"]),
-        )
-        points = (
-            100
-            * (len(md_term_list) - (len(md_term_list) - sum(md_term_list["found"])))
-            / len(md_term_list)
-        )
-        if points == 100:
-            msg_list.append(_("All disciplinar mandatory terms included"))
-        else:
-            for i, e in md_term_list.iterrows():
-                if e["found"] == 0:
-                    msg_list.append(
-                        _(
-                            "Not Found disciplinar term: %s, qualifier: %s"
-                            % (e["term"], e["qualifier"])
-                        )
-                    )
+            points = round(metadata_keys_not_empty_num * (100 / term_num))
+            msg_list = [
+                "Found %s (out of %s) metadata elements matching 'Metadata for Resource Discovery' elements"
+                % (metadata_keys_not_empty_num, term_num)
+            ]
 
         return (points, msg_list)
 
@@ -922,23 +889,12 @@ class EvaluatorBase(ABC):
         msg
             Statement about the assessment exercise
         """
-        msg_list = []
-        points = 0
-        term_data = kwargs["identifier_term_data"]
-        term_metadata = term_data["metadata"]
+        id_list = kwargs["Data Identifier"]
 
-        # ConfigTerms already enforces term_metadata not to be empty
-        id_list = term_metadata.text_value.values[0]
+        msg = "Metadata includes identifier/s for the data: %s" % id_list
         points = 100
-        msg_list.append(
-            {
-                "message": _("Metadata includes identifier/s for the data:")
-                + " %s" % id_list,
-                "points": points,
-            }
-        )
 
-        return (points, msg_list)
+        return (points, [{"message": msg, "points": points}])
 
     def rda_f4_01m(self):
         """Indicator RDA-F4-01M: Metadata is offered in such a way that it can be harvested and indexed.
@@ -976,8 +932,8 @@ class EvaluatorBase(ABC):
 
     #  ACCESSIBLE
     @ConfigTerms(term_id="terms_access")
-    def rda_a1_01m(self, **kwargs):
-        """Indicator RDA-A1-01M.
+    def rda_a1_01m(self, only_uri_analysis=False, **kwargs):
+        """RDA indicator RDA-A1-01M: Metadata contains information to enable the user to get access to the data.
 
         This indicator is linked to the following principle: A1: (Meta)data are retrievable by their
         identifier using a standardised communication protocol. More information about that
@@ -993,8 +949,7 @@ class EvaluatorBase(ABC):
         Returns
         -------
         points
-            - 100 if access metadata is available and data can be access manually
-            - 0 otherwise
+            - The resultant score will be proportional to the percentage of successfully validated metadata elements for data accessibility (see 'terms_access')
         msg
             Message with the results or recommendations to improve this indicator
         """
@@ -1002,15 +957,13 @@ class EvaluatorBase(ABC):
         msg_list = []
         points = 0
 
-        term_data = kwargs["terms_access"]
-        term_metadata = term_data["metadata"]
+        term_data = kwargs["Data Identifier"]
+        term_metadata = kwargs["Metadata for accesibility"]
 
         msg_st_list = []
-        for index, row in term_metadata.iterrows():
-            msg_st_list.append(
-                _("Metadata found for access") + ": " + row["text_value"]
-            )
-            logging.debug(_("Metadata found for access") + ": " + row["text_value"])
+        for value in term_metadata:
+            msg_st_list.append(_("Metadata found for access") + ": " + value)
+            logging.debug(_("Metadata found for access") + ": " + value)
             points = 100
         msg_list.append({"message": msg_st_list, "points": points})
 
@@ -1123,21 +1076,20 @@ class EvaluatorBase(ABC):
         msg_list = []
         points = 0
 
-        term_data = kwargs["terms_access"]
-        term_metadata = term_data["metadata"]
+        term_data = kwargs["Metadata for accesibility"]
 
         # ConfigTerms already enforces term_metadata not to be empty
-        id_list = term_metadata.text_value.values[0]
-        points = 100
-        msg_list.append(
-            {
-                "message": _("Metadata includes data access information:")
-                + " %s" % id_list,
-                "points": points,
-            }
-        )
+        if len(term_data) > 0:
+            points = 100
+            msg_list.append(
+                {
+                    "message": _("Metadata includes data access information:")
+                    + " %s" % term_data,
+                    "points": points,
+                }
+            )
 
-        if points == 0:
+        else:
             msg_list.append(
                 {
                     "message": _(
@@ -1487,61 +1439,27 @@ class EvaluatorBase(ABC):
         return points, msg_list
 
     # INTEROPERABLE
-    @ConfigTerms(term_id="terms_cv")
+    @ConfigTerms(term_id="terms_cv", validate=True)
     def rda_i1_01m(self, **kwargs):
-        """Indicator RDA-A1-01M
-        This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
-        shared, and broadly applicable language for knowledge representation. More information
-        about that principle can be found here.
+        """Indicator RDA-I1-01M: Metadata uses knowledge representation expressed in standarised format.
+
+        This indicator is linked to the following principle: I1: (Meta)data use a formal,
+        accessible, shared, and broadly applicable language for knowledge representation.
+
         The indicator serves to determine that an appropriate standard is used to express
         knowledge, for example, controlled vocabularies for subject classifications.
-        Technical proposal:
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
+
         Returns
         -------
         points
-            A number between 0 and 100 to indicate how well this indicator is supported
+            Points are proportional to the number of followed vocabularies
+
         msg
             Message with the results or recommendations to improve this indicator
         """
-        msg_list = []
-        points = 0
+        (_msg, _points) = self.eval_validated_basic(kwargs)
 
-        term_data = kwargs["terms_cv"]
-        term_metadata = term_data["metadata"]
-        # ConfigTerms already enforces term_metadata not to be empty
-        value_list = term_metadata.text_value.values
-        points = 100
-        logger.debug(
-            _("Metadata includes data access information:") + " %s" % value_list
-        )
-
-        for index, e_k in term_metadata.iterrows():
-            tmp_msg, cv = ut.check_controlled_vocabulary(e_k["text_value"])
-            if tmp_msg is not None:
-                points = 100
-                msg_list.append(
-                    {
-                        "message": _("Found potential vocabulary") + ": %s" % tmp_msg,
-                        "points": points,
-                    }
-                )
-                self.cvs.append(cv)
-        if points == 0:
-            msg_list.append(
-                {
-                    "message": _(
-                        "There is no standard used to express knowledge. Suggested controlled vocabularies: Library of Congress, Geonames, etc."
-                    ),
-                    "points": points,
-                }
-            )
-
-        return (points, msg_list)
+        return (_points, [{"message": _msg, "points": _points}])
 
     def rda_i1_01d(self):
         """Indicator RDA-A1-01M
@@ -1674,16 +1592,14 @@ class EvaluatorBase(ABC):
         """
         return self.rda_i1_02m()
 
-    @ConfigTerms(term_id="terms_cv")
-    def rda_i2_01m(self, **kwargs):
-        """Indicator RDA-A1-01M.
+    def rda_i2_01m(self):
+        """Indicator RDA-I2-01D: Data uses FAIR-compliant vocabularies.
 
         This indicator is linked to the following principle: I2: (Meta)data use vocabularies that follow
-        the FAIR principles. More information about that principle can be found here.
+        the FAIR principles.
 
-        The indicator requires the vocabulary used for the metadata to conform to the FAIR
-        principles, and at least be documented and resolvable using globally unique and persistent
-        identifiers. The documentation needs to be easily findable and accessible.
+        The indicator requires the controlled vocabulary used for the data to conform to the FAIR
+        principles, and at least be documented and resolvable using globally unique.
 
         Returns
         -------
@@ -1693,48 +1609,16 @@ class EvaluatorBase(ABC):
             Message with the results or recommendations to improve this indicator
         """
         points = 0
-        msg_list = []
+        msg = "The checked vocabularies the current version are:"
+        passed = 0
 
-        if len(self.cvs) == 0:
-            term_data = kwargs["terms_cv"]
-            term_metadata = term_data["metadata"]
-
-            for index, e_k in term_metadata.iterrows():
-                tmp_msg, cv = ut.check_controlled_vocabulary(e_k["text_value"])
-                if tmp_msg is not None:
-                    logger.debug(_("Found potential vocabulary") + ": %s" % tmp_msg)
-                    self.cvs.append(cv)
-
-        if len(self.cvs) > 0:
-            for e in self.cvs:
-                pid = ut.controlled_vocabulary_pid(e)
-                if pid is None:
-                    pid = "Not found"
-                points = 100
-                msg_list.append(
-                    {
-                        "message": _("Controlled vocabulary")
-                        + " "
-                        + e
-                        + " "
-                        + _("has PID")
-                        + " "
-                        + pid,
-                        "points": points,
-                    }
-                )
-
-        else:
-            msg_list.append(
-                {
-                    "message": _(
-                        "No controlled vocabularies found. Suggested: ORCID, Library of Congress, Geonames, etc."
-                    ),
-                    "points": points,
-                }
-            )
-
-        return (points, msg_list)
+        for vocab in self.dict_vocabularies.keys():
+            if not vocab == self.dict_vocabularies[vocab]:
+                if ut.check_link(self.dict_vocabularies[vocab]):
+                    passed += 1
+                    msg += vocab + " "
+        points = passed / len(self.dict_vocabularies.keys()) * 100
+        return (points, [{"message": msg, "points": points}])
 
     def rda_i2_01d(self):
         """Indicator RDA-A1-01M.
@@ -1854,8 +1738,9 @@ class EvaluatorBase(ABC):
         """
         return self.rda_i3_03m()
 
-    def rda_i3_03m(self):
-        """Indicator RDA-A1-01M.
+    @ConfigTerms(term_id="terms_relations", validate=True)
+    def rda_i3_03m(self, **kwargs):
+        """Indicator RDA-I3-03M: Metadata includes qualified references to other metadata.
 
         This indicator is linked to the following principle: I3: (Meta)data include qualified references
         to other (meta)data. More information about that principle can be found here.
@@ -1867,11 +1752,33 @@ class EvaluatorBase(ABC):
         Returns
         -------
         points
-            A number between 0 and 100 to indicate how well this indicator is supported
+            100/100 if the ORCID appears in the metadata (ORCID considered a qualified reference to the Author of the file)
         msg
             Message with the results or recommendations to improve this indicator
         """
-        return self.rda_i3_02m()
+        has_qualified_references = False
+        msg_list = []
+        for element, element_data in kwargs.items():
+            validation_data = element_data.get("validation", {})
+            if validation_data:
+                for vocabulary, vocabulary_validation_data in validation_data.items():
+                    if vocabulary_validation_data["valid"]:
+                        has_qualified_references = True
+                        msg_list.append(
+                            "'%s' element uses vocabulary %s in '%s'"
+                            % (element, vocabulary, vocabulary_validation_data["valid"])
+                        )
+
+        if has_qualified_references:
+            points = 100
+            msg = "Metadata has qualified references to other metadata: %s" % ", ".join(
+                msg_list
+            )
+        else:
+            points = 0
+            msg = "Metadata does not have qualified references to other metadata"
+
+        return (points, [{"message": msg, "points": points}])
 
     def rda_i3_04m(self):
         """Indicator RDA-A1-01M.
