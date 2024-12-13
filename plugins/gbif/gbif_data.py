@@ -707,18 +707,23 @@ def coordinate_in_country(codigo_pais, latitud, longitud):
     interior."""
     # Buscamos el país correspondiente al código ISO alpha-2
     try:
-        pais = pycountry.countries.get(alpha_2=codigo_pais).alpha_3
+        if len(codigo_pais) == 2:
+            pais = pycountry.countries.get(alpha_2=codigo_pais).alpha_3
+        elif len(codigo_pais) == 3:
+            pais = pycountry.countries.get(alpha_3=codigo_pais).alpha_3
         if pais:
             # Cargamos el conjunto de datos de límites de países
+            __BD_BORDERS = gpd.read_file("static/ne_110m_admin_0_countries.shp")
             world = __BD_BORDERS.copy()
 
             # Obtenemos el polígono del país
-            poligono_pais = world[world["iso_a3"] == pais].geometry.squeeze()
+            poligono_pais = world[world["ADM0_A3"] == pais].geometry.squeeze()
 
             # Verificamos si el polígono del país contiene el punto con las coordenadas dadas
             if poligono_pais.contains(Point(longitud, latitud)):
                 return True
-    except Exception:
+    except Exception as e:
+        logger.error(e)
         pass
 
     # Si no se encuentra el país o no contiene las coordenadas, devolvemos False
