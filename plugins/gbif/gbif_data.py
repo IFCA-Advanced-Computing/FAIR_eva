@@ -230,12 +230,14 @@ def ICA(filepath):
                 results.core_file_location,
                 usecols=taxonomic_columns + geographic_columns + temporal_columns,
                 low_memory=False,
+                keep_default_na=False
             )
         except Exception as e:
             logger.debug(f"ERROR - {e}")
             df = results.pd_read(
                 results.core_file_location,
                 low_memory=False,
+                keep_default_na=False
             )
             missing_columns = [
                 col
@@ -568,7 +570,7 @@ def temporal_percentajes(df):
 
     # Porcentaje de años validos
     try:
-        dates["year"] = dates.date.str[:4].astype("Int64")
+        dates["year"] = df[df.year.notnull()].copy()
         percentaje_years = (
             sum((dates.year >= 0) & (dates.year <= datetime.date.today().year))
             / total_data
@@ -580,7 +582,7 @@ def temporal_percentajes(df):
 
     # Porcentaje de meses validos
     try:
-        dates["month"] = dates.date.str[5:7].astype("Int64")
+        dates["month"] = df[df.month.notnull()].copy()
         percentaje_months = (
             sum((dates.month >= 1) & (dates.month <= 12)) / total_data * 100
         )
@@ -590,7 +592,7 @@ def temporal_percentajes(df):
 
     # Porcentaje de días validos
     try:
-        dates["day"] = dates.date.str[8:10].astype("Int64")
+        dates["day"] = df[df.day.notnull()].copy()
         percentaje_days = sum((dates.day >= 1) & (dates.day <= 31)) / total_data * 100
     except Exception as e:
         logger.debug(f"ERROR day - {e}")
