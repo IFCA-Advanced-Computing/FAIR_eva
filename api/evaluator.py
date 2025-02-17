@@ -77,18 +77,54 @@ class ConfigTerms(property):
                 "List of metadata elements associated with the requested configuration term ID '%s': %s"
                 % (self.term_id, term_list)
             )
+            # Create an empty DataFrame for term_metadata
+            term_metadata = pd.DataFrame(columns=["element", "qualifier"])
+
+            # Populate term_metadata with values from plugin.terms_map
+            for term in term_list:
+                if term in plugin.terms_map:
+                    values = plugin.terms_map[term]
+                    if isinstance(values, list):
+                        for value in values:
+                            if isinstance(value, list):
+                                term_metadata = pd.concat(
+                                    [
+                                        term_metadata,
+                                        pd.DataFrame(
+                                            [
+                                                {
+                                                    "element": value[0],
+                                                    "qualifier": value[1],
+                                                }
+                                            ]
+                                        ),
+                                    ]
+                                )
+                            else:
+                                term_metadata = pd.concat(
+                                    [
+                                        term_metadata,
+                                        pd.DataFrame(
+                                            [{"element": value, "qualifier": None}]
+                                        ),
+                                    ]
+                                )
+                    else:
+                        term_metadata = pd.concat(
+                            [
+                                term_metadata,
+                                pd.DataFrame([{"element": values, "qualifier": None}]),
+                            ]
+                        )
+
             # Get values in config for the given term
-            if not term_list:
+            if term_metadata.empty:
                 msg = (
                     "Metadata values are not defined in configuration for the term '%s'"
                     % self.term_id
                 )
                 has_metadata = False
             else:
-                # Get metadata associated with the term ID
-                term_metadata = pd.DataFrame(
-                    term_list, columns=["element", "qualifier"]
-                )
                 term_metadata = ut.check_metadata_terms_with_values(
                     metadata, term_metadata
                 )
@@ -108,179 +144,167 @@ class ConfigTerms(property):
             if self.validate:
                 _msg += " & 3) Validation of metadata values in accordance with existing CVs"
             logger_api.debug(_msg)
-            for term_tuple in term_list:
-                # 1. Get harmonized metadata term
-                logger_api.debug(
-                    "Get harmonized metadata term for the given term tuple: %s"
-                    % term_tuple
-                )
-                term_key_plugin = term_tuple[0]
-                if (
-                    len(term_tuple) > 1
-                    and term_tuple[1] != None
-                    and term_tuple[1] != ""
-                ):
-                    term_key_plugin = term_tuple
 
-                logger_api.debug(
-                    "Using term key '%s' to find harmonized metadata term"
-                    % term_key_plugin
-                )
-                term_key_harmonized = []
-                for key in plugin.terms_map:
-                    if isinstance(plugin.terms_map[key], list):
-                        if term_key_plugin in plugin.terms_map[key]:
-                            term_key_harmonized.append(key)
-                    else:
-                        if term_key_plugin == plugin.terms_map[key]:
-                            term_key_harmonized.append(key)
-                if term_key_harmonized is None:
-                    raise NotImplementedError(
-                        "No mapping found for the metadata term '%s': cannot proceed with the harmonization of the metadata term"
-                        % term_key_plugin
-                    )
-                else:
-                    logger.debug(
-                        "Harmonizing metadata term '%s' to '%s'"
-                        % (term_key_plugin, term_key_harmonized)
-                    )
-
-                # 2. Homogenize the data format and type (list) of the metadata values
-                if isinstance(term_key_plugin, list):
-                    term_values = term_metadata.loc[
-                        (term_metadata["element"] == term_key_plugin[0])
-                        & (term_metadata["qualifier"] == term_key_plugin[1])
-                    ].text_value.to_list()
-                else:
-                    term_values = term_metadata.loc[
-                        term_metadata["element"] == term_key_plugin
-                    ].text_value.to_list()
-                term_values_list = []
-                if not term_values:
-                    logger.warning(
-                        "No values found in the metadata associated with element '%s'"
-                        % term_key_harmonized
-                    )
-                    logger_api.warning(
-                        "Not proceeding with metadata value homogenization and validation"
-                    )
-                else:
-                    logger_api.warning(
-                        "Considering list of the values returned: %s" % term_values
-                    )
-                    logger.debug(
-                        "Values found for metadata element '%s': %s"
-                        % (term_key_harmonized, term_values)
-                    )
-                    # Homogeneise metadata values
-                    logger_api.debug(
-                        "Homogenizing format and type of the metadata value for the given (raw) metadata: %s"
-                        % term_values
-                    )
-                    term_values_list = plugin.metadata_utils.gather(
-                        term_values, element_list=term_key_harmonized
-                    )
-                    # Raise exception if the homogenization resulted in no values
-                    if not term_values_list:
-                        raise Exception(
-                            "No values for metadata element '%s' resulted from the homogenization process"
-                            % term_key_harmonized
-                        )
-                    else:
-                        logger_api.debug(
-                            "Homogenized values for the metadata element '%s': %s"
-                            % (term_key_harmonized, term_values_list)
+            term_key_harmonized = []
+            # 1. Iterate over the dictionary defined in plugin.terms_map
+            for key, value in plugin.terms_map.items():
+                # 2. Check if the terms in term_list are present in that dictionary
+                if key in term_list:
+                    # 3. Store in term_key_plugin the value of each element of term_list in the dictionary
+                    for term_key_plugin in value:
+                        # 4. Store in term_key_harmonized the elements of term_list for which it finds any element
+                        term_key_harmonized.append(key)
+                        logger.debug(
+                            "Harmonizing metadata term '%s' to '%s'"
+                            % (term_key_plugin, key)
                         )
 
-                # 3. Validate metadata values (if validate==True)
-                if self.validate:
-                    term_values_list_validated = {}
-                    if term_values_list:
-                        logger_api.debug(
-                            "Validating values for '%s' metadata element: %s"
-                            % (term_key_harmonized, term_values_list)
-                        )
-                        term_values_list_validated = plugin.metadata_utils.validate(
-                            term_values_list,
-                            element_list=term_key_harmonized,
-                            plugin_obj=plugin,
-                        )
-                        if term_values_list_validated:
-                            logger_api.debug(
-                                "Validation results for metadata element '%s': %s"
-                                % (term_key_harmonized, term_values_list_validated)
+                        # Homogenize the data format and type (list) of the metadata values
+                        term_values_list = []
+                        if isinstance(term_key_plugin, list):
+                            term_values = term_metadata.loc[
+                                (term_metadata["element"] == term_key_plugin[0])
+                                & (term_metadata["qualifier"] == term_key_plugin[1])
+                            ].text_value.to_list()
+                        else:
+                            term_values = term_metadata.loc[
+                                term_metadata["element"] == term_key_plugin
+                            ].text_value.to_list()
+
+                        if not term_values:
+                            logger.warning(
+                                "No values found in the metadata associated with element '%s'"
+                                % term_key_plugin
+                            )
+                            logger_api.warning(
+                                "Not proceeding with metadata value homogenization and validation"
                             )
                         else:
                             logger_api.warning(
-                                "Validation could not be done for metadata element '%s'"
-                                % term_key_harmonized
+                                "Considering list of the values returned: %s"
+                                % term_values
                             )
-                    # Update kwargs according to the format:
-                    #       <metadata_element_1>: {
-                    #           'values': [<metadata_value_1>, ..],
-                    #           'validation': {
-                    #               <vocabulary_1>: {
-                    #                   'valid': [<metadata_value_1>, ..],
-                    #                   'non_valid': [<metadata_value_1>, ..],
-                    #               }
-                    #           }
-                    #       }
-                    _metadata_payload = {
-                        "values": term_values_list,
-                        "validation": term_values_list_validated,
-                    }
-                    logger.debug(
-                        "Resulting metadata payload for element '%s': %s"
-                        % (term_key_harmonized, _metadata_payload)
-                    )
-                    # Merge if the same harmonized metadata element points to multiple elements in the original metadata schema (see 'terms_map' config attribute)
-                    if term_key_harmonized in list(kwargs):
-                        _previous_payload = kwargs[term_key_harmonized]
-                        logger.debug(
-                            "Merge with previously collected metadata payload: %s"
-                            % _previous_payload
-                        )
-                        _metadata_payload.update(_previous_payload)
-                        logger.debug(
-                            "Resulting metadata payload for element '%s' (after merging): %s"
-                            % (term_key_harmonized, _metadata_payload)
-                        )
-                    # Update 'kwargs'
-                    if isinstance(term_key_harmonized, list):
-                        for tkh in term_key_harmonized:
-                            kwargs.update({tkh: _metadata_payload})
-                    else:
-                        kwargs.update({term_key_harmonized: _metadata_payload})
-                else:
-                    logger.debug(
-                        "Not validating values from metadata element '%s'"
-                        % term_key_harmonized
-                    )
-                    # Merge if the same harmonized metadata element points to multiple elements in the original metadata schema (see 'terms_map' config attribute)
-                    for term_key_harmonized_element in term_key_harmonized:
-                        if term_key_harmonized_element in list(kwargs):
-                            _previous_values_list = kwargs[term_key_harmonized_element]
                             logger.debug(
-                                "Merge with previously collected metadata values: %s"
-                                % _previous_values_list
+                                "Values found for metadata element '%s': %s"
+                                % (term_key_plugin, term_values)
                             )
-                            term_values_list.extend(_previous_values_list)
+                            # Homogenize metadata values
+                            logger_api.debug(
+                                "Homogenizing format and type of the metadata value for the given (raw) metadata: %s"
+                                % term_values
+                            )
+                            term_values_list = plugin.metadata_utils.gather(
+                                term_values, element=key
+                            )
+                            # Raise exception if the homogenization resulted in no values
+                            if not term_values_list:
+                                raise Exception(
+                                    "No values for metadata element '%s' resulted from the homogenization process"
+                                    % term_key_plugin
+                                )
+                            else:
+                                logger_api.debug(
+                                    "Homogenized values for the metadata element '%s': %s"
+                                    % (term_key_plugin, term_values_list)
+                                )
+
+                        # Validate metadata values (if validate==True)
+                        if self.validate:
+                            term_values_list_validated = {}
+                            if term_values_list:
+                                logger_api.debug(
+                                    "Validating values for '%s' metadata element: %s"
+                                    % (term_key_plugin, term_values_list)
+                                )
+                                term_values_list_validated = (
+                                    plugin.metadata_utils.validate(
+                                        term_values_list,
+                                        element=term_key_plugin,
+                                        plugin_obj=plugin,
+                                    )
+                                )
+                                if term_values_list_validated:
+                                    logger_api.debug(
+                                        "Validation results for metadata element '%s': %s"
+                                        % (term_key_plugin, term_values_list_validated)
+                                    )
+                                else:
+                                    logger_api.warning(
+                                        "Validation could not be done for metadata element '%s'"
+                                        % term_key_plugin
+                                    )
+                            # Update kwargs according to the format:
+                            #       <metadata_element_1>: {
+                            #           'values': [<metadata_value_1>, ..],
+                            #           'validation': {
+                            #               <vocabulary_1>: {
+                            #                   'valid': [<metadata_value_1>, ..],
+                            #                   'non_valid': [<metadata_value_1>, ..],
+                            #               }
+                            #           }
+                            #       }
+                            _metadata_payload = {
+                                "values": term_values_list,
+                                "validation": term_values_list_validated,
+                            }
                             logger.debug(
-                                "Resulting metadata values for element '%s' (after merging): %s"
-                                % (term_key_harmonized_element, term_values_list)
+                                "Resulting metadata payload for element '%s': %s"
+                                % (term_key_plugin, _metadata_payload)
                             )
-                        # Update kwargs according to format:
-                        #       {
-                        #           <metadata_element_1>: [<metadata_value_1>, ..]
-                        #       }
-                        kwargs.update({term_key_harmonized_element: term_values_list})
+                            # Merge if the same harmonized metadata element points to multiple elements in the original metadata schema (see 'terms_map' config attribute)
+                            if key in list(kwargs):
+                                _previous_payload = kwargs[key]
+                                logger.debug(
+                                    "Merge with previously collected metadata payload: %s"
+                                    % _previous_payload
+                                )
+                                _metadata_payload.update(_previous_payload)
+                                logger.debug(
+                                    "Resulting metadata payload for element '%s' (after merging): %s"
+                                    % (term_key_plugin, _metadata_payload)
+                                )
+                            # Update 'kwargs'
+                            if isinstance(key, list):
+                                for tkh in key:
+                                    kwargs.update({tkh: _metadata_payload})
+                            else:
+                                kwargs.update({key: _metadata_payload})
+                        else:
+                            logger.debug(
+                                "Not validating values from metadata element '%s'" % key
+                            )
+                            # Merge if the same harmonized metadata element points to multiple elements in the original metadata schema (see 'terms_map' config attribute)
+                            if key in list(kwargs):
+                                _previous_values_list = kwargs[key]
+                                logger.debug(
+                                    "Merge with previously collected metadata values: %s"
+                                    % _previous_values_list
+                                )
+                                term_values_list.extend(_previous_values_list)
+                                logger.debug(
+                                    "Resulting metadata values for element '%s' (after merging): %s"
+                                    % (key, term_values_list)
+                                )
+                            # Update kwargs according to format:
+                            #       {
+                            #           <metadata_element_1>: [<metadata_value_1>, ..]
+                            #       }
+                            kwargs.update({key: term_values_list})
 
             logger.info(
                 "Passing metadata elements and associated values to wrapped method '%s': %s"
                 % (wrapped_func.__name__, kwargs)
             )
 
-            return wrapped_func(plugin, **kwargs)
+            # Check if all keys in kwargs have values assigned
+            total_keys = len(kwargs)
+            keys_with_values = sum(1 for key, value in kwargs.items() if value)
+            if keys_with_values == total_keys:
+                points = 100
+            else:
+                points = (keys_with_values / total_keys) * 100
+
+            return wrapped_func(plugin, **kwargs, points=points)
 
         return wrapper
 
@@ -300,7 +324,7 @@ class MetadataValuesBase(property):
     """
 
     @classmethod
-    def gather(cls, element_values_list, element_list):
+    def gather(cls, element_values_list, element):
         """Gets the metadata value according to the given element.
 
         It calls the appropriate class method.
@@ -308,49 +332,67 @@ class MetadataValuesBase(property):
         _values = []
         try:
             for element_values in element_values_list:
-                for element in element_list:
-                    if element == "Metadata Identifier":
-                        _values = cls._get_identifiers_metadata(element_values)
-                    elif element == "Data Identifier":
-                        _values = cls._get_identifiers_data(element_values)
-                    elif element == "Temporal Coverage":
-                        temp_values = cls._get_temporal_coverage(element_values)
-                        if temp_values is not None:
-                            _values.append(temp_values)
-                    elif element == "Spatial Coverage":
-                        temp_values = cls._get_spatial_coverage(element_values)
-                        if temp_values is not None:
-                            _values.append(temp_values)
-                    elif element == "Person Identifier":
-                        _values = cls._get_person(element_values)
-                    elif element == "Format":
-                        _values = cls._get_formats(element_values)
-                    else:
-                        raise NotImplementedError(
-                            "Self-invoking NotImplementedError exception"
-                        )
+                if element == "Metadata Identifier":
+                    temp_values = cls._get_identifiers_metadata(element_values)
+                    if temp_values is not None:
+                        _values.append(temp_values)
+                elif element == "Data Identifier":
+                    temp_values = cls._get_identifiers_data(element_values)
+                    if temp_values is not None:
+                        _values.append(temp_values)
+                elif element == "Temporal Coverage":
+                    temp_values = cls._get_temporal_coverage(element_values)
+                    if temp_values is not None:
+                        _values.append(temp_values)
+                elif element == "Spatial Coverage":
+                    temp_values = cls._get_spatial_coverage(element_values)
+                    if temp_values is not None:
+                        _values.append(temp_values)
+                elif element == "Person Identifier":
+                    temp_values = cls._get_person_identifier(element_values)
+                    if temp_values is not None:
+                        _values.append(temp_values)
+                elif element == "Keywords":
+                    temp_values = cls._get_keywords(element_values)
+                    if temp_values is not None:
+                        _values.append(temp_values)
+                elif element == "Format":
+                    temp_values = cls._get_formats(element_values)
+                    if temp_values is not None:
+                        _values.append(temp_values)
+                elif element == "Metadata for Resource Discovery":
+                    temp_values = cls._get_resource_discovery(element_values)
+                    _values.append(temp_values)
+                elif element == "Metadata for accesibility":
+                    temp_values = cls._get_metadata_accessibility(element_values)
+                    _values.append(temp_values)
+                elif element == "Data connection":
+                    temp_values = cls._get_identifiers_data(element_values)
+                    _values.append(temp_values)
+                else:
+                    raise NotImplementedError(
+                        "Self-invoking NotImplementedError exception"
+                    )
         except Exception as e:
             logger_api.exception(str(e))
             _values = element_values
             for element_values in element_values_list:
-                for element in element_list:
-                    if isinstance(element_values, str):
-                        _values = [element_values]
-                    logger_api.warning(
-                        "No specific plugin's gather method defined for metadata element '%s'. Returning input values formatted to list: %s"
-                        % (element, _values)
-                    )
-        else:
-            for element in element_list:
-                logger_api.debug(
-                    "Successful call to plugin's gather method for the metadata element '%s'. Returning: %s"
+                if isinstance(element_values, str):
+                    _values = [element_values]
+                logger_api.warning(
+                    "No specific plugin's gather method defined for metadata element '%s'. Returning input values formatted to list: %s"
                     % (element, _values)
                 )
+        else:
+            logger_api.debug(
+                "Successful call to plugin's gather method for the metadata element '%s'. Returning: %s"
+                % (element, _values)
+            )
         finally:
             return _values
 
     @classmethod
-    def validate(cls, element_values, element_list, plugin_obj=None, **kwargs):
+    def validate(cls, element_values, element, plugin_obj=None, **kwargs):
         """Validates the metadata values provided with respect to the supported
         controlled vocabularies.
 
@@ -370,49 +412,61 @@ class MetadataValuesBase(property):
         else:
             controlled_vocabularies = ast.literal_eval(controlled_vocabularies)
 
-        for element in element_list:
-            matching_vocabularies = controlled_vocabularies.get(element, {})
-            if matching_vocabularies:
-                logger_api.debug(
-                    "Found matching vocabulary/ies for element <%s>: %s"
-                    % (element, matching_vocabularies)
-                )
-            else:
-                logger_api.warning(
-                    "No matching vocabulary found for element <%s>" % element
-                )
+        matching_vocabularies = controlled_vocabularies.get(element, {})
+        if matching_vocabularies:
+            logger_api.debug(
+                "Found matching vocabulary/ies for element <%s>: %s"
+                % (element, matching_vocabularies)
+            )
+        else:
+            logger_api.warning(
+                "No matching vocabulary found for element <%s>" % element
+            )
 
-            # Trigger validation
-            if element == "Format":
-                logger_api.debug(
-                    "Calling _validate_format() method for element: <%s>" % element
-                )
-                _result_data = cls._validate_format(
-                    cls,
-                    element_values,
-                    matching_vocabularies,
-                    plugin_obj=plugin_obj,
-                    **kwargs,
-                )
-            elif element == "License":
-                logger_api.debug(
-                    "Calling _validate_license() method for element: <%s>" % element
-                )
-                _result_data = cls._validate_license(
-                    cls, element_values, matching_vocabularies, **kwargs
-                )
-            elif element == "Person Identifier":
-                _result_data = {}
-                for vocabulary_id, vocabulary_url in matching_vocabularies.items():
-                    _result_data[vocabulary_id] = {"valid": [], "non_valid": []}
-                    for value in element_values:
-                        if ut.orcid_basic_info(value):
-                            _result_data[vocabulary_id]["valid"].append(value)
-            else:
-                logger_api.warning(
-                    "Validation not implemented for element: <%s>" % element
-                )
-                _result_data = {}
+        # Trigger validation
+        if element == "Format":
+            logger_api.debug(
+                "Calling _validate_format() method for element: <%s>" % element
+            )
+            _result_data = cls._validate_format(
+                cls,
+                element_values,
+                matching_vocabularies,
+                plugin_obj=plugin_obj,
+                **kwargs,
+            )
+        elif element == "License":
+            logger_api.debug(
+                "Calling _validate_license() method for element: <%s>" % element
+            )
+            _result_data = cls._validate_license(
+                cls, element_values, matching_vocabularies, **kwargs
+            )
+        elif element == "Person Identifier":
+            _result_data = {}
+            for vocabulary_id, vocabulary_url in matching_vocabularies.items():
+                _result_data[vocabulary_id] = {"valid": [], "non_valid": []}
+                for value in element_values:
+                    if ut.orcid_basic_info(value):
+                        _result_data[vocabulary_id]["valid"].append(value)
+
+        elif element == "Metadata for Resource Discovery":
+            logger_api.debug(
+                "Calling _validate_metadata_for_resource_discovery() method for element: <%s>"
+                % element
+            )
+            _result_data = cls._validate_metadata_for_resource_discovery(
+                element_values, matching_vocabularies, plugin_obj.config
+            )
+        elif element == "Data connection":
+            logger_api.debug(
+                "Calling _validate_data_connection() method for element: <%s>" % element
+            )
+            _result_data = cls._validate_data_connection(element_values)
+
+        else:
+            logger_api.warning("Validation not implemented for element: <%s>" % element)
+            _result_data = {}
 
         return _result_data
 
@@ -433,7 +487,7 @@ class MetadataValuesBase(property):
         return NotImplementedError
 
     @classmethod
-    def _get_temporal_coverage(cls, element_values):
+    def _get_temporal_coverage(cls, element_values, matching_vocabularies):
         """Get start and end dates, when defined, that characterise the temporal
         coverage of the dataset.
 
@@ -452,12 +506,63 @@ class MetadataValuesBase(property):
         return NotImplementedError
 
     @classmethod
+    def _get_resource_discovery(cls, element_values):
+        return element_values
+
+    @classmethod
+    def _get_person_identifier(cls, element_values):
+        return element_values
+
+    @classmethod
+    def _get_keywords(cls, element_values):
+        return element_values
+
+    @classmethod
+    def _get_metadata_accessibility(cls, element_values):
+        return element_values
+
+    @classmethod
     def _validate_format(cls, element_values):
         return NotImplementedError
 
     @classmethod
     def _validate_license(cls, element_values):
         return NotImplementedError
+
+    @classmethod
+    def _validate_metadata_for_resource_discovery(
+        self, element_values, matching_vocabularies, config
+    ):
+        """Validates the metadata values for resource discovery with respect to the
+        supported controlled vocabularies."""
+        result_data = {}
+        for vocabulary_id, vocabulary_url in matching_vocabularies.items():
+            result_data[vocabulary_id] = {"valid": [], "non_valid": []}
+            if vocabulary_id == "Agrovoc":
+                from api.vocabulary import Agrovoc
+
+                agrovoc = Agrovoc(config)
+                for value in element_values:
+                    if agrovoc.collect(term=value):
+                        result_data[vocabulary_id]["valid"].append(value)
+                    else:
+                        result_data[vocabulary_id]["non_valid"].append(value)
+            # Add more vocabularies as needed
+            # elif vocabulary_id == "AnotherVocabulary":
+            #     ...
+
+        return result_data
+
+    @classmethod
+    def _validate_data_connection(self, element_values):
+        result_data = {}
+        result_data["Persistent Identifier"] = {"valid": [], "non_valid": []}
+        for value in element_values:
+            if ut.is_unique_id(value):
+                result_data["Persistent Identifier"]["valid"].append(value)
+            else:
+                result_data["Persistent Identifier"]["non_valid"].append(value)
+        return result_data
 
 
 class EvaluatorBase(ABC):
@@ -635,10 +740,21 @@ class EvaluatorBase(ABC):
 
         :validation_payload: dictionary containing the validation results. Format as returned by ConfigTerms(validate=True)
         """
+        # Delete 'points' if it exists before further processing
+        if "points" in validation_payload:
+            del validation_payload["points"]
+
         # Loop over validated metadata elements
         elements_using_vocabulary = []
         for element, data in validation_payload.items():
-            validation_data = data.get("validation", {})
+            try:
+                validation_data = data.get("validation", {})
+            except Exception:
+                logger_api.warning(
+                    "No validation data could be gathered for the metadata element '%s'"
+                    % element
+                )
+                continue
             if not validation_data:
                 _msg = (
                     "No validation data could be gathered for the metadata element '%s'"
@@ -1639,7 +1755,7 @@ class EvaluatorBase(ABC):
         (points, msg_list) = self.rda_i2_01m()
         return (points, msg_list)
 
-    @ConfigTerms(term_id="terms_qualified_references")
+    @ConfigTerms(term_id="terms_qualified_references", validate=True)
     def rda_i3_01m(self, **kwargs):
         """Indicator RDA-A1-01M.
 
@@ -1660,16 +1776,33 @@ class EvaluatorBase(ABC):
         points = 0
         msg_list = []
 
-        term_data = kwargs["terms_qualified_references"]
-        term_metadata = term_data["metadata"]
-        id_list = []
-        for index, row in term_metadata.iterrows():
-            logger.debug(self.item_id)
+        has_qualified_references = False
+        msg_list = []
 
-            if row["text_value"].split("/")[-1] not in self.item_id:
-                id_list.append(row["text_value"])
-        points, msg_list = self.eval_persistency(id_list)
-        return (points, msg_list)
+        if "points" in kwargs:
+            del kwargs["points"]
+
+        for element, element_data in kwargs.items():
+            validation_data = element_data.get("validation", {})
+            if validation_data:
+                for vocabulary, vocabulary_validation_data in validation_data.items():
+                    if vocabulary_validation_data["valid"]:
+                        has_qualified_references = True
+                        msg_list.append(
+                            "'%s' element uses vocabulary %s in '%s'"
+                            % (element, vocabulary, vocabulary_validation_data["valid"])
+                        )
+
+        if has_qualified_references:
+            points = 100
+            msg = "Metadata has qualified references to other metadata: %s" % ", ".join(
+                msg_list
+            )
+        else:
+            points = 0
+            msg = "Metadata does not have qualified references to other metadata"
+
+        return (points, [{"message": msg, "points": points}])
 
     def rda_i3_01d(self):
         """Indicator RDA-A1-01M.
@@ -1704,21 +1837,12 @@ class EvaluatorBase(ABC):
         -------
         points
             A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
         """
-        term_data = kwargs["terms_relations"]
-        term_metadata = term_data["metadata"]
-        id_list = []
-        for index, row in term_metadata.iterrows():
-            logging.debug(self.item_id)
-            if row["text_value"].split("/")[-1] not in self.item_id:
-                id_list.append(row["text_value"])
 
-        points, msg_list = self.eval_persistency(id_list)
-        return (points, msg_list)
+        return self.rda_i3_01m()
 
-    def rda_i3_02d(self):
+    @ConfigTerms(term_id="terms_relations", validate=True)
+    def rda_i3_02d(self, **kwargs):
         """Indicator RDA-A1-01M.
 
         This indicator is linked to the following principle: I3: (Meta)data include qualified references
@@ -1727,7 +1851,8 @@ class EvaluatorBase(ABC):
 
         This indicator is about the way data is connected to other data. The references need to be
         qualified which means that the relationship role of the related resource is specified, for
-        example that a particular link is a specification of a unit of m
+        example that a particular link is a specification of a unit of measurement, or the
+        identification of the sensor with which the measurement was done.
 
         Returns
         -------
@@ -1736,7 +1861,33 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        return self.rda_i3_03m()
+
+        if "points" in kwargs:
+            del kwargs["points"]
+
+        has_qualified_references = False
+        msg_list = []
+        for element, element_data in kwargs.items():
+            validation_data = element_data.get("validation", {})
+            if validation_data:
+                for vocabulary, vocabulary_validation_data in validation_data.items():
+                    if vocabulary_validation_data["valid"]:
+                        has_qualified_references = True
+                        msg_list.append(
+                            "'%s' element uses vocabulary %s in '%s'"
+                            % (element, vocabulary, vocabulary_validation_data["valid"])
+                        )
+
+        if has_qualified_references:
+            points = 100
+            msg = "Metadata has qualified references to other data: %s" % ", ".join(
+                msg_list
+            )
+        else:
+            points = 0
+            msg = "Metadata does not have qualified references to other data"
+
+        return (points, [{"message": msg, "points": points}])
 
     @ConfigTerms(term_id="terms_relations", validate=True)
     def rda_i3_03m(self, **kwargs):
@@ -1756,6 +1907,8 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
+        if "points" in kwargs:
+            del kwargs["points"]
         has_qualified_references = False
         msg_list = []
         for element, element_data in kwargs.items():
@@ -1797,7 +1950,10 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        return self.rda_i3_03m()
+        points = 0
+        msg = "This test implies checking the presence of qualified references within the content of the data. As it is defined, its implementation is too costly."
+
+        return (points, [{"message": msg, "points": points}])
 
     # REUSABLE
     @ConfigTerms(term_id="terms_reusability_richness")
@@ -1820,36 +1976,17 @@ class EvaluatorBase(ABC):
         """
         points = 0
 
-        terms_reusability_richness = kwargs["terms_reusability_richness"]
-        terms_reusability_richness_list = terms_reusability_richness["list"]
-        terms_reusability_richness_metadata = terms_reusability_richness["metadata"]
-
-        reusability_element_list = []
-        for element in terms_reusability_richness_list:
-            element_df = terms_reusability_richness_metadata.loc[
-                terms_reusability_richness_metadata["element"].isin([element[0]]),
-                "text_value",
-            ]
-
-            element_values = element_df.values
-            if len(element_values) > 0:
-                reusability_element_list.extend(element_values)
+        reusability_element_list = [
+            element for element, value in kwargs.items() if value
+        ]
         if len(reusability_element_list) > 0:
             msg = "Found %s metadata elements that enhance reusability: %s" % (
                 len(reusability_element_list),
                 reusability_element_list,
             )
         else:
-            msg = "Could not find any metadata element that enhance reusability"
-        points = (
-            len(
-                terms_reusability_richness_metadata.groupby(
-                    ["element", "qualifier"]
-                ).count()
-            )
-            / len(terms_reusability_richness["list"])
-            * 100
-        )
+            msg = "Could not fing any metadata element that enhance reusability"
+        points = len(reusability_element_list) / len(kwargs) * 100
 
         return (points, [{"message": msg, "points": points}])
 
@@ -1869,38 +2006,24 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
+        license_list = kwargs["License"]
+
         msg_list = []
         points = 0
         max_points = 100
-        terms_license = kwargs["terms_license"]
-        terms_license_list = terms_license["list"]
-        terms_license_metadata = terms_license["metadata"]
-
-        license_list = terms_license_metadata.text_value.values
 
         license_num = len(license_list)
         if license_num > 0:
             points = 100
 
             if license_num > 1:
+                msg = "The licenses are : "
                 for license in license_list:
-                    msg_list.append(
-                        {
-                            "message": _("License found") + " : %s" % str(license),
-                            "points": points,
-                        }
-                    )
+                    msg = msg + " " + str(license) + " "
             else:
-                msg_list.append(
-                    {
-                        "message": _("The license is") + ": " + str(license_list[0]),
-                        "points": points,
-                    }
-                )
-        else:
-            msg_list.append({"message": _("License not found"), "points": points})
+                msg = "The license is: " + str(license_list[0])
 
-        return (points, msg_list)
+        return (points, [{"message": msg, "points": points}])
 
     @ConfigTerms(term_id="terms_license")
     def rda_r1_1_02m(self, license_list=[], machine_readable=False, **kwargs):
@@ -1921,12 +2044,7 @@ class EvaluatorBase(ABC):
         """
         points = 0
 
-        terms_license = kwargs["terms_license"]
-        terms_license_list = terms_license["list"]
-        terms_license_metadata = terms_license["metadata"]
-
-        if not license_list:
-            license_list = terms_license_metadata.text_value.values
+        license_list = kwargs["License"]
 
         license_num = len(license_list)
         license_standard_list = []
@@ -1976,13 +2094,7 @@ class EvaluatorBase(ABC):
         """
         msg_list = []
 
-        terms_license = kwargs["terms_license"]
-        terms_license_metadata = terms_license["metadata"]
-
-        license_elements = terms_license_metadata.loc[
-            terms_license_metadata["element"].isin(["license"]), "text_value"
-        ]
-        license_list = license_elements.values
+        license_list = kwargs["License"]
 
         _points_license, _msg_license = self.rda_r1_1_02m(
             license_list=license_list, machine_readable=machine_readable
@@ -2107,65 +2219,9 @@ class EvaluatorBase(ABC):
         points
            100/100 if the data standard appears in Fairsharing (0/100 otherwise)
         """
-        msg = "No metadata standard"
-        points = 0
-        offline = True
-        availableFormats = []
-        fairformats = []
-        path = self.fairsharing_formats_path[0]
+        (_msg, _points) = self.eval_validated_basic(kwargs)
 
-        if self.metadata_standard == []:
-            return (points, [{"message": msg, "points": points}])
-
-        terms_reusability_richness = kwargs["terms_reusability_richness"]
-        terms_reusability_richness_list = terms_reusability_richness["list"]
-        terms_reusability_richness_metadata = terms_reusability_richness["metadata"]
-
-        element = terms_reusability_richness_metadata.loc[
-            terms_reusability_richness_metadata["element"].isin(["availableFormats"]),
-            "text_value",
-        ].values[0]
-        for form in element:
-            availableFormats.append(form["label"])
-
-        try:
-            f = open(path)
-            f.close()
-
-        except:
-            msg = "The config.ini fairshraing metatdata_path does not arrive at any file. Try 'static/fairsharing_formats260224.txt'"
-            if offline == True:
-                return (points, [{"message": msg, "points": points}])
-
-        if self.fairsharing_username != [""]:
-            offline = False
-
-        if offline == False:
-            fairsharing = ut.get_fairsharing_formats(
-                offline,
-                password=self.fairsharing_password[0],
-                username=self.fairsharing_username[0],
-                path=path,
-            )
-
-            for fform in fairsharing["data"]:
-                q = fform["attributes"]["name"][24:]
-                fairformats.append(q)
-
-        else:
-            f = open(path, "r")
-            text = f.read()
-            fairformats = text.splitlines()
-
-        for fform in fairformats:
-            for aform in availableFormats:
-                if fform.casefold() == aform.casefold():
-                    if points == 0:
-                        msg = "Your item follows the comunity standard formats: "
-                    points = 100
-                    msg += "  " + str(aform)
-
-        return (points, [{"message": msg, "points": points}])
+        return (_points, [{"message": _msg, "points": _points}])
 
     def rda_r1_3_02m(self, **kwargs):
         """Indicator RDA-1.3-02M: Metadata is expressed in compliance with a machine-

@@ -601,7 +601,7 @@ def main():
     data = {
         "id": identifier,
         "repo": args.plugin,
-        "oai_base": metadata_endpoint,
+        "api_endpoint": metadata_endpoint,
         "lang": "EN",
     }
 

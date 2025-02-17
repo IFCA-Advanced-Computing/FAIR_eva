@@ -36,10 +36,10 @@ class Plugin(EvaluatorBase):
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None):
+    def __init__(self, item_id, api_endpoint=None, lang="en", config=None):
         logger.debug("Creating GBIF")
         plugin = "gbif"
-        super().__init__(item_id, oai_base, lang, plugin)
+        super().__init__(item_id, api_endpoint, lang, plugin)
         # TO REDEFINE - WHICH IS YOUR PID TYPE?
         self.id_type = idutils.detect_identifier_schemes(item_id)[0]
         print("Gbif")

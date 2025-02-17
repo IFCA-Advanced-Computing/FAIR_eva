@@ -35,7 +35,7 @@ class MetadataValues(MetadataValuesBase):
         * Format OAI-PMH:
             "identifier": "doi/handle.."
         """
-        return [element_values]
+        return element_values
 
     @classmethod
     def _get_identifiers_data(cls, element_values):
@@ -44,7 +44,7 @@ class MetadataValues(MetadataValuesBase):
         * Format OAI-PMH:
             "identifier": "doi/handle.."
         """
-        return [element_values]
+        return element_values
 
     @classmethod
     def _get_person(cls, element_values):
@@ -53,7 +53,7 @@ class MetadataValues(MetadataValuesBase):
         * Format OAI-PMH:
             "author": [0000-0003-4551-3339]
         """
-        return [element_values]
+        return element_values
 
     @classmethod
     def _get_temporal_coverage(cls, element_values):

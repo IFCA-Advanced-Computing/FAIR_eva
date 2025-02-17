@@ -430,46 +430,28 @@ def check_metadata_terms_with_values(metadata, terms):
 
 
 def find_dataset_file(metadata, url, data_formats):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36"
-    }
-    response = requests.get(url, headers=headers, verify=False)
-    url = response.url
-    soup = BeautifulSoup(response.text, features="html.parser")
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        html_content = response.text
+    except Exception as e:
+        logger.error(f"Error fetching URL: {url} - {e}")
+        return None
 
-    msg = "No dataset files found"
-    points = 0
-
-    data_files = []
-    for tag in soup.find_all("a"):
-        try:
-            url_link = tag.get("href")
-            response = requests.head(url_link, timeout=3, verify=False)
-        except Exception as e:
-            logging.debug(e)
-
-        try:
-            cut_index = url.find(urllib.parse.urlparse(url).netloc) + len(
-                urllib.parse.urlparse(url).netloc
-            )
-            url_link = url[:cut_index] + url_link
-            logging.debug("Trying: " + url_link)
-            response = requests.head(url_link, timeout=3, verify=False)
-            content_type = response.headers.get("Content-Type")
-            if content_type in data_formats:
-                data_files.append(url_link)
-            else:
-                for f in data_formats:
-                    if f in url_link:
-                        data_files.append(url_link)
-        except Exception as e:
-            logging.error(e)
-
-    if len(data_files) > 0:
-        points = 100
-        msg = "Potential datasets files found: %s" % data_files
-
-    return points, msg, data_files
+    soup = BeautifulSoup(html_content, "html.parser")
+    matches = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        for fmt in data_formats:
+            if href.lower().endswith(fmt.lower()):
+                matches.append(href)
+                break
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        return matches
+    else:
+        return None
 
 
 def metadata_human_accessibility(metadata, url):

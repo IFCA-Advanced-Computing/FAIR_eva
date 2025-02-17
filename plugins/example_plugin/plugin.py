@@ -24,14 +24,14 @@ class Plugin(Evaluator):
     ----------
     item_id : str
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an identifier from the repo)
-    oai_base : str
+    api_endpoint : str
         Open Archives initiative , This is the place in which the API will ask for the metadata
     lang : Language
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", config=None):
+    def __init__(self, item_id, api_endpoint=None, lang="en", config=None):
         plugin = "example_plugin"
-        super().__init__(item_id, oai_base, lang, plugin)
+        super().__init__(item_id, api_endpoint, lang, plugin)
         # TO REDEFINE - WHICH IS YOUR PID TYPE?
         self.id_type = "internal"
 

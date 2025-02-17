@@ -215,7 +215,7 @@ def evaluator():
     babel.init_app(app, locale_selector=get_locale)
     try:
         args = request.args
-        oai_base = None
+        api_endpoint = None
         item_id = args["item_id"]
         logger.debug("ARGS_evaluator: %s" % args)
         sp = Smart_plugin(config["Repositories"])
@@ -231,7 +231,7 @@ def evaluator():
         elif "repo" not in args:
             plugin, url = sp.doi_flow(args["item_id"])
             repo = plugin
-            oai_base = url
+            api_endpoint = url
         else:
             logger.debug("Only local FALSE")
             repo = args["repo"]
@@ -251,21 +251,21 @@ def evaluator():
         accessible = {}
         interoperable = {}
         reusable = {}
-        if oai_base is None:
-            oai_base = repo_oai_base(repo)
-        logger.debug("OAI_BASE: %s" % oai_base)
+        if api_endpoint is None:
+            api_endpoint = repo_api_endpoint(repo)
+        logger.debug("api_endpoint: %s" % api_endpoint)
 
         try:
-            if "oai_base" in args:
-                if args["oai_base"] != "" and ut.check_url(
-                    args["oai_base"] + "?verb=Identify"
+            if "api_endpoint" in args:
+                if args["api_endpoint"] != "" and ut.check_url(
+                    args["api_endpoint"] + "?verb=Identify"
                 ):
-                    oai_base = args["oai_base"]
-                    logger.debug("Aqui OAI: %s" % oai_base)
+                    api_endpoint = args["api_endpoint"]
+                    logger.debug("Aqui OAI: %s" % api_endpoint)
             else:
-                if ut.check_url(oai_base + "?verb=Identify") == False:
-                    oai_base = ""
-                    logger.debug("Aqui OAI: %s" % oai_base)
+                if ut.check_url(api_endpoint + "?verb=Identify") == False:
+                    api_endpoint = ""
+                    logger.debug("Aqui OAI: %s" % api_endpoint)
         except Exception as e:
             logger.error("Problem getting args")
         logger.debug("SESSION LANG: %s" % session.get("lang"))
@@ -273,7 +273,7 @@ def evaluator():
             {
                 "id": item_id,
                 "repo": repo,
-                "oai_base": oai_base,
+                "api_endpoint": api_endpoint,
                 "lang": session.get("lang"),
             }
         )
@@ -407,7 +407,7 @@ def export_pdf():
     babel.init_app(app, locale_selector=get_locale)
     try:
         args = request.args
-        oai_base = None
+        api_endpoint = None
         item_id = args["item_id"]
         logger.debug("ARGS_evaluator: %s" % args)
         sp = Smart_plugin(config["Repositories"])
@@ -417,7 +417,7 @@ def export_pdf():
         elif "repo" not in args:
             plugin, url = sp.doi_flow(args["item_id"])
             repo = plugin
-            oai_base = url
+            api_endpoint = url
         else:
             logger.debug("Only local FALSE")
             repo = args["repo"]
@@ -429,31 +429,29 @@ def export_pdf():
         accessible = {}
         interoperable = {}
         reusable = {}
-        if oai_base is None:
-            oai_base = repo_oai_base(repo)
-        logger.debug("OAI_BASE: %s" % oai_base)
+        if api_endpoint is None:
+            api_endpoint = repo_api_endpoint(repo)
+        logger.debug("api_endpoint: %s" % api_endpoint)
 
         try:
-            if "oai_base" in args:
-                if args["oai_base"] != "" and ut.check_url(
-                    args["oai_base"] + "?verb=Identify"
+            if "api_endpoint" in args:
+                if args["api_endpoint"] != "" and ut.check_url(
+                    args["api_endpoint"] + "?verb=Identify"
                 ):
-                    oai_base = args["oai_base"]
-                    logger.debug("Aqui OAI: %s" % oai_base)
+                    api_endpoint = args["api_endpoint"]
             else:
-                if ut.check_url(oai_base + "?verb=Identify") == False:
-                    oai_base = ""
-                    logger.debug("Aqui OAI: %s" % oai_base)
+                if ut.check_url(api_endpoint + "?verb=Identify") == False:
+                    api_endpoint = ""
         except Exception as e:
             logger.error("Problem getting args")
         logger.debug("SESSION LANG: %s" % session.get("lang"))
         if repo is None or repo == "None":
-            repo, oai_base = sp.doi_flow(item_id)
+            repo, api_endpoint = sp.doi_flow(item_id)
         body = json.dumps(
             {
                 "id": item_id,
                 "repo": repo,
-                "oai_base": oai_base,
+                "api_endpoint": api_endpoint,
                 "lang": session.get("lang"),
             }
         )
@@ -643,10 +641,10 @@ def fair_chart(data_block, fair_points):
     return script, div
 
 
-def repo_oai_base(repo):
+def repo_api_endpoint(repo):
     if repo in config:
-        if "oai_base" in config[repo]:
-            return config[repo]["oai_base"]
+        if "api_endpoint" in config[repo]:
+            return config[repo]["api_endpoint"]
         else:
             return ""
     else:
@@ -657,7 +655,7 @@ class CheckIDForm(FlaskForm):
     item_id = StringField("ITEM ID", "")
     repo_dict = dict(config["Repositories"])
     repo = SelectField("REPO", choices=set(repo_dict))
-    oai_base = StringField("(Optional) OAI-PMH Endpoint", "")
+    api_endpoint = StringField("(Optional) OAI-PMH Endpoint", "")
 
 
 if __name__ == "__main__":

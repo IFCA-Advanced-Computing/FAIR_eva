@@ -1641,7 +1641,7 @@ class Plugin(EvaluatorBase):
 
         return (points, [{"message": msg, "points": points}])
 
-    @ConfigTerms(term_id="terms_license")
+    @ConfigTerms(term_id="terms_license", validate=True)
     def rda_r1_1_03m(self, **kwargs):
         """Indicator R1.1-03M: Metadata refers to a machine-understandable reuse
         license.

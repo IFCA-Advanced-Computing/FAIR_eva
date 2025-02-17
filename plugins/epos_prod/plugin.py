@@ -82,7 +82,7 @@ class Plugin(EPOSDevPlugin):
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
             identifier from the repo)
 
-    oai_base : str
+    api_endpoint : str
         Open Archives Initiative , This is the place in which the API will ask for the metadata. If you are working with  EPOS https://www.ics-c.epos-eu.org/api/v1/resources
 
     lang : Language

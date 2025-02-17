@@ -190,7 +190,7 @@ follow the next steps:
 
    [example_plugin]
    # In [Repositories] add the new plugin name (without .py) equal the name of the class. E.g: example_plugin = 'Example_Plugin'
-   # Create new section (e.g. [example_plugin]) to add any necessary config info. For example, if your system have OAI-PMH endpoint, you can add a oai_base attribute.
+   # Create new section (e.g. [example_plugin]) to add any necessary config info. For example, if your system have OAI-PMH endpoint, you can add a api_endpoint attribute.
    # Metadata terms to find the resource identifier
    identifier_term = ['identifier']
    # ETC

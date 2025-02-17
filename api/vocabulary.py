@@ -264,6 +264,124 @@ class GeoNames(VocabularyConnection):
         return content
 
 
+class RoR(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "RoR"
+        self._config_items = dict(config.items("vocabularies:ror"))
+
+    def _remote_collect(self):
+        error_on_request = False
+        content = []
+        headers = {"Accept": "application/json"}
+        response = requests.request("GET", self.remote_path, headers=headers)
+        if response.ok:
+            try:
+                content = response.json().get("data", [])
+                if content:
+                    logger.debug(
+                        "Successfully returned %s items from search query: %s"
+                        % (len(content), self.remote_path)
+                    )
+                else:
+                    error_on_request = True
+            except Exception as ex:
+                logger.warning(
+                    "Failed to obtain records from endpoint: %s" % response.text
+                )
+                error_on_request = True
+
+        return error_on_request, content
+
+    def _local_collect(self):
+        with open(self.local_path, "r") as f:
+            content = json.load(f).get("data", [])
+            logger.debug("Successfully loaded local cache: %s" % content)
+
+        return content
+
+    def collect(self, uri):
+        # Set specific query parameters for remote requests
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get RoR API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            query_parameter = "?uri=%s" % uri
+            remote_path_with_query = remote_path + query_parameter
+            self._config_items["remote_path"] = remote_path_with_query
+            logger.debug(
+                "Request URL to RoR API with URI '%s': %s"
+                % (uri, self._config_items["remote_path"])
+            )
+        super().__init__(**self._config_items)
+        content = super().collect()
+
+        return content
+
+
+class Agrovoc(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "Agrovoc"
+        self._config_items = dict(config.items("vocabularies:agrovoc"))
+
+    def _remote_collect(self):
+        error_on_request = False
+        content = []
+        headers = {"Accept": "application/json"}
+        response = requests.request("GET", self.remote_path, headers=headers)
+        if response.ok:
+            try:
+                content = response.json().get("result", [])
+                if content:
+                    logger.debug(
+                        "Successfully returned %s items from search query: %s"
+                        % (len(content), self.remote_path)
+                    )
+                else:
+                    error_on_request = True
+            except Exception as ex:
+                logger.warning(
+                    "Failed to obtain records from endpoint: %s" % response.text
+                )
+                error_on_request = True
+
+        return error_on_request, content
+
+    def _local_collect(self):
+        with open(self.local_path, "r") as f:
+            content = json.load(f).get("result", [])
+            logger.debug("Successfully loaded local cache: %s" % content)
+
+        return content
+
+    def collect(self, term):
+        # Set specific query parameters for remote requests
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get Agrovoc API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if self._config_items["remote_path"] in term:
+                sparql_endpoint = "https://agrovoc.fao.org/sparql"
+                query = f"""
+                ASK WHERE {{
+                    <{term}> ?p ?o .
+                }}
+                """
+                params = {"query": query, "format": "json"}
+
+                response = requests.get(sparql_endpoint, params=params)
+
+                if response.status_code == 200:
+                    return response.json().get(
+                        "boolean", False
+                    )  # Devuelve True si la URI existe
+                else:
+                    return False  # Error o URI no encontrada
+
+
 class Vocabulary:
     def __init__(self, config):
         self.config = config
@@ -279,3 +397,11 @@ class Vocabulary:
     def get_geonames(self, search_topic):
         vocabulary = GeoNames(self.config)
         return vocabulary.collect(search_topic=search_topic)
+
+    def get_ror(self, uri):
+        vocabulary = RoR(self.config)
+        return vocabulary.collect(uri=uri)
+
+    def get_agrovoc(self, term):
+        vocabulary = Agrovoc(self.config)
+        return vocabulary.collect(term=term)

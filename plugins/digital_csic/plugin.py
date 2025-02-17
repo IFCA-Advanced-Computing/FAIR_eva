@@ -50,7 +50,7 @@ class Plugin(EvaluatorBase):
         self.config = config
         self.name = name
         self.lang = lang
-        self.oai_base = api_endpoint
+        self.api_endpoint = api_endpoint
 
         if ut.get_doi_str(item_id) != "":
             self.item_id = ut.get_doi_str(item_id)
@@ -62,7 +62,9 @@ class Plugin(EvaluatorBase):
             self.item_id = item_id
             self.id_type = "internal"
 
-        super().__init__(self.item_id, self.oai_base, self.lang, self.config, self.name)
+        super().__init__(
+            self.item_id, self.api_endpoint, self.lang, self.config, self.name
+        )
 
         self.file_list = None
         self.metadata = self.get_metadata()
@@ -427,7 +429,7 @@ class Plugin(EvaluatorBase):
         """
         points = 0
 
-        protocol = ut.get_protocol_scheme(self.oai_base)
+        protocol = ut.get_protocol_scheme(self.api_endpoint)
         if protocol in self.terms_access_protocols:
             points = 100
             msg = "Found a standarised protocol to access the metadata record: " + str(
@@ -470,7 +472,7 @@ class Plugin(EvaluatorBase):
         msg_list = []
         points = 0
         try:
-            landing_url = urllib.parse.urlparse(self.oai_base).netloc
+            landing_url = urllib.parse.urlparse(self.api_endpoint).netloc
             item_id_http = idutils.to_url(
                 self.item_id,
                 idutils.detect_identifier_schemes(self.item_id)[0],
