@@ -219,7 +219,7 @@ class ConfigTerms(property):
                                 term_values_list_validated = (
                                     plugin.metadata_utils.validate(
                                         term_values_list,
-                                        element=term_key_plugin,
+                                        element=term,
                                         plugin_obj=plugin,
                                     )
                                 )
@@ -442,6 +442,15 @@ class MetadataValuesBase(property):
             _result_data = cls._validate_license(
                 cls, element_values, matching_vocabularies, **kwargs
             )
+
+        elif element == "Keywords" or element == "Metadata for Resource Discovery":
+            logger_api.debug(
+                "Calling _validate_any_vocabulary() method for element: <%s>" % element
+            )
+            _result_data = cls._validate_any_vocabulary(
+                element_values, matching_vocabularies, plugin_obj.config
+            )
+        
         elif element == "Person Identifier":
             _result_data = {}
             for vocabulary_id, vocabulary_url in matching_vocabularies.items():
@@ -450,14 +459,6 @@ class MetadataValuesBase(property):
                     if ut.orcid_basic_info(value):
                         _result_data[vocabulary_id]["valid"].append(value)
 
-        elif element == "Metadata for Resource Discovery":
-            logger_api.debug(
-                "Calling _validate_metadata_for_resource_discovery() method for element: <%s>"
-                % element
-            )
-            _result_data = cls._validate_metadata_for_resource_discovery(
-                element_values, matching_vocabularies, plugin_obj.config
-            )
         elif element == "Data connection":
             logger_api.debug(
                 "Calling _validate_data_connection() method for element: <%s>" % element
@@ -544,6 +545,15 @@ class MetadataValuesBase(property):
                 agrovoc = Agrovoc(config)
                 for value in element_values:
                     if agrovoc.collect(term=value):
+                        result_data[vocabulary_id]["valid"].append(value)
+                    else:
+                        result_data[vocabulary_id]["non_valid"].append(value)
+            elif vocabulary_id == "Getty":
+                from api.vocabulary import Getty
+
+                getty = Getty(config)
+                for value in element_values:
+                    if getty.collect(term=value):
                         result_data[vocabulary_id]["valid"].append(value)
                     else:
                         result_data[vocabulary_id]["non_valid"].append(value)
@@ -962,24 +972,29 @@ class EvaluatorBase(ABC):
                 ],
             )
         else:
-            term_num = len(self.terms_quali_generic)
+            term_num = 0
             metadata_keys_not_empty_num = 0
-            for e in self.terms_quali_generic:
-                found = False
-                for index, row in self.metadata.iterrows():
-                    if e[0] == row["element"] and e[1] == row["qualifier"]:
-                        found = True
-                if found:
-                    metadata_keys_not_empty_num += 1
-            logger.debug(
-                "Found %s/%s metadata terms" % (metadata_keys_not_empty_num, term_num)
-            )
+            for k in self.terms_quali_generic:
+                term_num += len(self.terms_map[k])
+                for e in self.terms_map[k]:
+                    found = False
+                    for index, row in self.metadata.iterrows():
+                        if isinstance(e, list) and len(e) == 2:
+                            if e[0] == row["element"] and e[1] == row["qualifier"]:
+                                found = True
+                            elif e == row["element"] and (None == row["qualifier"] or '' == row["qualifier"]):
+                                found = True
+                    if found:
+                        metadata_keys_not_empty_num += 1
+                logger.debug(
+                    "Found %s/%s metadata terms" % (metadata_keys_not_empty_num, term_num)
+                )
 
-            points = round(metadata_keys_not_empty_num * (100 / term_num))
-            msg_list = [
-                "Found %s (out of %s) metadata elements matching 'Metadata for Resource Discovery' elements"
-                % (metadata_keys_not_empty_num, term_num)
-            ]
+                points = round(metadata_keys_not_empty_num * (100 / term_num))
+                msg_list = [
+                    "Found %s (out of %s) metadata elements matching 'Metadata for Resource Discovery' elements"
+                    % (metadata_keys_not_empty_num, term_num)
+                ]
 
         return (points, msg_list)
 
@@ -1419,7 +1434,7 @@ class EvaluatorBase(ABC):
         msg_list.append(
             {
                 "message": _(
-                    "OAI-PMH does not support machine-actionable access to data"
+                    "The API endpoint provided does not support machine-actionable access to data"
                 ),
                 "points": points,
             }

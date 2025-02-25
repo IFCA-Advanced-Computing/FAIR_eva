@@ -381,6 +381,40 @@ class Agrovoc(VocabularyConnection):
                 else:
                     return False  # Error o URI no encontrada
 
+class Getty(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "Getty"
+        self._config_items = dict(config.items("vocabularies:getty"))
+
+    def collect(self, term):
+        import xml.etree.ElementTree as ET
+
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get Getty API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if self._config_items["remote_path"] in term:
+                if '/page' in term:
+                    term = term.replace('/page', '')
+                sparql_endpoint = "http://vocab.getty.edu/sparql"
+                query = f"ASK WHERE {{ <{term}> ?p ?o }}"
+                params = {"query": query, "format": "json"}
+                headers = {"Accept": "application/sparql-results+xml"}
+                response = requests.get(sparql_endpoint, params=params, headers=headers)
+                if response.status_code == 200:
+                    root = ET.fromstring(response.text)
+
+                    # Define the namespace mapping (as the XML uses the SPARQL results namespace)
+                    namespaces = {'sparql': 'http://www.w3.org/2005/sparql-results#'}
+
+                    # Find the <boolean> element within that namespace
+                    boolean_elem = root.find('sparql:boolean', namespaces)
+                    if boolean_elem is not None and boolean_elem.text == 'true':
+                        return True
+        
+        return False
 
 class Vocabulary:
     def __init__(self, config):
@@ -404,4 +438,8 @@ class Vocabulary:
 
     def get_agrovoc(self, term):
         vocabulary = Agrovoc(self.config)
+        return vocabulary.collect(term=term)
+
+    def get_getty(self, term):
+        vocabulary = Getty(self.config)
         return vocabulary.collect(term=term)
