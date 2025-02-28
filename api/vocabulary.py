@@ -3,10 +3,10 @@ import json
 import logging
 import os
 import sys
-import api.utils as ut
 
 import requests
 
+import api.utils as ut
 from fair import app_dirname
 
 logger = logging.getLogger("plugin.py")
@@ -523,8 +523,9 @@ class ORCID(VocabularyConnection):
         self._config_items = dict(config.items("vocabularies:orcid"))
 
     def collect(self, term):
-        """
-        Check if a term is a valid ORCID identifier by making a HEAD request to the ORCID API.
+        """Check if a term is a valid ORCID identifier by making a HEAD request to the
+        ORCID API.
+
         Returns True if the ORCID exists, False otherwise.
         """
         remote_path = self._config_items.get("remote_path", "")
@@ -554,8 +555,9 @@ class PIC(VocabularyConnection):
         self._config_items = dict(config.items("vocabularies:pic"))
 
     def collect(self, term):
-        """
-        Check if a term is a valid PIC number by making a request to the EU Funding & Tenders portal.
+        """Check if a term is a valid PIC number by making a request to the EU Funding &
+        Tenders portal.
+
         Returns True if the PIC exists, False otherwise.
         """
         remote_path = self._config_items.get("remote_path", "")
