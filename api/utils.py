@@ -926,3 +926,12 @@ def check_ror(ror):
         return (True, name)
     else:
         return (False, "")
+    
+def validate_any_pid(value):
+    valid = False
+    schemas = idutils.detect_identifier_schemes(value)
+    for v in schemas:
+        if check_link(idutils.to_url(value, v)):
+            valid = True
+            logger.info("Valid PID: %s (type: %s)" % (value, v))
+    return valid

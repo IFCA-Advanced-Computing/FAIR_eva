@@ -48,7 +48,7 @@ class MetadataValues(MetadataValuesBase):
         * Format OAI-PMH:
             "author": [0000-0003-4551-3339]
         """
-        return element_values
+        return cls.between_brackets(element_values)
 
     @classmethod
     def _get_temporal_coverage(cls, element_values):
@@ -78,6 +78,34 @@ class MetadataValues(MetadataValuesBase):
             return element_values
         else:
             return None
+        
+    @classmethod
+    def between_brackets(cls, element_values):
+        """Return the list of values between brackets.
+
+        * Only for DIGITAL.CSIC
+        """
+        if "[" in element_values and "]" in element_values:
+            start = element_values.find('[') + 1
+            end = element_values.find(']')
+            element_values = element_values[start:end]
+        return element_values
+    
+    @classmethod
+    def _get_metadata_connection(cls, element_values):
+        return cls.between_brackets(element_values)
+        
+    @classmethod
+    def _get_resource_discovery(cls, element_values):
+        return cls.between_brackets(element_values)
+
+    @classmethod
+    def _get_person_identifier(cls, element_values):
+        return cls.between_brackets(element_values)
+
+    @classmethod
+    def _get_keywords(cls, element_values):
+        return element_values
 
     def _get_license(self, element_values):
         """Return a list of licenses.
@@ -105,7 +133,7 @@ class MetadataValues(MetadataValuesBase):
             license_data[vocabulary_id] = {"valid": [], "non_valid": []}
             # SPDX
             if vocabulary_id in ["spdx"]:
-                logger_api.debug(
+                logger.debug(
                     "Validating licenses according to SPDX vocabulary: %s" % licenses
                 )
                 for _license in licenses:
@@ -126,45 +154,11 @@ class MetadataValues(MetadataValuesBase):
                     "Validation of vocabulary '%s' not yet implemented" % vocabulary_id
                 )
 
-        return license_data
-
-    @classmethod
-    def _get_keywords(cls, element_values):
-        return element_values
-        
-    @classmethod
-    def _validate_any_vocabulary(self, element_values, matching_vocabularies, config):
-        result_data = {}
-        for vocabulary_id, vocabulary_url in matching_vocabularies.items():
-            try:
-                from api import vocabulary as voc
-            except ImportError as ex:
-                logger.error("Error importing vocabulary module: %s" % ex)
-                continue
-
-            # Check if a corresponding class exists in vocabulary.py
-            if hasattr(voc, vocabulary_id):
-                vocab_class = getattr(voc, vocabulary_id)
-                vocab_instance = vocab_class(config)
-                result_data[vocabulary_id] = {"valid": [], "non_valid": []}
-                for value in element_values:
-                    # Attempt to call collect with 'term'; if fails, try with 'search_topic'
-                    try:
-                        valid = vocab_instance.collect(value)
-                        if valid:
-                            result_data[vocabulary_id]["valid"].append(value)
-                        else:
-                            result_data[vocabulary_id]["non_valid"].append(value)
-                    except Exception as ex:
-                        logger.error(ex)
-            else:
-                logger.warning("Vocabulary '%s' is not implemented in vocabulary.py" % vocabulary_id)
-
-        return result_data
+        return license_data        
 
     @classmethod
     def _validate_keywords(self, element_values, matching_vocabularies, config):
-        return _validate_any_vocabulary(element_values, matching_vocabularies, config)
+        return self._validate_any_vocabulary(element_values, matching_vocabularies, config)
 
     
 
@@ -565,102 +559,6 @@ class Plugin(EvaluatorBase):
 
         # INTEROPERABLE
 
-    def rda_i1_01d(self):
-        """Indicator RDA-A1-01M
-        This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
-        shared, and broadly applicable language for knowledge representation. More information
-        about that principle can be found here.
-
-        The indicator serves to determine that an appropriate standard is used to express
-        knowledge, in particular the data model and format.
-        Technical proposal: Data format is within a list of accepted standards.
-
-
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        points = 0
-        msg_list = []
-        msg = "No internet media file path found"
-        internetMediaFormats = []
-        availableFormats = []
-        path = self.internet_media_types_path[0]
-        supported_data_formats = [
-            ".tif",
-            ".aig",
-            ".asc",
-            ".agr",
-            ".grd",
-            ".nc",
-            ".hdf",
-            ".hdf5",
-            ".pdf",
-            ".odf",
-            ".doc",
-            ".docx",
-            ".csv",
-            ".jpg",
-            ".png",
-            ".gif",
-            ".mp4",
-            ".xml",
-            ".rdf",
-            ".txt",
-            ".mp3",
-            ".wav",
-            ".zip",
-            ".rar",
-            ".tar",
-            ".tar.gz",
-            ".jpeg",
-            ".xls",
-            ".xlsx",
-        ]
-
-        try:
-            f = open(path)
-            f.close()
-
-        except:
-            msg = "The config.ini internet media types file path does not arrive at any file. Try 'static/internetmediatipes190224.csv'"
-            logger.error(msg)
-            return (points, [{"message": msg, "points": points}])
-        logger.debug("Trying to open accepted media formats")
-        f = open(path)
-        csv_reader = csv.reader(f)
-
-        for row in csv_reader:
-            internetMediaFormats.append(row[1])
-
-        f.close()
-        for e in supported_data_formats:
-            internetMediaFormats.append(e)
-        logger.debug("List: %s" % internetMediaFormats)
-
-        try:
-            item_id_http = idutils.to_url(
-                self.item_id,
-                idutils.detect_identifier_schemes(self.item_id)[0],
-                url_scheme="http",
-            )
-            logger.debug("Searching for dataset files")
-            points, msg, data_files = self.find_dataset_file(
-                self.item_id, item_id_http, internetMediaFormats
-            )
-            for e in data_files:
-                logger.debug(e)
-            msg_list.append({"message": msg, "points": points})
-            if points == 0:
-                msg_list.append({"message": _("No files found"), "points": points})
-        except Exception as e:
-            logger.error(e)
-
-        return (points, msg_list)
-
     def rda_i1_02m(self):
         """Indicator RDA-A1-01M
         This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
@@ -698,6 +596,62 @@ class Plugin(EvaluatorBase):
             logging.error(e)
         self.item_id = identifier_temp
         return (points, msg_list)
+    
+
+    def rda_r1_2_01m(self):
+        """Indicator RDA-R1.2-01M
+        This indicator is linked to the following principle: R1.2: (Meta)data are associated with
+        detailed provenance. More information about that principle can be found here.
+        This indicator requires the metadata to include information about the provenance of the
+        data, i.e. information about the origin, history or workflow that generated the data, in a
+        way that is compliant with the standards that are used in the community in which the data
+        is produced.
+        Technical proposal:
+        Parameters
+        ----------
+        item_id : str
+            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
+            identifier from the repo)
+        Returns
+        -------
+        points
+            A number between 0 and 100 to indicate how well this indicator is supported
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        # TODO: check provenance in digital CSIC - Dublin Core??
+        points = 0
+        msg = [
+            {
+                "message": _("Not provenance information in Dublin Core"),
+                "points": points,
+            }
+        ]
+
+        if self.file_list is None or len(self.file_list) == 0:
+            try:
+                logging.debug("Getting URL for ID: %s" % self.item_id)
+                item_id_http = idutils.to_url(
+                    self.item_id,
+                    idutils.detect_identifier_schemes(self.item_id)[0],
+                    url_scheme="http",
+                )
+                logging.debug(
+                    "Trying to check dataset accessibility manually to: %s" % item_id_http
+                )
+                msg_2, points_2, self.file_list = ut.find_dataset_file(
+                    self.metadata, item_id_http, self.supported_data_formats
+                )
+
+
+            except Exception as e:
+                logger.error(e)
+        
+        for e in self.file_list:
+            logging.debug("Checking file: %s" % e)
+
+        return (points, msg)
+    
 
     # DIGITAL_CSIC UTILS
     def get_internal_id(self, item_id, connection):
@@ -736,6 +690,25 @@ class Plugin(EvaluatorBase):
                     internal_id = row[0]
 
         return internal_id
+    
+    def rda_i3_04m(self):
+        """Indicator RDA-A1-01M.
+
+        This indicator is linked to the following principle: I3: (Meta)data include qualified references
+        to other (meta)data. More information about that principle can be found here.
+
+        This indicator is about the way metadata is connected to other data. The references need
+        to be qualified which means that the relationship role of the related resource is specified,
+        for example dataset X is derived from dataset Y.
+
+        Returns
+        -------
+        points
+            A number between 0 and 100 to indicate how well this indicator is supported
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        return self.rda_i1_02m()
 
     def get_handle_id(self, internal_id, connection):
         query = (

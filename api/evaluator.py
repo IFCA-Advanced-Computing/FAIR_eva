@@ -145,13 +145,14 @@ class ConfigTerms(property):
                 _msg += " & 3) Validation of metadata values in accordance with existing CVs"
             logger_api.debug(_msg)
 
-            term_key_harmonized = []
             # 1. Iterate over the dictionary defined in plugin.terms_map
             for key, value in plugin.terms_map.items():
+                term_key_harmonized = []
                 # 2. Check if the terms in term_list are present in that dictionary
                 if key in term_list:
                     # 3. Store in term_key_plugin the value of each element of term_list in the dictionary
                     for term_key_plugin in value:
+                        term_values_list = []
                         # 4. Store in term_key_harmonized the elements of term_list for which it finds any element
                         term_key_harmonized.append(key)
                         logger.debug(
@@ -160,7 +161,6 @@ class ConfigTerms(property):
                         )
 
                         # Homogenize the data format and type (list) of the metadata values
-                        term_values_list = []
                         if isinstance(term_key_plugin, list):
                             term_values = term_metadata.loc[
                                 (term_metadata["element"] == term_key_plugin[0])
@@ -193,11 +193,11 @@ class ConfigTerms(property):
                                 "Homogenizing format and type of the metadata value for the given (raw) metadata: %s"
                                 % term_values
                             )
-                            term_values_list = plugin.metadata_utils.gather(
+                            term_values_list_temp = plugin.metadata_utils.gather(
                                 term_values, element=key
                             )
                             # Raise exception if the homogenization resulted in no values
-                            if not term_values_list:
+                            if not term_values_list_temp:
                                 raise Exception(
                                     "No values for metadata element '%s' resulted from the homogenization process"
                                     % term_key_plugin
@@ -205,8 +205,11 @@ class ConfigTerms(property):
                             else:
                                 logger_api.debug(
                                     "Homogenized values for the metadata element '%s': %s"
-                                    % (term_key_plugin, term_values_list)
+                                    % (term_key_plugin, term_values_list_temp)
                                 )
+                                term_values_list.extend(term_values_list_temp)
+
+                            
 
                         # Validate metadata values (if validate==True)
                         if self.validate:
@@ -252,8 +255,8 @@ class ConfigTerms(property):
                                 % (term_key_plugin, _metadata_payload)
                             )
                             # Merge if the same harmonized metadata element points to multiple elements in the original metadata schema (see 'terms_map' config attribute)
-                            if key in list(kwargs):
-                                _previous_payload = kwargs[key]
+                            if term in list(kwargs):
+                                _previous_payload = kwargs[term]
                                 logger.debug(
                                     "Merge with previously collected metadata payload: %s"
                                     % _previous_payload
@@ -291,10 +294,10 @@ class ConfigTerms(property):
                             #       }
                             kwargs.update({key: term_values_list})
 
-            logger.info(
-                "Passing metadata elements and associated values to wrapped method '%s': %s"
-                % (wrapped_func.__name__, kwargs)
-            )
+                        logger.info(
+                            "Passing metadata elements and associated values to wrapped method '%s': %s"
+                            % (wrapped_func.__name__, kwargs)
+                        )
 
             # Check if all keys in kwargs have values assigned
             total_keys = len(kwargs)
@@ -365,6 +368,9 @@ class MetadataValuesBase(property):
                     _values.append(temp_values)
                 elif element == "Metadata for accesibility":
                     temp_values = cls._get_metadata_accessibility(element_values)
+                    _values.append(temp_values)
+                elif element == "Metadata connection":
+                    temp_values = cls._get_metadata_connection(element_values)
                     _values.append(temp_values)
                 elif element == "Data connection":
                     temp_values = cls._get_identifiers_data(element_values)
@@ -443,7 +449,7 @@ class MetadataValuesBase(property):
                 cls, element_values, matching_vocabularies, **kwargs
             )
 
-        elif element == "Keywords" or element == "Metadata for Resource Discovery":
+        elif element == "Keywords" or element == "Metadata for Resource Discovery" or element == "Metadata connection":
             logger_api.debug(
                 "Calling _validate_any_vocabulary() method for element: <%s>" % element
             )
@@ -458,6 +464,8 @@ class MetadataValuesBase(property):
                 for value in element_values:
                     if ut.orcid_basic_info(value):
                         _result_data[vocabulary_id]["valid"].append(value)
+                    else:
+                        _result_data[vocabulary_id]["non_valid"].append(value)
 
         elif element == "Data connection":
             logger_api.debug(
@@ -466,8 +474,14 @@ class MetadataValuesBase(property):
             _result_data = cls._validate_data_connection(element_values)
 
         else:
-            logger_api.warning("Validation not implemented for element: <%s>" % element)
-            _result_data = {}
+            # logger_api.warning("Validation not implemented for element: <%s>" % element)
+            # _result_data = {}
+            logger_api.debug(
+                "Calling _validate_any_vocabulary() method for element: <%s>" % element
+            )
+            _result_data = cls._validate_any_vocabulary(
+                element_values, matching_vocabularies, plugin_obj.config
+            )
 
         return _result_data
 
@@ -523,6 +537,11 @@ class MetadataValuesBase(property):
         return element_values
 
     @classmethod
+    def _get_metadata_connection(cls, element_values):
+        return NotImplementedError
+
+
+    @classmethod
     def _validate_format(cls, element_values):
         return NotImplementedError
 
@@ -564,14 +583,44 @@ class MetadataValuesBase(property):
         return result_data
 
     @classmethod
+    def _validate_any_vocabulary(self, element_values, matching_vocabularies, config):
+        result_data = {}
+        for vocabulary_id, vocabulary_url in matching_vocabularies.items():
+            try:
+                from api import vocabulary as voc
+            except ImportError as ex:
+                logger.error("Error importing vocabulary module: %s" % ex)
+                continue
+
+            # Check if a corresponding class exists in vocabulary.py
+            if hasattr(voc, vocabulary_id):
+                vocab_class = getattr(voc, vocabulary_id)
+                vocab_instance = vocab_class(config)
+                result_data[vocabulary_id] = {"valid": [], "non_valid": []}
+                for value in element_values:
+                    # Attempt to call collect with 'term'; if fails, try with 'search_topic'
+                    try:
+                        valid = vocab_instance.collect(value)
+                        if valid:
+                            result_data[vocabulary_id]["valid"].append(value)
+                        else:
+                            result_data[vocabulary_id]["non_valid"].append(value)
+                    except Exception as ex:
+                        logger.error(ex)
+            else:
+                logger.warning("Vocabulary '%s' is not implemented in vocabulary.py" % vocabulary_id)
+
+        return result_data
+
+    @classmethod
     def _validate_data_connection(self, element_values):
         result_data = {}
-        result_data["Persistent Identifier"] = {"valid": [], "non_valid": []}
+        result_data["Data Connection"] = {"valid": [], "non_valid": []}
         for value in element_values:
-            if ut.is_unique_id(value):
-                result_data["Persistent Identifier"]["valid"].append(value)
+            if ut.validate_any_pid(value):
+                result_data["Data Connection"]["valid"].append(value)
             else:
-                result_data["Persistent Identifier"]["non_valid"].append(value)
+                result_data["Data Connection"]["non_valid"].append(value)
         return result_data
 
 
@@ -1590,6 +1639,23 @@ class EvaluatorBase(ABC):
         """
         (_msg, _points) = self.eval_validated_basic(kwargs)
 
+        # Iterate through each element in kwargs
+        for element, element_data in kwargs.items():
+            # Skip the 'points' key if it exists
+            if element == 'points':
+                continue
+                
+            # Get the validation dictionary from the element data
+            validation_data = element_data.get('validation', {})
+            
+            # For each vocabulary in validation data
+            for vocabulary_id, vocabulary_results in validation_data.items():
+                # Check if the 'valid' list has any entries
+                if len(vocabulary_results.get('valid', [])) > 0:
+                    # Add the vocabulary ID to our list if not already present
+                    if vocabulary_id not in self.cvs:
+                        self.cvs.append(vocabulary_id)
+
         return (_points, [{"message": _msg, "points": _points}])
 
     def rda_i1_01d(self):
@@ -1742,13 +1808,18 @@ class EvaluatorBase(ABC):
         points = 0
         msg = "The checked vocabularies the current version are:"
         passed = 0
-
+        if len(self.cvs) == 0:
+            self.rda_i1_01m()
+            msg = "No controlled vocabularies found"
         for vocab in self.dict_vocabularies.keys():
-            if not vocab == self.dict_vocabularies[vocab]:
+            if vocab in self.cvs:
                 if ut.check_link(self.dict_vocabularies[vocab]):
                     passed += 1
                     msg += vocab + " "
-        points = passed / len(self.dict_vocabularies.keys()) * 100
+            points = passed / len(self.cvs) * 100
+            msg += 'Found PIDs: %s/%s controlled vocabularies' % (passed, len(self.cvs))
+            if passed > 0:
+                points = 100
         return (points, [{"message": msg, "points": points}])
 
     def rda_i2_01d(self):

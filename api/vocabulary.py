@@ -3,6 +3,7 @@ import json
 import logging
 import os
 import sys
+import api.utils as ut
 
 import requests
 
@@ -269,55 +270,48 @@ class RoR(VocabularyConnection):
         self.name = "RoR"
         self._config_items = dict(config.items("vocabularies:ror"))
 
-    def _remote_collect(self):
-        error_on_request = False
-        content = []
-        headers = {"Accept": "application/json"}
-        response = requests.request("GET", self.remote_path, headers=headers)
-        if response.ok:
-            try:
-                content = response.json().get("data", [])
-                if content:
-                    logger.debug(
-                        "Successfully returned %s items from search query: %s"
-                        % (len(content), self.remote_path)
-                    )
-                else:
-                    error_on_request = True
-            except Exception as ex:
-                logger.warning(
-                    "Failed to obtain records from endpoint: %s" % response.text
-                )
-                error_on_request = True
-
-        return error_on_request, content
-
-    def _local_collect(self):
-        with open(self.local_path, "r") as f:
-            content = json.load(f).get("data", [])
-            logger.debug("Successfully loaded local cache: %s" % content)
-
-        return content
-
-    def collect(self, uri):
-        # Set specific query parameters for remote requests
+    def collect(self, term):
         remote_path = self._config_items.get("remote_path", "")
         if not remote_path:
             logger.warning(
-                "Could not get RoR API endpoint from configuration (check 'remote_path' property)"
+                "Could not get ROR endpoint from configuration (check 'remote_path' property)"
             )
         else:
-            query_parameter = "?uri=%s" % uri
-            remote_path_with_query = remote_path + query_parameter
-            self._config_items["remote_path"] = remote_path_with_query
-            logger.debug(
-                "Request URL to RoR API with URI '%s': %s"
-                % (uri, self._config_items["remote_path"])
-            )
-        super().__init__(**self._config_items)
-        content = super().collect()
+            if self._config_items["remote_path"] in term:
+                status_code = 350
+                while status_code > 300 and status_code < 400:
+                    response = requests.head(term)
+                    term = response.headers.get('Location')
+                    status_code = response.status_code
+                if status_code == 200:
+                    return True
+                else:
+                    return False
+        return False
+    
+class RoR(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "RoR"
+        self._config_items = dict(config.items("vocabularies:ror"))
 
-        return content
+    def collect(self, term):
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get ROR endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if self._config_items["remote_path"] in term:
+                status_code = 350
+                while status_code > 300 and status_code < 400:
+                    response = requests.head(term)
+                    term = response.headers.get('Location')
+                    status_code = response.status_code
+                if status_code == 200:
+                    return True
+                else:
+                    return False
+        return False
 
 
 class Agrovoc(VocabularyConnection):
@@ -416,6 +410,170 @@ class Getty(VocabularyConnection):
         
         return False
 
+class Unesco(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "Unesco"
+        self._config_items = dict(config.items("vocabularies:unesco"))
+
+    def collect(self, term):
+        import xml.etree.ElementTree as ET
+
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get UNESCO API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if self._config_items["remote_path"] in term:
+                term = term.replace(' ','').replace('\xa0','')
+                sparql_endpoint = "https://vocabularies.unesco.org/sparql"
+                query = f"""SELECT ?p ?o WHERE {{ <{term}> ?p ?o .}} LIMIT 1"""
+                params = {"query": query, "format": 'json'}
+                headers = {"Accept": "application/json"}
+                response = requests.get(sparql_endpoint, params=params, headers=headers)
+                if response.status_code == 200:
+                    if len(response.json().get('results', {}).get('bindings', [])) > 0:
+                        return True
+
+        return False
+
+class Coar(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "COAR"
+        self._config_items = dict(config.items("vocabularies:coar"))
+
+    def collect(self, term):
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get COAR API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if self._config_items["remote_path"] in term:
+                status_code = 350
+                while status_code > 300 and status_code < 400:
+                    response = requests.head(term)
+                    term = response.headers.get('Location')
+                    status_code = response.status_code
+                if status_code == 200:
+                    return True
+                else:
+                    return False
+        return False
+
+class LibraryOfCongress(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "Library of Congress"
+        self._config_items = dict(config.items("vocabularies:loc"))
+
+    def collect(self, term):
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get Library of Congress API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if self._config_items["remote_path"] in term:
+                status_code = 350
+                while status_code > 300 and status_code < 400:
+                    response = requests.head(term)
+                    term = response.headers.get('Location')
+                    status_code = response.status_code
+                if status_code == 200:
+                    return True
+                else:
+                    return False
+        return False
+
+class Wikidata(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "Wikidata"
+        self._config_items = dict(config.items("vocabularies:wikidata"))
+
+    def collect(self, term):
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get Wikidata API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if self._config_items["remote_path"] in term:
+                term = term.replace('https','http').replace('/wiki/','/entity/')
+                sparql_endpoint = "https://query.wikidata.org/sparql"
+                query = f"""SELECT ?p ?o WHERE {{ <{term}> ?p ?o .}} LIMIT 1"""
+                params = {"query": query, "format": "json"}
+                headers = {"Accept": "application/json"}
+                response = requests.get(sparql_endpoint, params=params, headers=headers)
+                if response.status_code == 200:
+                    if len(response.json().get('results', {}).get('bindings', [])) > 0:
+                        return True
+
+        return False
+
+class ORCID(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "ORCID"
+        self._config_items = dict(config.items("vocabularies:orcid"))
+
+    def collect(self, term):
+        """
+        Check if a term is a valid ORCID identifier by making a HEAD request to the ORCID API.
+        Returns True if the ORCID exists, False otherwise.
+        """
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get ORCID API endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            if ut.check_orcid(term):
+                
+                # Format the API URL
+                api_url = f"https://pub.orcid.org/v3.0/{term}"
+                headers = {"Accept": "application/json"}
+                
+                try:
+                    response = requests.head(api_url, headers=headers)
+                    return response.status_code == 200
+                except requests.exceptions.RequestException:
+                    logger.warning(f"Failed to validate ORCID: {term}")
+                    return False
+        return False
+
+class PIC(VocabularyConnection):
+    def __init__(self, config):
+        self.name = "PIC"
+        self._config_items = dict(config.items("vocabularies:pic"))
+
+    def collect(self, term):
+        """
+        Check if a term is a valid PIC number by making a request to the EU Funding & Tenders portal.
+        Returns True if the PIC exists, False otherwise.
+        """
+        remote_path = self._config_items.get("remote_path", "")
+        if not remote_path:
+            logger.warning(
+                "Could not get PIC endpoint from configuration (check 'remote_path' property)"
+            )
+        else:
+            # Extract PIC number from the URL if present
+            if term.isdigit() and len(term) == 9:
+                pic_number = term
+            else:
+                try:
+                    pic_number = term.split('/')[-1]
+                except:
+                    return False
+
+            try:
+                response = requests.head(remote_path)
+                # The portal redirects to search page if PIC doesn't exist
+                return not "search" in response.headers.get('Location', '')
+            except requests.exceptions.RequestException:
+                logger.warning(f"Failed to validate PIC: {term}")
+                return False
+        return False
+
 class Vocabulary:
     def __init__(self, config):
         self.config = config
@@ -442,4 +600,28 @@ class Vocabulary:
 
     def get_getty(self, term):
         vocabulary = Getty(self.config)
+        return vocabulary.collect(term=term)
+
+    def get_unesco(self, term):
+        vocabulary = Unesco(self.config)
+        return vocabulary.collect(term=term)
+
+    def get_coar(self, term):
+        vocabulary = Coar(self.config)
+        return vocabulary.collect(term=term)
+
+    def get_wikidata(self, term):
+        vocabulary = Wikidata(self.config)
+        return vocabulary.collect(term=term)
+
+    def get_loc(self, term):
+        vocabulary = LibraryOfCongress(self.config)
+        return vocabulary.collect(term=term)
+
+    def get_orcid(self, term):
+        vocabulary = ORCID(self.config)
+        return vocabulary.collect(term=term)
+    
+    def get_pic(self, term):
+        vocabulary = PIC(self.config)
         return vocabulary.collect(term=term)
