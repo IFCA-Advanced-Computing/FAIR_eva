@@ -209,8 +209,6 @@ class ConfigTerms(property):
                                 )
                                 term_values_list.extend(term_values_list_temp)
 
-                            
-
                         # Validate metadata values (if validate==True)
                         if self.validate:
                             term_values_list_validated = {}
@@ -449,14 +447,18 @@ class MetadataValuesBase(property):
                 cls, element_values, matching_vocabularies, **kwargs
             )
 
-        elif element == "Keywords" or element == "Metadata for Resource Discovery" or element == "Metadata connection":
+        elif (
+            element == "Keywords"
+            or element == "Metadata for Resource Discovery"
+            or element == "Metadata connection"
+        ):
             logger_api.debug(
                 "Calling _validate_any_vocabulary() method for element: <%s>" % element
             )
             _result_data = cls._validate_any_vocabulary(
                 element_values, matching_vocabularies, plugin_obj.config
             )
-        
+
         elif element == "Person Identifier":
             _result_data = {}
             for vocabulary_id, vocabulary_url in matching_vocabularies.items():
@@ -540,7 +542,6 @@ class MetadataValuesBase(property):
     def _get_metadata_connection(cls, element_values):
         return NotImplementedError
 
-
     @classmethod
     def _validate_format(cls, element_values):
         return NotImplementedError
@@ -608,7 +609,10 @@ class MetadataValuesBase(property):
                     except Exception as ex:
                         logger.error(ex)
             else:
-                logger.warning("Vocabulary '%s' is not implemented in vocabulary.py" % vocabulary_id)
+                logger.warning(
+                    "Vocabulary '%s' is not implemented in vocabulary.py"
+                    % vocabulary_id
+                )
 
         return result_data
 
@@ -1031,12 +1035,15 @@ class EvaluatorBase(ABC):
                         if isinstance(e, list) and len(e) == 2:
                             if e[0] == row["element"] and e[1] == row["qualifier"]:
                                 found = True
-                            elif e == row["element"] and (None == row["qualifier"] or '' == row["qualifier"]):
+                            elif e == row["element"] and (
+                                None == row["qualifier"] or "" == row["qualifier"]
+                            ):
                                 found = True
                     if found:
                         metadata_keys_not_empty_num += 1
                 logger.debug(
-                    "Found %s/%s metadata terms" % (metadata_keys_not_empty_num, term_num)
+                    "Found %s/%s metadata terms"
+                    % (metadata_keys_not_empty_num, term_num)
                 )
 
                 points = round(metadata_keys_not_empty_num * (100 / term_num))
@@ -1642,16 +1649,16 @@ class EvaluatorBase(ABC):
         # Iterate through each element in kwargs
         for element, element_data in kwargs.items():
             # Skip the 'points' key if it exists
-            if element == 'points':
+            if element == "points":
                 continue
-                
+
             # Get the validation dictionary from the element data
-            validation_data = element_data.get('validation', {})
-            
+            validation_data = element_data.get("validation", {})
+
             # For each vocabulary in validation data
             for vocabulary_id, vocabulary_results in validation_data.items():
                 # Check if the 'valid' list has any entries
-                if len(vocabulary_results.get('valid', [])) > 0:
+                if len(vocabulary_results.get("valid", [])) > 0:
                     # Add the vocabulary ID to our list if not already present
                     if vocabulary_id not in self.cvs:
                         self.cvs.append(vocabulary_id)
@@ -1817,7 +1824,7 @@ class EvaluatorBase(ABC):
                     passed += 1
                     msg += vocab + " "
             points = passed / len(self.cvs) * 100
-            msg += 'Found PIDs: %s/%s controlled vocabularies' % (passed, len(self.cvs))
+            msg += "Found PIDs: %s/%s controlled vocabularies" % (passed, len(self.cvs))
             if passed > 0:
                 points = 100
         return (points, [{"message": msg, "points": points}])

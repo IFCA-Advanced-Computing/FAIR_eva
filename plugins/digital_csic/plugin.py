@@ -22,6 +22,7 @@ logging.basicConfig(
 )
 logger = logging.getLogger("api.plugin")
 
+
 class MetadataValues(MetadataValuesBase):
     @classmethod
     def _get_identifiers_metadata(cls, element_values):
@@ -78,7 +79,7 @@ class MetadataValues(MetadataValuesBase):
             return element_values
         else:
             return None
-        
+
     @classmethod
     def between_brackets(cls, element_values):
         """Return the list of values between brackets.
@@ -86,15 +87,15 @@ class MetadataValues(MetadataValuesBase):
         * Only for DIGITAL.CSIC
         """
         if "[" in element_values and "]" in element_values:
-            start = element_values.find('[') + 1
-            end = element_values.find(']')
+            start = element_values.find("[") + 1
+            end = element_values.find("]")
             element_values = element_values[start:end]
         return element_values
-    
+
     @classmethod
     def _get_metadata_connection(cls, element_values):
         return cls.between_brackets(element_values)
-        
+
     @classmethod
     def _get_resource_discovery(cls, element_values):
         return cls.between_brackets(element_values)
@@ -154,13 +155,14 @@ class MetadataValues(MetadataValuesBase):
                     "Validation of vocabulary '%s' not yet implemented" % vocabulary_id
                 )
 
-        return license_data        
+        return license_data
 
     @classmethod
     def _validate_keywords(self, element_values, matching_vocabularies, config):
-        return self._validate_any_vocabulary(element_values, matching_vocabularies, config)
+        return self._validate_any_vocabulary(
+            element_values, matching_vocabularies, config
+        )
 
-    
 
 class Plugin(EvaluatorBase):
     """A class used to define FAIR indicators tests. It is tailored towards the
@@ -596,7 +598,6 @@ class Plugin(EvaluatorBase):
             logging.error(e)
         self.item_id = identifier_temp
         return (points, msg_list)
-    
 
     def rda_r1_2_01m(self):
         """Indicator RDA-R1.2-01M
@@ -637,21 +638,20 @@ class Plugin(EvaluatorBase):
                     url_scheme="http",
                 )
                 logging.debug(
-                    "Trying to check dataset accessibility manually to: %s" % item_id_http
+                    "Trying to check dataset accessibility manually to: %s"
+                    % item_id_http
                 )
                 msg_2, points_2, self.file_list = ut.find_dataset_file(
                     self.metadata, item_id_http, self.supported_data_formats
                 )
 
-
             except Exception as e:
                 logger.error(e)
-        
+
         for e in self.file_list:
             logging.debug("Checking file: %s" % e)
 
         return (points, msg)
-    
 
     # DIGITAL_CSIC UTILS
     def get_internal_id(self, item_id, connection):
@@ -690,7 +690,7 @@ class Plugin(EvaluatorBase):
                     internal_id = row[0]
 
         return internal_id
-    
+
     def rda_i3_04m(self):
         """Indicator RDA-A1-01M.
 

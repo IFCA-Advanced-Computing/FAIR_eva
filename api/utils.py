@@ -926,7 +926,8 @@ def check_ror(ror):
         return (True, name)
     else:
         return (False, "")
-    
+
+
 def validate_any_pid(value):
     valid = False
     schemas = idutils.detect_identifier_schemes(value)

@@ -281,14 +281,15 @@ class RoR(VocabularyConnection):
                 status_code = 350
                 while status_code > 300 and status_code < 400:
                     response = requests.head(term)
-                    term = response.headers.get('Location')
+                    term = response.headers.get("Location")
                     status_code = response.status_code
                 if status_code == 200:
                     return True
                 else:
                     return False
         return False
-    
+
+
 class RoR(VocabularyConnection):
     def __init__(self, config):
         self.name = "RoR"
@@ -305,7 +306,7 @@ class RoR(VocabularyConnection):
                 status_code = 350
                 while status_code > 300 and status_code < 400:
                     response = requests.head(term)
-                    term = response.headers.get('Location')
+                    term = response.headers.get("Location")
                     status_code = response.status_code
                 if status_code == 200:
                     return True
@@ -375,6 +376,7 @@ class Agrovoc(VocabularyConnection):
                 else:
                     return False  # Error o URI no encontrada
 
+
 class Getty(VocabularyConnection):
     def __init__(self, config):
         self.name = "Getty"
@@ -390,8 +392,8 @@ class Getty(VocabularyConnection):
             )
         else:
             if self._config_items["remote_path"] in term:
-                if '/page' in term:
-                    term = term.replace('/page', '')
+                if "/page" in term:
+                    term = term.replace("/page", "")
                 sparql_endpoint = "http://vocab.getty.edu/sparql"
                 query = f"ASK WHERE {{ <{term}> ?p ?o }}"
                 params = {"query": query, "format": "json"}
@@ -401,14 +403,15 @@ class Getty(VocabularyConnection):
                     root = ET.fromstring(response.text)
 
                     # Define the namespace mapping (as the XML uses the SPARQL results namespace)
-                    namespaces = {'sparql': 'http://www.w3.org/2005/sparql-results#'}
+                    namespaces = {"sparql": "http://www.w3.org/2005/sparql-results#"}
 
                     # Find the <boolean> element within that namespace
-                    boolean_elem = root.find('sparql:boolean', namespaces)
-                    if boolean_elem is not None and boolean_elem.text == 'true':
+                    boolean_elem = root.find("sparql:boolean", namespaces)
+                    if boolean_elem is not None and boolean_elem.text == "true":
                         return True
-        
+
         return False
+
 
 class Unesco(VocabularyConnection):
     def __init__(self, config):
@@ -425,17 +428,18 @@ class Unesco(VocabularyConnection):
             )
         else:
             if self._config_items["remote_path"] in term:
-                term = term.replace(' ','').replace('\xa0','')
+                term = term.replace(" ", "").replace("\xa0", "")
                 sparql_endpoint = "https://vocabularies.unesco.org/sparql"
                 query = f"""SELECT ?p ?o WHERE {{ <{term}> ?p ?o .}} LIMIT 1"""
-                params = {"query": query, "format": 'json'}
+                params = {"query": query, "format": "json"}
                 headers = {"Accept": "application/json"}
                 response = requests.get(sparql_endpoint, params=params, headers=headers)
                 if response.status_code == 200:
-                    if len(response.json().get('results', {}).get('bindings', [])) > 0:
+                    if len(response.json().get("results", {}).get("bindings", [])) > 0:
                         return True
 
         return False
+
 
 class Coar(VocabularyConnection):
     def __init__(self, config):
@@ -453,13 +457,14 @@ class Coar(VocabularyConnection):
                 status_code = 350
                 while status_code > 300 and status_code < 400:
                     response = requests.head(term)
-                    term = response.headers.get('Location')
+                    term = response.headers.get("Location")
                     status_code = response.status_code
                 if status_code == 200:
                     return True
                 else:
                     return False
         return False
+
 
 class LibraryOfCongress(VocabularyConnection):
     def __init__(self, config):
@@ -477,13 +482,14 @@ class LibraryOfCongress(VocabularyConnection):
                 status_code = 350
                 while status_code > 300 and status_code < 400:
                     response = requests.head(term)
-                    term = response.headers.get('Location')
+                    term = response.headers.get("Location")
                     status_code = response.status_code
                 if status_code == 200:
                     return True
                 else:
                     return False
         return False
+
 
 class Wikidata(VocabularyConnection):
     def __init__(self, config):
@@ -498,17 +504,18 @@ class Wikidata(VocabularyConnection):
             )
         else:
             if self._config_items["remote_path"] in term:
-                term = term.replace('https','http').replace('/wiki/','/entity/')
+                term = term.replace("https", "http").replace("/wiki/", "/entity/")
                 sparql_endpoint = "https://query.wikidata.org/sparql"
                 query = f"""SELECT ?p ?o WHERE {{ <{term}> ?p ?o .}} LIMIT 1"""
                 params = {"query": query, "format": "json"}
                 headers = {"Accept": "application/json"}
                 response = requests.get(sparql_endpoint, params=params, headers=headers)
                 if response.status_code == 200:
-                    if len(response.json().get('results', {}).get('bindings', [])) > 0:
+                    if len(response.json().get("results", {}).get("bindings", [])) > 0:
                         return True
 
         return False
+
 
 class ORCID(VocabularyConnection):
     def __init__(self, config):
@@ -527,11 +534,11 @@ class ORCID(VocabularyConnection):
             )
         else:
             if ut.check_orcid(term):
-                
+
                 # Format the API URL
                 api_url = f"https://pub.orcid.org/v3.0/{term}"
                 headers = {"Accept": "application/json"}
-                
+
                 try:
                     response = requests.head(api_url, headers=headers)
                     return response.status_code == 200
@@ -539,6 +546,7 @@ class ORCID(VocabularyConnection):
                     logger.warning(f"Failed to validate ORCID: {term}")
                     return False
         return False
+
 
 class PIC(VocabularyConnection):
     def __init__(self, config):
@@ -561,18 +569,19 @@ class PIC(VocabularyConnection):
                 pic_number = term
             else:
                 try:
-                    pic_number = term.split('/')[-1]
+                    pic_number = term.split("/")[-1]
                 except:
                     return False
 
             try:
                 response = requests.head(remote_path)
                 # The portal redirects to search page if PIC doesn't exist
-                return not "search" in response.headers.get('Location', '')
+                return not "search" in response.headers.get("Location", "")
             except requests.exceptions.RequestException:
                 logger.warning(f"Failed to validate PIC: {term}")
                 return False
         return False
+
 
 class Vocabulary:
     def __init__(self, config):
@@ -621,7 +630,7 @@ class Vocabulary:
     def get_orcid(self, term):
         vocabulary = ORCID(self.config)
         return vocabulary.collect(term=term)
-    
+
     def get_pic(self, term):
         vocabulary = PIC(self.config)
         return vocabulary.collect(term=term)
