@@ -543,7 +543,28 @@ def _store(identifier, dframe, file_format="feather", path="/tmp", file_prefix="
     return file_path
 
 
-    logging.info("Stored FAIR assessment results to: %s" % file_path)
+def store(identifier, score_data, file_format="feather", path="/tmp"):
+    dframe = pd.DataFrame(score_data)
+    dframe.columns = ["fair_indicator", "fair_principle", "score", "message"]
+    dframe["score"] = pd.to_numeric(dframe["score"])
+    logging.debug("Resultant Pandas data frame: %s" % dframe)
+    file_path = _store(
+        identifier, dframe, file_format, path, file_prefix="per-indicator"
+    )
+    logging.info("FAIR assessment results per-indicator stored in: %s" % file_path)
+
+
+def store_totals(plugin, identifier, score_data, file_format="feather", path="/tmp"):
+    score_data_new = list(map(list, score_data.items()))
+    score_data_new = list(map(lambda item: [plugin, identifier] + item, score_data_new))
+    dframe = pd.DataFrame(score_data_new)
+    dframe.columns = ["identifier", "plugin", "fair_principle", "score"]
+    dframe["score"] = pd.to_numeric(dframe["score"])
+    logging.debug("Resultant Pandas data frame: %s" % dframe)
+    file_path = _store(
+        identifier, dframe, file_format, path, file_prefix="per-principle"
+    )
+    logging.info("FAIR assessment results per-principle stored in: %s" % file_path)
 
 
 def main():
