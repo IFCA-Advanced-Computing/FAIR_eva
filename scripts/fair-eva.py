@@ -525,13 +525,11 @@ def search(keytext):
         sys.exit()
 
 
-def store(identifier, score_data, file_format="feather", path="/tmp"):
-    dframe = pd.DataFrame(score_data)
-    dframe.columns = ["fair_indicator", "fair_principle", "score", "message"]
-    dframe["score"] = pd.to_numeric(dframe["score"])
-    logging.debug("Resultant Pandas data frame: %s" % dframe)
-
-    file_name = "fair_eva_results-%s.%s" % (identifier, file_format)
+def _store(identifier, dframe, file_format="feather", path="/tmp", file_prefix=""):
+    if file_prefix:
+        file_name = "fair_eva_results-%s-%s.%s" % (file_prefix, identifier, file_format)
+    else:
+        file_name = "fair_eva_results-%s.%s" % (identifier, file_format)
     file_path = os.path.join(path, file_name)
     if file_format not in ["feather", "csv"]:
         logging.error("Output file format not supported: %s" % file_format)
@@ -542,6 +540,8 @@ def store(identifier, score_data, file_format="feather", path="/tmp"):
             dframe.to_feather(file_path)
         elif file_format in ["csv"]:
             dframe.to_csv(file_path)
+    return file_path
+
 
     logging.info("Stored FAIR assessment results to: %s" % file_path)
 
