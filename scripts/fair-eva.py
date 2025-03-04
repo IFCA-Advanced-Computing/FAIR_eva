@@ -23,10 +23,12 @@ repo = "oai-pmh"
 import argparse
 import json
 import logging
+import os.path
 import socket
 import sys
 import time
 
+import pandas as pd
 import requests
 from flask_babel import Babel, gettext
 from flask_babel import lazy_gettext as _l
@@ -524,10 +526,6 @@ def search(keytext):
 
 
 def store(identifier, score_data, file_format="feather", path="/tmp"):
-    import os.path
-
-    import pandas as pd
-
     dframe = pd.DataFrame(score_data)
     dframe.columns = ["fair_indicator", "fair_principle", "score", "message"]
     dframe["score"] = pd.to_numeric(dframe["score"])
