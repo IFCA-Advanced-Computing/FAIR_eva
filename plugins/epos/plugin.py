@@ -3,6 +3,7 @@
 import ast
 import configparser
 import csv
+import datetime
 import json
 import logging
 import os
@@ -1118,11 +1119,11 @@ class Plugin(EvaluatorBase):
         has_expired = False
         if data_end_date:
             logging.debug(
-                "Temporal coverage for end date is defined: %s" % date_end_date
+                "Temporal coverage for end date is defined: %s" % data_end_date
             )
-            if date_end_date < datetime.datetime.now():
+            if data_end_date < datetime.datetime.now():
                 logging.info(
-                    "Temporal coverage for the dataset has expired: %s" % date_end_date
+                    "Temporal coverage for the dataset has expired: %s" % data_end_date
                 )
                 has_expired = True
         else:
