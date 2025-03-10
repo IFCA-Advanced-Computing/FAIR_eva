@@ -18,7 +18,7 @@ import requests
 from dicttoxml import dicttoxml
 
 import api.utils as ut
-from api.evaluator import ConfigTerms, Evaluator, MetadataValuesBase
+from api.evaluator import ConfigTerms, EvaluatorBase, MetadataValuesBase
 from api.vocabulary import Vocabulary
 
 logging.basicConfig(
