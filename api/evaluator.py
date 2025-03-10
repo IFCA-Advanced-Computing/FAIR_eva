@@ -711,23 +711,7 @@ class EvaluatorBase(ABC):
         self.metadata_persistence = ast.literal_eval(
             self.config[self.name]["metadata_persistence"]
         )
-        self.terms_vocabularies = ast.literal_eval(
-            self.config[self.name]["terms_vocabularies"]
-        )
 
-        self.fairsharing_username = ast.literal_eval(
-            self.config["fairsharing"]["username"]
-        )
-
-        self.fairsharing_password = ast.literal_eval(
-            self.config["fairsharing"]["password"]
-        )
-        self.fairsharing_metadata_path = ast.literal_eval(
-            self.config["fairsharing"]["metadata_path"]
-        )
-        self.fairsharing_formats_path = ast.literal_eval(
-            self.config["fairsharing"]["formats_path"]
-        )
         self.internet_media_types_path = ast.literal_eval(
             self.config["internet media types"]["path"]
         )
@@ -2271,31 +2255,18 @@ class EvaluatorBase(ABC):
         """
         msg = "No metadata standard"
         points = 0
-        offline = True
-        if self.metadata_standard == []:
-            return (points, [{"message": msg, "points": points}])
 
-        try:
-            f = open(self.fairsharing_metadata_path[0])
-            f.close()
-
-        except:
-            msg = "The config.ini fairshraing metatdata_path does not arrive at any file. Try 'static/fairsharing_metadata_standards140224.json'"
-            return (points, [{"message": msg, "points": points}])
-
-        if self.fairsharing_username != [""]:
-            offline = False
-
-        fairsharing = ut.get_fairsharing_metadata(
-            offline,
-            password=self.fairsharing_password[0],
-            username=self.fairsharing_username[0],
-            path=self.fairsharing_metadata_path[0],
-        )
-        for standard in fairsharing["data"]:
+        for standard in self.vocabulary.get_fairsharing(
+            search_topic=self.metadata_standard[0]
+        ):
             if self.metadata_standard[0] == standard["attributes"]["abbreviation"]:
                 points = 100
+                logger.debug(
+                    "Metadata standard '%s' found under FAIRsharing registry"
+                    % self.metadata_standard[0]
+                )
                 msg = "Metadata standard in use complies with a community standard according to FAIRsharing.org"
+
         return (points, [{"message": msg, "points": points}])
 
     @ConfigTerms(term_id="terms_reusability_richness")

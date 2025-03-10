@@ -1700,35 +1700,6 @@ class Plugin(EvaluatorBase):
 
         return (points, [{"message": msg, "points": points}])
 
-    def rda_r1_3_01m(self, **kwargs):
-        """Indicator RDA-R1.3-01M: Metadata complies with a community standard.
-
-        This indicator is linked to the following principle: R1.3: (Meta)data meet domain-relevant
-        community standards.
-
-        This indicator requires that data complies with community standards.
-
-        Returns
-        --------
-        points
-           100/100 if the metadata standard appears is listed under FAIRsharing
-        """
-        msg = "No metadata standard"
-        points = 0
-
-        for standard in self.vocabulary.get_fairsharing(
-            search_topic=self.metadata_standard[0]
-        ):
-            if self.metadata_standard[0] == standard["attributes"]["abbreviation"]:
-                points = 100
-                logger.debug(
-                    "Metadata standard '%s' found under FAIRsharing registry"
-                    % self.metadata_standard[0]
-                )
-                msg = "Metadata standard in use complies with a community standard according to FAIRsharing.org"
-
-        return (points, [{"message": msg, "points": points}])
-
     @ConfigTerms(term_id="terms_reusability_richness", validate=True)
     def rda_r1_3_01d(self, **kwargs):
         """Indicator RDA-R1.3-01D: Data complies with a community standard.
