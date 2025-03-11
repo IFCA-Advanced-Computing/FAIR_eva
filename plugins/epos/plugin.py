@@ -3,6 +3,7 @@
 import ast
 import configparser
 import csv
+import datetime
 import json
 import logging
 import os
@@ -17,7 +18,7 @@ import requests
 from dicttoxml import dicttoxml
 
 import api.utils as ut
-from api.evaluator import ConfigTerms, Evaluator, MetadataValuesBase
+from api.evaluator import ConfigTerms, EvaluatorBase, MetadataValuesBase
 from api.vocabulary import Vocabulary
 
 logging.basicConfig(
@@ -1118,11 +1119,11 @@ class Plugin(EvaluatorBase):
         has_expired = False
         if data_end_date:
             logging.debug(
-                "Temporal coverage for end date is defined: %s" % date_end_date
+                "Temporal coverage for end date is defined: %s" % data_end_date
             )
-            if date_end_date < datetime.datetime.now():
+            if data_end_date < datetime.datetime.now():
                 logging.info(
-                    "Temporal coverage for the dataset has expired: %s" % date_end_date
+                    "Temporal coverage for the dataset has expired: %s" % data_end_date
                 )
                 has_expired = True
         else:
@@ -1696,35 +1697,6 @@ class Plugin(EvaluatorBase):
 
         if len(provenance_list) > 0:
             points = 100
-
-        return (points, [{"message": msg, "points": points}])
-
-    def rda_r1_3_01m(self, **kwargs):
-        """Indicator RDA-R1.3-01M: Metadata complies with a community standard.
-
-        This indicator is linked to the following principle: R1.3: (Meta)data meet domain-relevant
-        community standards.
-
-        This indicator requires that data complies with community standards.
-
-        Returns
-        --------
-        points
-           100/100 if the metadata standard appears is listed under FAIRsharing
-        """
-        msg = "No metadata standard"
-        points = 0
-
-        for standard in self.vocabulary.get_fairsharing(
-            search_topic=self.metadata_standard[0]
-        ):
-            if self.metadata_standard[0] == standard["attributes"]["abbreviation"]:
-                points = 100
-                logger.debug(
-                    "Metadata standard '%s' found under FAIRsharing registry"
-                    % self.metadata_standard[0]
-                )
-                msg = "Metadata standard in use complies with a community standard according to FAIRsharing.org"
 
         return (points, [{"message": msg, "points": points}])
 

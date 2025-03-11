@@ -711,26 +711,7 @@ class EvaluatorBase(ABC):
         self.metadata_persistence = ast.literal_eval(
             self.config[self.name]["metadata_persistence"]
         )
-        self.terms_vocabularies = ast.literal_eval(
-            self.config[self.name]["terms_vocabularies"]
-        )
 
-        self.fairsharing_username = ast.literal_eval(
-            self.config["fairsharing"]["username"]
-        )
-
-        self.fairsharing_password = ast.literal_eval(
-            self.config["fairsharing"]["password"]
-        )
-        self.fairsharing_metadata_path = ast.literal_eval(
-            self.config["fairsharing"]["metadata_path"]
-        )
-        self.fairsharing_formats_path = ast.literal_eval(
-            self.config["fairsharing"]["formats_path"]
-        )
-        self.internet_media_types_path = ast.literal_eval(
-            self.config["internet media types"]["path"]
-        )
         global _
         _ = self.translation()
 
@@ -1665,65 +1646,24 @@ class EvaluatorBase(ABC):
 
         return (_points, [{"message": _msg, "points": _points}])
 
-    def rda_i1_01d(self):
-        """Indicator RDA-A1-01M
-        This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
-        shared, and broadly applicable language for knowledge representation. More information
-        about that principle can be found here.
+    @ConfigTerms(term_id="terms_reusability_richness", validate=True)
+    def rda_i1_01d(self, **kwargs):
+        """Indicator RDA-I1-01D: Data uses knowledge representation expressed in standarised format.
+
+        This indicator is linked to the following principle: I1: (Meta)data use a formal,
+        accessible, shared, and broadly applicable language for knowledge representation.
 
         The indicator serves to determine that an appropriate standard is used to express
         knowledge, in particular the data model and format.
-        Technical proposal: Data format is within a list of accepted standards.
-
 
         Returns
         -------
         points
-            A number between 0 and 100 to indicate how well this indicator is supported
+            100/100 If the file format is listed under IANA Internet Media Types
         msg
             Message with the results or recommendations to improve this indicator
         """
-        points = 0
-        msg_list = []
-        msg = "No internet media file path found"
-        internetMediaFormats = []
-        availableFormats = []
-        path = self.internet_media_types_path[0]
-
-        try:
-            f = open(path)
-            f.close()
-
-        except:
-            msg = "The config.ini internet media types file path does not arrive at any file. Try 'static/internetmediatipes190224.csv'"
-            return (points, [{"message": msg, "points": points}])
-
-        f = open(path)
-        csv_reader = csv.reader(f)
-
-        for row in csv_reader:
-            internetMediaFormats.append(row[1])
-
-        f.close()
-
-        try:
-            item_id_http = idutils.to_url(
-                self.item_id,
-                idutils.detect_identifier_schemes(self.item_id)[0],
-                url_scheme="http",
-            )
-            points, msg, data_files = ut.find_dataset_file(
-                self.item_id, item_id_http, internetMediaFormats
-            )
-            for e in data_files:
-                logger.debug(e)
-            msg_list.append({"message": msg, "points": points})
-            if points == 0:
-                msg_list.append({"message": _("No files found"), "points": points})
-        except Exception as e:
-            logger.error(e)
-
-        return (points, msg_list)
+        (_msg, _points) = self.eval_validated_basic(kwargs)
 
     def rda_i1_02m(self):
         # TOFIX - This is very OAI-PMH dependant
@@ -2271,31 +2211,18 @@ class EvaluatorBase(ABC):
         """
         msg = "No metadata standard"
         points = 0
-        offline = True
-        if self.metadata_standard == []:
-            return (points, [{"message": msg, "points": points}])
 
-        try:
-            f = open(self.fairsharing_metadata_path[0])
-            f.close()
-
-        except:
-            msg = "The config.ini fairshraing metatdata_path does not arrive at any file. Try 'static/fairsharing_metadata_standards140224.json'"
-            return (points, [{"message": msg, "points": points}])
-
-        if self.fairsharing_username != [""]:
-            offline = False
-
-        fairsharing = ut.get_fairsharing_metadata(
-            offline,
-            password=self.fairsharing_password[0],
-            username=self.fairsharing_username[0],
-            path=self.fairsharing_metadata_path[0],
-        )
-        for standard in fairsharing["data"]:
+        for standard in self.vocabulary.get_fairsharing(
+            search_topic=self.metadata_standard[0]
+        ):
             if self.metadata_standard[0] == standard["attributes"]["abbreviation"]:
                 points = 100
+                logger.debug(
+                    "Metadata standard '%s' found under FAIRsharing registry"
+                    % self.metadata_standard[0]
+                )
                 msg = "Metadata standard in use complies with a community standard according to FAIRsharing.org"
+
         return (points, [{"message": msg, "points": points}])
 
     @ConfigTerms(term_id="terms_reusability_richness")
