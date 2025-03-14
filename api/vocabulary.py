@@ -111,7 +111,7 @@ class IANAMediaTypes(VocabularyConnection):
         else:
             error_on_request = True
 
-        return error_on_request, content
+        return error_on_request, media_types_list
 
     def _local_collect(self):
         return self._parse_xml(from_file=True)

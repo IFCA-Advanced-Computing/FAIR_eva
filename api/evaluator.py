@@ -733,14 +733,16 @@ class EvaluatorBase(ABC):
         for _id in id_list:
             _points = 0
             if ut.is_persistent_id(_id):
-                _msg = "Found persistent identifier for the %s: %s" % (
+                _msg = _("Found persistent identifier for the")
+                _msg = _msg + " %s: %s" % (
                     data_or_metadata,
                     _id,
                 )
                 _points = points_per_id
                 points = 100
             else:
-                _msg = "Identifier is not persistent for the %s: %s" % (
+                _msg = _("Identifier is not persistent for the")
+                _msg = _msg + "%s: %s" % (
                     data_or_metadata,
                     _id,
                 )
@@ -761,7 +763,8 @@ class EvaluatorBase(ABC):
         for _id in id_list:
             _points = 0
             if ut.is_unique_id(_id):
-                _msg = "Found a globally unique identifier for the %s: %s" % (
+                _msg = _("Found a globally unique identifier for the")
+                _msg = _msg + "%s: %s" % (
                     data_or_metadata,
                     _id,
                 )
@@ -833,7 +836,7 @@ class EvaluatorBase(ABC):
         total_elements = len(validation_payload)
         total_elements_using_vocabulary = len(elements_using_vocabulary)
         _msg = (
-            "Found %s (%s) out of %s (%s) metadata elements using standard vocabularies"
+            _("Found metadata elements using standard vocabularies:") + " %s (%s) out of %s (%s)"
             % (
                 total_elements_using_vocabulary,
                 elements_using_vocabulary,
@@ -1029,8 +1032,8 @@ class EvaluatorBase(ABC):
 
                 points = round(metadata_keys_not_empty_num * (100 / term_num))
                 msg_list = [
-                    "Found %s (out of %s) metadata elements matching 'Metadata for Resource Discovery' elements"
-                    % (metadata_keys_not_empty_num, term_num)
+                    _("Found metadata elements matching 'Metadata for Resource Discovery' elements") + 
+                    " %s (out of %s)" % (metadata_keys_not_empty_num, term_num)
                 ]
 
         return (points, msg_list)
@@ -1059,7 +1062,8 @@ class EvaluatorBase(ABC):
         """
         id_list = kwargs["Data Identifier"]
 
-        msg = "Metadata includes identifier/s for the data: %s" % id_list
+        msg = _("Metadata includes identifier/s for the data:")
+        msg = msg + " %s" % id_list
         points = 100
 
         return (points, [{"message": msg, "points": points}])
@@ -1401,8 +1405,9 @@ class EvaluatorBase(ABC):
                 protocol
             )
         else:
+            _msg = _("Found a non-standarised protocol to access the metadata record:")
             msg = (
-                "Found a non-standarised protocol to access the metadata record: %s"
+                 _msg + "%s"
                 % str(protocol)
             )
         msg_list = [{"message": msg, "points": points}]
@@ -1664,6 +1669,7 @@ class EvaluatorBase(ABC):
             Message with the results or recommendations to improve this indicator
         """
         (_msg, _points) = self.eval_validated_basic(kwargs)
+        return (_points, [{"message": _(_msg), "points": _points}])
 
     def rda_i1_02m(self):
         # TOFIX - This is very OAI-PMH dependant
@@ -1753,11 +1759,11 @@ class EvaluatorBase(ABC):
             Message with the results or recommendations to improve this indicator
         """
         points = 0
-        msg = "The checked vocabularies the current version are:"
+        msg = _("The checked vocabularies the current version are:")
         passed = 0
         if len(self.cvs) == 0:
             self.rda_i1_01m()
-            msg = "No controlled vocabularies found"
+            msg = _("No controlled vocabularies found")
         for vocab in self.dict_vocabularies.keys():
             if vocab in self.cvs:
                 if ut.check_link(self.dict_vocabularies[vocab]):
@@ -1807,8 +1813,6 @@ class EvaluatorBase(ABC):
             Message with the results or recommendations to improve this indicator
         """
         points = 0
-        msg_list = []
-
         has_qualified_references = False
         msg_list = []
 
@@ -2013,7 +2017,7 @@ class EvaluatorBase(ABC):
             element for element, value in kwargs.items() if value
         ]
         if len(reusability_element_list) > 0:
-            msg = "Found %s metadata elements that enhance reusability: %s" % (
+            msg = _("Found metadata elements that enhance reusability:") + " %s: %s" % (
                 len(reusability_element_list),
                 reusability_element_list,
             )
@@ -2041,9 +2045,8 @@ class EvaluatorBase(ABC):
         """
         license_list = kwargs["License"]
 
-        msg_list = []
+        msg = ""
         points = 0
-        max_points = 100
 
         license_num = len(license_list)
         if license_num > 0:
@@ -2089,20 +2092,18 @@ class EvaluatorBase(ABC):
                 license_standard_list.append(_license)
                 points = 100
                 logger.debug(
-                    "License <%s> is considered as standard by SPDX" % _license
+                    _("License is considered as standard by SPDX:") + " <%s>" % _license
                 )
         if points == 100:
-            msg = (
-                "License/s in use are considered as standard according to SPDX license list: %s"
-                % license_standard_list
-            )
+            msg = _("License/s in use are considered as standard according to SPDX license list:") + "  %s" % license_standard_list
+    
         elif points > 0:
             msg = (
-                "A subset of the license/s in use (%s out of %s) are standard according to SDPX license list: %s"
+                _("A subset of the license/s in use are standard according to SDPX license list:") + " (%s out of %s) %s"
                 % (len(license_standard_list), license_num, license_standard_list)
             )
         else:
-            msg = "None of the license/s defined are standard according to SPDX license list"
+            msg = _("None of the license/s defined are standard according to SPDX license list")
         msg = " ".join([msg, "(points: %s)" % points])
         logger.info(msg)
 
@@ -2133,15 +2134,15 @@ class EvaluatorBase(ABC):
             license_list=license_list, machine_readable=machine_readable
         )
         if _points_license == 100:
-            _msg = "License/s are machine readable according to SPDX"
+            _msg = _("License/s are machine readable according to SPDX")
         elif _points_license == 0:
-            _msg = "License/s arenot machine readable according to SPDX"
+            _msg = _("License/s arenot machine readable according to SPDX")
         else:
-            _msg = "A subset of the license/s are machine readable according to SPDX"
+            _msg = _("A subset of the license/s are machine readable according to SPDX")
         logger.info(_msg)
         msg_list.append({"message": _msg, "points": _points_license})
 
-        return (_points_license, [{"message": msg_list, "points": _points_license}])
+        return (_points_license, [{"message": _msg_license + msg_list, "points": _points_license}])
 
     def rda_r1_2_01m(self):
         """Indicator RDA-A1-01M
@@ -2212,8 +2213,8 @@ class EvaluatorBase(ABC):
         msg = "No metadata standard"
         points = 0
 
-        for standard in self.vocabulary.get_fairsharing(
-            search_topic=self.metadata_standard[0]
+        for standard in Vocabulary.get_fairsharing(
+            self, search_topic=self.metadata_standard[0]
         ):
             if self.metadata_standard[0] == standard["attributes"]["abbreviation"]:
                 points = 100

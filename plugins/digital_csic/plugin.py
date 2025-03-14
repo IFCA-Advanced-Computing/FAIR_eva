@@ -16,6 +16,7 @@ from bs4 import BeautifulSoup
 
 import api.utils as ut
 from api.evaluator import ConfigTerms, EvaluatorBase, MetadataValuesBase
+from api.vocabulary import Vocabulary
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
@@ -399,6 +400,29 @@ class Plugin(EvaluatorBase):
 
         # TESTS
 
+    # FINDABLE
+    def rda_f2_01m(self):
+        """Indicator RDA-F2-01M
+        This indicator is linked to the following principle: F2: Data are described with rich metadata.
+        The indicator is about the presence of metadata, but also about how much metadata is
+        provided and how well the provided metadata supports discovery.
+        Technical proposal: Two different tests to evaluate generic and disciplinar metadata if needed.
+        Parameters
+        ----------
+        item_id : str
+            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
+            identifier from the repo)
+        Returns
+        -------
+        points
+            Returns a value (out of 100) that reflects the grade of compliance with the generic and disciplinary metadata schemas.
+        msg
+            Message with the results or recommendations to improve this indicator.
+        """
+        points, msg = super().rda_f2_01m()
+        self.metadata_quality = points
+        return (points, [{"message": msg, "points": points}])
+
     # ACCESS
     def rda_a1_04m(self, return_protocol=False):
         """Indicator RDA-A1-04M: Metadata is accessed through standarised protocol.
@@ -561,6 +585,99 @@ class Plugin(EvaluatorBase):
 
         # INTEROPERABLE
 
+    def rda_i1_01d(self):
+        """Indicator RDA-I1-01D: Data uses knowledge representation expressed in standarised format.
+
+        This indicator is linked to the following principle: I1: (Meta)data use a formal,
+        accessible, shared, and broadly applicable language for knowledge representation.
+
+        The indicator serves to determine that an appropriate standard is used to express
+        knowledge, in particular the data model and format.
+
+        Returns
+        -------
+        points
+            100/100 If the file format is listed under IANA Internet Media Types
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        logging.debug("Getting URL for ID: %s" % self.item_id)
+        item_id_http = idutils.to_url(
+            self.item_id,
+            idutils.detect_identifier_schemes(self.item_id)[0],
+            url_scheme="http",
+        )
+        item_id_http = requests.head(
+            item_id_http, verify=False, allow_redirects=True, timeout=10
+        ).url
+
+        if self.file_list is None or len(self.file_list) == 0:
+            try:
+
+                logging.debug(
+                    "Trying to check dataset accessibility manually to: %s"
+                    % item_id_http
+                )
+                msg_2, points_2, self.file_list = self.find_dataset_file(
+                    self.metadata, item_id_http, self.supported_data_formats
+                )
+
+            except Exception as e:
+                logger.error(e)
+
+        allowed_formats = Vocabulary.get_iana_media_types(self)
+        total_files = len(self.file_list)
+        valid_count = 0
+
+        for file in self.file_list:
+            file_valid = False
+            # Construct the complete URL for the file
+            file_url = item_id_http + file
+            try:
+                response = requests.head(file_url, verify=False, timeout=10)
+                if response.status_code == 200:
+                    content_type = response.headers.get("Content-Type", "")
+                    for fmt in allowed_formats:
+                        if fmt in content_type:
+                            logger.info(
+                                _(
+                                    "File '%s' with URL '%s' conforms to allowed format '%s'"
+                                )
+                                % (file, file_url, fmt)
+                            )
+                            valid_count += 1
+                            file_valid = True
+                            break
+                    if not file_valid:
+                        logger.warning(
+                            _(
+                                "File '%s' with URL '%s' does not conform to any allowed formats: %s"
+                            )
+                            % (file, file_url, allowed_formats)
+                        )
+                else:
+                    logger.error(
+                        _("Failed to access URL '%s' for file '%s', status code: %s")
+                        % (file_url, file, response.status_code)
+                    )
+            except Exception as e:
+                logger.error(_("Error accessing file URL '%s': %s") % (file_url, e))
+
+        if total_files > 0:
+            if valid_count == total_files:
+                points = 100
+                message = _("File format is listed under IANA Internet Media Types")
+            else:
+                points = int(100 * valid_count / total_files)
+                message = _(
+                    "Only %(valid_count)d out of %(total)d files are in allowed formats"
+                ) % {"valid_count": valid_count, "total": total_files}
+        else:
+            points = 0
+            message = _("No files found")
+
+        return (points, [{"message": message, "points": points}])
+
     def rda_i1_02m(self):
         """Indicator RDA-A1-01M
         This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
@@ -598,6 +715,25 @@ class Plugin(EvaluatorBase):
             logging.error(e)
         self.item_id = identifier_temp
         return (points, msg_list)
+
+    def rda_i3_04m(self):
+        """Indicator RDA-A1-01M.
+
+        This indicator is linked to the following principle: I3: (Meta)data include qualified references
+        to other (meta)data. More information about that principle can be found here.
+
+        This indicator is about the way metadata is connected to other data. The references need
+        to be qualified which means that the relationship role of the related resource is specified,
+        for example dataset X is derived from dataset Y.
+
+        Returns
+        -------
+        points
+            A number between 0 and 100 to indicate how well this indicator is supported
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        return self.rda_i1_02m()
 
     def rda_r1_2_01m(self):
         """Indicator RDA-R1.2-01M
@@ -653,6 +789,196 @@ class Plugin(EvaluatorBase):
 
         return (points, msg)
 
+    def rda_r1_2_01m(self):
+        """Indicator RDA-A1-01M
+        This indicator is linked to the following principle: R1.2: (Meta)data are associated with
+        detailed provenance. More information about that principle can be found here.
+        This indicator requires the metadata to include information about the provenance of the
+        data, i.e. information about the origin, history or workflow that generated the data, in a
+        way that is compliant with the standards that are used in the community in which the data
+        is produced.
+        Technical proposal:
+        Parameters
+        ----------
+        item_id : str
+            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
+            identifier from the repo)
+        Returns
+        -------
+        points
+            A number between 0 and 100 to indicate how well this indicator is supported
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        logging.debug("Getting URL for ID: %s" % self.item_id)
+        item_id_http = idutils.to_url(
+            self.item_id,
+            idutils.detect_identifier_schemes(self.item_id)[0],
+            url_scheme="http",
+        )
+        item_id_http = requests.head(
+            item_id_http, verify=False, allow_redirects=True, timeout=10
+        ).url
+
+        if self.file_list is None or len(self.file_list) == 0:
+            try:
+
+                logging.debug(
+                    "Trying to check dataset accessibility manually to: %s"
+                    % item_id_http
+                )
+                msg_2, points_2, self.file_list = self.find_dataset_file(
+                    self.metadata, item_id_http, self.supported_data_formats
+                )
+
+            except Exception as e:
+                logger.error(e)
+        points = 0
+        msg = _("README file not found")
+
+        readme_found = False
+        for file in self.file_list:
+            # Check if file name exactly equals 'README' or starts with 'README.' (handling extensions)
+            if "README" in file.strip().upper():
+                readme_found = True
+                msg = _("README file found:") + "%s" % file
+                points = 100
+                break
+        if not readme_found:
+            logger.warning(_("No README file found in file list"))
+
+        return (points, [{"message": msg, "points": points}])
+
+    @ConfigTerms(term_id="terms_provenance")
+    def rda_r1_2_02m(self, **kwargs):
+        """Indicator RDA-A1-01M
+        This indicator is linked to the following principle: R1.2: (Meta)data are associated with
+        detailed provenance. More information about that principle can be found here.
+        This indicator requires that the metadata provides provenance information according to a
+        cross-domain language.
+        Technical proposal:
+        Parameters
+        ----------
+        item_id : str
+            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
+            identifier from the repo)
+        Returns
+        -------
+        points
+            A number between 0 and 100 to indicate how well this indicator is supported
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        prov_md = kwargs["Provenance"]
+        msg_list = []
+        msg_st_list = []
+        points = 0
+        for value in prov_md:
+            msg_st_list.append(_("Metadata found for provenance") + ": " + value)
+            logging.debug(_("Metadata found for provenance") + ": " + value)
+            points = 100
+        msg_list.append({"message": msg_st_list, "points": points})
+        return (points, msg_list)
+
+    def rda_r1_3_01m(self):
+        """Indicator RDA-R1.3-01M: Metadata complies with a community standard.
+
+        This indicator is linked to the following principle: R1.3: (Meta)data meet domain-relevant
+        community standards.
+
+        This indicator requires that data complies with community standards.
+
+        Returns
+        --------
+        points
+           100/100 if the metadata standard appears is listed under FAIRsharing
+        """
+        e = "DublinCore"
+        msg = _("Community schema found:") + " %s" % e
+        points = 100
+        return (points, [{"message": msg, "points": points}])
+
+    @ConfigTerms(term_id="terms_reusability_richness")
+    def rda_r1_3_01d(self, **kwargs):
+        """Indicator RDA-R1.3-01D: Data complies with a community standard.
+
+        This indicator is linked to the following principle: R1.3: (Meta)data meet domain-relevant
+        community standards.
+
+        This indicator requires that data complies with community standards.
+
+        Returns
+        --------
+        points
+           100/100 if the data standard appears in Fairsharing (0/100 otherwise)
+        """
+        (_msg, _points) = self.eval_validated_basic(kwargs)
+
+        return (_points, [{"message": _msg, "points": _points}])
+
+    def rda_r1_3_02m(self):
+        """Indicator RDA-A1-01M
+        This indicator is linked to the following principle: R1.3: (Meta)data meet domain-relevant
+        community standards. More information about that principle can be found here.
+        This indicator requires that the metadata follows a community standard that has a machineunderstandable expression.
+        Technical proposal:
+        Parameters
+        ----------
+        item_id : str
+            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
+            identifier from the repo)
+        Returns
+        -------
+        points
+            A number between 0 and 100 to indicate how well this indicator is supported
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        # Check metadata XML or RDF schema
+        points = 0
+        msg = _(
+            "Currently, this tool does not include community-bsed schemas. If you need to include yours, please contact."
+        )
+        try:
+            headers = {"Accept": "application/xml"}  # Type of response accpeted
+            loc = "https://dublincore.org/schemas/xmls/qdc/2008/02/11/dc.xsd"
+            r = requests.get(loc, headers=headers)  # GET with headers
+            xmlTree = ET.fromstring(r.text)
+            points = 100
+            msg = "%s: %s" % (_("Dublin Core defined in XML"), loc)
+        except Exception as err:
+            logging.error("Error: %s" % err)
+
+        try:
+            points = (points * self.metadata_quality) / 100
+            logging.info("Applied a quality factor of %f" % self.metadata_quality)
+        except Exception as e:
+            logging.error(e)
+
+        return (points, [{"message": msg, "points": points}])
+
+    def rda_r1_3_02d(self):
+        """Indicator RDA-A1-01M
+        This indicator is linked to the following principle: R1.3: (Meta)data meet domain-relevant
+        community standards.
+        This indicator requires that the data follows a community standard that has a machineunderstandable expression.
+        Technical proposal:
+        Parameters
+        ----------
+        item_id : str
+            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
+            identifier from the repo)
+        Returns
+        -------
+        points
+            A number between 0 and 100 to indicate how well this indicator is supported
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        # Difficult for data
+        # TEMP
+        return self.rda_i1_01d()
+
     # DIGITAL_CSIC UTILS
     def get_internal_id(self, item_id, connection):
         internal_id = item_id
@@ -690,25 +1016,6 @@ class Plugin(EvaluatorBase):
                     internal_id = row[0]
 
         return internal_id
-
-    def rda_i3_04m(self):
-        """Indicator RDA-A1-01M.
-
-        This indicator is linked to the following principle: I3: (Meta)data include qualified references
-        to other (meta)data. More information about that principle can be found here.
-
-        This indicator is about the way metadata is connected to other data. The references need
-        to be qualified which means that the relationship role of the related resource is specified,
-        for example dataset X is derived from dataset Y.
-
-        Returns
-        -------
-        points
-            A number between 0 and 100 to indicate how well this indicator is supported
-        msg
-            Message with the results or recommendations to improve this indicator
-        """
-        return self.rda_i1_02m()
 
     def get_handle_id(self, internal_id, connection):
         query = (
@@ -752,8 +1059,9 @@ class Plugin(EvaluatorBase):
         for tag in soup.find_all("a"):
             for f in data_formats:
                 try:
-                    if f in tag.get("href") or f in tag.text:
-                        data_files.append(tag.get("href"))
+                    href = tag.get("href")
+                    if (f in href or f in tag.text) and href not in data_files:
+                        data_files.append(href)
                 except Exception as e:
                     pass
 
