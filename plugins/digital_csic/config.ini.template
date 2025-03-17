@@ -6,7 +6,7 @@ db_port =
 db_user =
 db_pass =
 db_db   =
-oai_base = http://digital.csic.es/dspace-oai/request
+api_endpoint = http://digital.csic.es/dspace-oai/request
 
 # (meta)data terms to find the resource identifier
 identifier_term = [['identifier', 'doi'], ['identifier', 'uri']]

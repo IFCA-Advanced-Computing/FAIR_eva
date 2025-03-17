@@ -31,7 +31,7 @@ The previous command is similar to the following `curl` command:
 ```
 (terminal #2) curl  -H  "accept: application/json"\
       -H  "Content-Type: application/json" \
-      -d '{"id":"d4101e2f-c1b9-4fde-a4d1-d79a26d5d23a","lang":"es","oai_base": "https://ics-c.epos-ip.org/development/k8s-epos-deploy/dt-geo/api/v1","repo":"epos"}'\
+      -d '{"id":"d4101e2f-c1b9-4fde-a4d1-d79a26d5d23a","lang":"es","api_endpoint": "https://ics-c.epos-ip.org/development/k8s-epos-deploy/dt-geo/api/v1","repo":"epos"}'\
       -X POST "http://localhost:9090/v1.0/rda/rda_all"
 ```
 
@@ -47,7 +47,7 @@ In terminal 2, instead of using the previous comand use:
 ```
 (terminal #2) curl  -H  "accept: application/json"\
       -H  "Content-Type: application/json"\
-      -d '{"id":"d4101e2f-c1b9-4fde-a4d1-d79a26d5d23a","lang":"es","oai_base":  "https://ics-c.epos-ip.org/development/k8s-epos-deploy/dt-geo/api/v1","repo":"epos"}' \
+      -d '{"id":"d4101e2f-c1b9-4fde-a4d1-d79a26d5d23a","lang":"es","api_endpoint":  "https://ics-c.epos-ip.org/development/k8s-epos-deploy/dt-geo/api/v1","repo":"epos"}' \
       -X POST "http://localhost:9090/v1.0/rda/rda_f2_01m"
 ```
 Same as before this is an example, you can change the q parameter to whatever you want to search. This will return the id of all the results found.

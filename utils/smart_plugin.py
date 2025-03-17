@@ -103,14 +103,14 @@ class Smart_plugin:
         of the endpoint."""
         logger.debug("Selecting plugin for publisher: %s at URL: %s" % (publisher, url))
         plugin = None
-        oai_base = None
+        api_endpoint = None
         netloc = urlparse(url).netloc
         if netloc is None or netloc == "":
             netloc = url
-        plugin, oai_base, service_endpoint = self.get_plugin(netloc)
+        plugin, api_endpoint, service_endpoint = self.get_plugin(netloc)
         if plugin is None:
-            oai_base = self.get_oai_endpoint(netloc)
-            if oai_base is not None:
+            api_endpoint = self.get_oai_endpoint(netloc)
+            if api_endpoint is not None:
                 plugin = "oai-pmh"
         try:
             logging.debug(
@@ -120,7 +120,7 @@ class Smart_plugin:
                 plugin = "oai-pmh"
         except Exception as e:
             logger.error(e)
-        return plugin, oai_base
+        return plugin, api_endpoint
 
     def handle_flow(self, pid):
         url = "http://hdl.handle.net/api/handles/%s" % pid  # PID URL with ?noredirect
@@ -131,7 +131,7 @@ class Smart_plugin:
             if e["type"] == "URL":
                 url = e["data"]["value"]
         domain = urlparse(url).netloc
-        oai_base = self.get_oai_endpoint(domain)
+        api_endpoint = self.get_oai_endpoint(domain)
         plugin, url = self.smart_plugin_selection(domain, domain)
         return plugin, url
 
@@ -206,12 +206,12 @@ class Smart_plugin:
         logger.debug("Checking NETLOC: %s" % netloc)
         results = g.query(query)
         plugin = None
-        oai_base = None
+        api_endpoint = None
         service_endpoint = None
         for row in results:
             if netloc in str(row["domain"]):
                 plugin = str(row["plugin"])
-                oai_base = str(row["oai_base"])
+                api_endpoint = str(row["api_endpoint"])
                 service_endpoint = str(row["domain"])
         try:
             logging.debug(
@@ -221,4 +221,4 @@ class Smart_plugin:
                 plugin = "oai-pmh"
         except Exception as e:
             logger.error(e)
-        return plugin, oai_base, service_endpoint
+        return plugin, api_endpoint, service_endpoint

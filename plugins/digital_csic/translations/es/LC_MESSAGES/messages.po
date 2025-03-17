@@ -435,6 +435,18 @@ msgstr ""
 #~ "Congress, Geonames, etc."
 #~ msgstr ""
 
+#: Manually in tests
+msgid "Found persistent identifier for the"
+msgstr "Encontrado identificador persistente para"
+
+msgid "Found a globally unique identifier for the %s: %s"
+msgstr "Encontrado potencial identificador único global para %s: %s"
+
+"File format is listed under IANA Internet Media Types"
+
+
+
+
 #: Manually added
 msgid "Terms to check"
 msgstr "Terminos a comprobar"
@@ -974,3 +986,18 @@ msgstr "Este test implementa el realizado en RDA-R1-01D. Puede ser redefinido po
 
 msgid "rda_r1_3_02d.tips"
 msgstr "Si vas a compartir tus ficheros de datos en un formato propietario, es recomendable proporcionar también una copia en un formato abierto. Puedes convertir los ficheros del objeto digital a uno de los formatos recomendados usando las siguientes herramientas gratuitas <span style=\"text-decoration:underline;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;color:#1155cc;\"><a target=\"_blank\" href=\"https://formatfactory.online/\">Format Factory </a></span>https://formatfactory.online/ o <span style=\"text-decoration:underline;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;color:#1155cc;\"><a target=\"_blank\" href=\"http://digital.csic.es/dc/faqs/#faq26\">zamzar y lee las recomendaciones de DIGITAL.CSIC sobre denominación de ficheros.</a></span></tbody>"
+
+msgid "README file not found"
+msgstr "Fichero README no encontrado"
+
+msgid "README file found:"
+msgstr "Fichero README encontrado:"
+
+msgid "After applying weigh"
+msgstr "Después de aplicar el peso"
+
+msgid "Metadata found for provenance"
+msgstr "Metadatos sobre procedencia (provenance) encontrados"
+
+msgid "Found a non-standarised protocol to access the metadata record:"
+msgstr "Encontrado un protocolo no estandarizado para acceder al registro de metadatos:"

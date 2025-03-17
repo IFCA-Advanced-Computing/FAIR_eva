@@ -41,9 +41,9 @@ python3 fair.py
 In another terminal you can then use the following comand to ask the API for the information
 
 ```
-curl -X POST "http://localhost:9090/v1.0/rda/rda_all" -H  "accept: application/json" -H  "Content-Type: application/json" -d '{"id":"http://hdl.handle.net/10261/157765","lang":"es","oai_base": "http://digital.csic.es/dspace-oai/request","repo":"oai-pmh"}'
+curl -X POST "http://localhost:9090/v1.0/rda/rda_all" -H  "accept: application/json" -H  "Content-Type: application/json" -d '{"id":"http://hdl.handle.net/10261/157765","lang":"es","api_endpoint": "http://digital.csic.es/dspace-oai/request","repo":"oai-pmh"}'
 ```
-The 'id' should be the DOI or handle of the document you want to check, and the 'oai_base' from the repository in which it can be found.
+The 'id' should be the DOI or handle of the document you want to check, and the 'api_endpoint' from the repository in which it can be found.
 
 This one checks for everyone of the FAIR indicators and then gives and answer. For a list of all the options you can open your browser and go to http://localhost:9090/v1.0/ui/ to see the Swagger UI
 
@@ -155,7 +155,7 @@ If you want to custimze the access to your resources (data and metadata) or your
 ```
 [example_plugin]
 # In [Repositories] add the new plugin name (without .py) equal the name of the class. E.g: example_plugin = 'Example_Plugin'
-# Create new section (e.g. [example_plugin]) to add any necessary config info. For example, if your system have OAI-PMH endpoint, you can add a oai_base attribute.
+# Create new section (e.g. [example_plugin]) to add any necessary config info. For example, if your system have OAI-PMH endpoint, you can add a api_endpoint attribute.
 # Metadata terms to find the resource identifier
 identifier_term = ['identifier']
 # ETC
