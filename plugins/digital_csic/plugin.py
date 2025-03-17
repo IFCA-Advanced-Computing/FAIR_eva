@@ -401,7 +401,8 @@ class Plugin(EvaluatorBase):
         # TESTS
 
     # FINDABLE
-    def rda_f2_01m(self):
+    @ConfigTerms(term_id="terms_quali_generic")
+    def rda_f2_01m(self, **kwargs):
         """Indicator RDA-F2-01M
         This indicator is linked to the following principle: F2: Data are described with rich metadata.
         The indicator is about the presence of metadata, but also about how much metadata is
@@ -419,9 +420,28 @@ class Plugin(EvaluatorBase):
         msg
             Message with the results or recommendations to improve this indicator.
         """
-        points, msg = super().rda_f2_01m()
+        if "points" in kwargs:
+            del kwargs["points"]
+
+        total_keys = len(kwargs)
+        filled_keys = sum(1 for value in kwargs.values() if value)
+        if total_keys > 0:
+            points = (
+                100
+                if filled_keys == total_keys
+                else int(100 * filled_keys / total_keys)
+            )
+        else:
+            points = 0
+
+        _msg = (
+            _("All provided parameters have content.")
+            if points == 100
+            else _("Only some of the parameters have content:") + " %s%%" % points
+        )
+
         self.metadata_quality = points
-        return (points, [{"message": msg, "points": points}])
+        return points, [{"message": _msg, "points": points}]
 
     # ACCESS
     def rda_a1_04m(self, return_protocol=False):

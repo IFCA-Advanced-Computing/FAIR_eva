@@ -835,14 +835,13 @@ class EvaluatorBase(ABC):
         # Compound message
         total_elements = len(validation_payload)
         total_elements_using_vocabulary = len(elements_using_vocabulary)
-        _msg = (
-            _("Found metadata elements using standard vocabularies:") + " %s (%s) out of %s (%s)"
-            % (
-                total_elements_using_vocabulary,
-                elements_using_vocabulary,
-                total_elements,
-                list(validation_payload),
-            )
+        _msg = _(
+            "Found metadata elements using standard vocabularies:"
+        ) + " %s (%s) out of %s (%s)" % (
+            total_elements_using_vocabulary,
+            elements_using_vocabulary,
+            total_elements,
+            list(validation_payload),
         )
         logger.info(_msg)
 
@@ -1000,43 +999,27 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator.
         """
-        term_presence_list = kwargs["Metadata for Resource Discovery"]
-        if not self.terms_quali_generic:
-            points, msg_list = (
-                0,
-                [
-                    "Terms/elements for 'Metadata for Resource Discovery' are not defined in configuration. Please do so within Metadata for Resource Discovery section."
-                ],
+        if "points" in kwargs:
+            del kwargs["points"]
+
+        total_keys = len(kwargs)
+        filled_keys = sum(1 for value in kwargs.values() if value)
+        if total_keys > 0:
+            points = (
+                100
+                if filled_keys == total_keys
+                else int(100 * filled_keys / total_keys)
             )
         else:
-            term_num = 0
-            metadata_keys_not_empty_num = 0
-            for k in self.terms_quali_generic:
-                term_num += len(self.terms_map[k])
-                for e in self.terms_map[k]:
-                    found = False
-                    for index, row in self.metadata.iterrows():
-                        if isinstance(e, list) and len(e) == 2:
-                            if e[0] == row["element"] and e[1] == row["qualifier"]:
-                                found = True
-                            elif e == row["element"] and (
-                                None == row["qualifier"] or "" == row["qualifier"]
-                            ):
-                                found = True
-                    if found:
-                        metadata_keys_not_empty_num += 1
-                logger.debug(
-                    "Found %s/%s metadata terms"
-                    % (metadata_keys_not_empty_num, term_num)
-                )
+            points = 0
 
-                points = round(metadata_keys_not_empty_num * (100 / term_num))
-                msg_list = [
-                    _("Found metadata elements matching 'Metadata for Resource Discovery' elements") + 
-                    " %s (out of %s)" % (metadata_keys_not_empty_num, term_num)
-                ]
+        _msg = (
+            _("All provided parameters have content.")
+            if points == 100
+            else _("Only some of the parameters have content:") + " %s%%" % points
+        )
 
-        return (points, msg_list)
+        return points, [{"message": _msg, "points": points}]
 
     @ConfigTerms(term_id="identifier_term_data")
     def rda_f3_01m(self, **kwargs):
@@ -1406,10 +1389,7 @@ class EvaluatorBase(ABC):
             )
         else:
             _msg = _("Found a non-standarised protocol to access the metadata record:")
-            msg = (
-                 _msg + "%s"
-                % str(protocol)
-            )
+            msg = _msg + "%s" % str(protocol)
         msg_list = [{"message": msg, "points": points}]
 
         if return_protocol:
@@ -2095,15 +2075,25 @@ class EvaluatorBase(ABC):
                     _("License is considered as standard by SPDX:") + " <%s>" % _license
                 )
         if points == 100:
-            msg = _("License/s in use are considered as standard according to SPDX license list:") + "  %s" % license_standard_list
-    
-        elif points > 0:
             msg = (
-                _("A subset of the license/s in use are standard according to SDPX license list:") + " (%s out of %s) %s"
-                % (len(license_standard_list), license_num, license_standard_list)
+                _(
+                    "License/s in use are considered as standard according to SPDX license list:"
+                )
+                + "  %s" % license_standard_list
+            )
+
+        elif points > 0:
+            msg = _(
+                "A subset of the license/s in use are standard according to SDPX license list:"
+            ) + " (%s out of %s) %s" % (
+                len(license_standard_list),
+                license_num,
+                license_standard_list,
             )
         else:
-            msg = _("None of the license/s defined are standard according to SPDX license list")
+            msg = _(
+                "None of the license/s defined are standard according to SPDX license list"
+            )
         msg = " ".join([msg, "(points: %s)" % points])
         logger.info(msg)
 
@@ -2142,7 +2132,10 @@ class EvaluatorBase(ABC):
         logger.info(_msg)
         msg_list.append({"message": _msg, "points": _points_license})
 
-        return (_points_license, [{"message": _msg_license + msg_list, "points": _points_license}])
+        return (
+            _points_license,
+            [{"message": _msg_license + msg_list, "points": _points_license}],
+        )
 
     def rda_r1_2_01m(self):
         """Indicator RDA-A1-01M
