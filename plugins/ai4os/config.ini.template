@@ -1,0 +1,206 @@
+[Generic]
+doi_url = https://doi.org/
+
+# Relative path to the API config file
+api_config = fair-api.yaml
+
+# Supported CVs
+controlled_vocabularies = {
+    'Identifier': {'DOI': 'https://doi.org/api/handles', 'Handle': 'https://hdl.handle.net/'},
+    'Format': {'imtypes': 'https://www.iana.org/assignments/media-types/media-types.xhtml'},
+    'Temporal Coverage': {'iso8601': 'https://www.iso.org/iso-8601-date-and-time-format.html'},
+    'License': {'spdx': 'https://spdx.org/licenses/'},
+    'Person Identifier': {'ORCID': 'https://orcid.org/'},
+    'Organisation Identifier': {'ROR': 'https://ror.org/', 'PIC': 'https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register'}}
+
+[local]
+only_local = False
+repo = digital_csic
+logo_url = 'https://ifca.unican.es'
+title = FAIR EVA: Evaluator, Validator & Advisor
+
+[dublin-core]
+# Aligned with Dublin Core Metadata for Resource Discovery (properties in the /elements/1.1/ namespace)
+# https://www.dublincore.org/specifications/dublin-core/dcmi-terms/#section-3
+terms_findability_richness = ['Title',
+                              'Subject',
+                              'Description',
+                              'Type',
+                              'Source',
+                              'Relation',
+                              'Coverage',
+                              'Creator',
+                              'Publisher',
+                              'Contributor',
+                              'Rights',
+                              'Date',
+                              'Format',
+                              'Identifier',
+                              'Language']
+
+[Repositories]
+#Name in plugin, name in tag
+oai-pmh = 'Evaluator'
+digital_csic = 'Digital.CSIC'
+dspace7 = 'DSpace7'
+epos= 'epos'
+example_plugin = Example_Plugin
+signposting = Signposting
+ai4os = AI4OS
+
+[vocabularies:iana_media_types]
+enable_remote_check = True
+property_key_xml = {http://www.iana.org/assignments}file
+remote_path = https://www.iana.org/assignments/media-types/media-types.xml
+local_path = static/controlled_vocabularies/IANA-media-types.xml
+
+[vocabularies:fairsharing]
+enable_remote_check = True
+remote_username =
+remote_password =
+remote_path = https://api.fairsharing.org/search/fairsharing_records
+local_path = static/controlled_vocabularies/fairsharing.json
+
+[dspace7]
+base_url = http://localhost:8080/server/
+
+# Metadata terms to find the resource identifier
+identifier_term = ['identifier']
+
+# Metadata terms to check richness (generic). These terms should be included [term, qualifier]. None means no qualifier
+terms_quali_generic = [['contributor',None],
+                       ['date', None],
+                       ['description', None],
+                       ['identifier', None],
+                       ['publisher', None],
+                       ['rights', None],
+                       ['title', None],
+                       ['subject', None]]
+
+# Metadata terms to check richness (disciplinar). These terms should be included [term, qualifier]
+terms_quali_disciplinar = [['contributor', None],
+                           ['date', None],
+                           ['description', None],
+                           ['identifier', None],
+                           ['publisher', None],
+                           ['rights', None],
+                           ['title', None],
+                           ['subject', None]]
+
+# Metadata terms that defines accessibility
+terms_access = [['access', ''], ['rights', '']]
+
+# Metadata terms wich includes controlled vocabularies. More controlled vocabularies can be imlpemented in plugins
+terms_cv = [['coverage', 'spatial'], ['subject', 'lcsh']]
+
+# List of data formats that are standard for the community
+supported_data_formats = [".txt", ".pdf", ".csv", ".nc", ".doc", ".xls", ".zip", ".rar", ".tar", ".png", ".jpg"]
+
+# Metadata terms that defines links or relation with authors, contributors (preferebly in ORCID format)
+terms_qualified_references = ['contributor']
+
+# Metadata terms that defines links or relation with other resources, (preferebly in ORCID format, URIs or persistent identifiers)
+terms_relations = ['relation']
+
+# Metadata terms that defines the license type
+terms_license = [['license', '', '']]
+
+#Metadata chemas to check
+metadata_schemas = [{'dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/'}]
+
+[digital_csic]
+db_host =
+db_port =
+oai_ep  =
+
+[oai-pmh]
+# Metadata terms to find the resource identifier
+identifier_term = ['identifier']
+
+# Metadata terms to check richness (generic). These terms should be included [term, qualifier]. None means no qualifier
+terms_quali_generic = [['contributor', None],
+                       ['date', None],
+                       ['description', None],
+                       ['identifier', None],
+                       ['publisher', None],
+                       ['rights', None],
+                       ['title', None],
+                       ['subject', None]]
+
+# Metadata terms to check richness (disciplinar). These terms should be included [term, qualifier]
+terms_quali_disciplinar = [['contributor', None],
+                           ['date', None],
+                           ['description', None],
+                           ['identifier', None],
+                           ['publisher', None],
+                           ['rights', None],
+                           ['title', None],
+                           ['subject', None]]
+
+# Metadata terms that defines accessibility
+terms_access = [['access', ''], ['rights', '']]
+
+# Metadata terms wich includes controlled vocabularies. More controlled vocabularies can be imlpemented in plugins
+terms_cv = [['coverage', 'spatial'], ['subject', 'lcsh']]
+
+# List of data formats that are standard for the community
+supported_data_formats = [".txt", ".pdf", ".csv", ".nc", ".doc", ".xls", ".zip", ".rar", ".tar", ".png", ".jpg"]
+
+# Metadata terms that defines links or relation with authors, contributors (preferebly in ORCID format)
+terms_qualified_references = ['contributor']
+
+# Metadata terms that defines links or relation with other resources, (preferebly in ORCID format, URIs or persistent identifiers)
+terms_relations = ['relation']
+
+# Metadata terms that defines the license type
+terms_license = [['license', '', '']]
+
+metadata_schemas = [{'xml': 'http://datacite.org/schema/kernel-4'}]
+
+[epos]
+# Metadata terms to find the resource identifier
+identifier_term = [['id'],]
+
+#DOI
+doi= [['DOI'],]
+
+# Metadata terms to check richness (generic). These terms should be included [term, qualifier]. None means no qualifier
+terms_quali_generic = [['paths', 'serviceSpatial'],
+                       ['startDate', 'serviceTemporalCoverage'],
+                       ['serviceDescription', None],
+                       ['hasQualityAnnotation', None],
+                       ['dataProvider', None],
+                       ['license', None],
+                       ['title', None],
+                       ['keywords', None]]
+
+# Metadata terms to check richness (disciplinar). These terms should be included [term, qualifier]
+terms_quali_disciplinar = [['paths', 'serviceSpatial'],
+                           ['startDate', 'serviceTemporalCoverage'],
+                           ['serviceDescription', None],
+                           ['hasQualityAnnotation', None],
+                           ['dataProvider', None],
+                           ['license', None],
+                           ['title', None],
+                           ['keywords', None]]
+
+# Metadata terms that defines accessibility
+terms_access = [['downloadURL','']]
+
+# Metadata terms wich includes controlled vocabularies. More controlled vocabularies can be imlpemented in plugins
+terms_cv = [['coverage', 'spatial'], ['subject', 'lcsh']]
+
+# List of data formats that are standard for the community
+supported_data_formats = [".txt", ".pdf", ".csv", ".nc", ".doc", ".xls", ".zip", ".rar", ".tar", ".png", ".jpg"]
+
+# Metadata terms that defines links or relation with authors, contributors (preferebly in ORCID format)
+terms_qualified_references = ['contributor']
+
+# Metadata terms that defines links or relation with other resources, (preferebly in ORCID format, URIs or persistent identifiers)
+terms_relations = ['dataProviderUrl','frequencyUpdate']
+
+# Metadata terms that defines the license type
+terms_license = [['license', '', '']]
+
+[example_plugin]
+base_url = localhost
