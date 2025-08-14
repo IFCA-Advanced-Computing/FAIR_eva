@@ -15,6 +15,7 @@ import requests
 import pandas as pd
 import yaml
 import json
+from functools import lru_cache
 
 try:
     from rdflib import Graph
@@ -37,6 +38,8 @@ except Exception:
 
 PROV_NS = "http://www.w3.org/ns/prov#"
 
+SPDX_DEFAULT_URL = "https://spdx.org/licenses/licenses.json"
+
 HTTP_OK_SCHEMES = {"http", "https"}
 
 GITHUB_RE = re.compile(r"https?://(www\.)?github\.com/[^/\s]+/[^/\s]+", re.I)
@@ -49,6 +52,51 @@ def _any_url_uses_http(urls):
         except Exception:
             pass
     return False
+
+def _normalize(s: str) -> str:
+    return (s or "").strip().lower()
+
+def _strip_spdx_suffix(u: str) -> str:
+    # Quita sufijos comunes para poder comparar variantes
+    u = u.strip()
+    return re.sub(r"\.(html|json)$", "", u, flags=re.IGNORECASE)
+
+def _build_spdx_indexes(spdx_obj: Dict) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, str]]:
+    """
+    Devuelve tres índices para resolver entradas de usuario a detailsUrl:
+      - por licenseId
+      - por reference (HTML canónico)
+      - por detailsUrl (JSON machine-actionable)
+    """
+    by_id, by_ref, by_details = {}, {}, {}
+    for lic in spdx_obj.get("licenses", []):
+        lic_id = lic.get("licenseId") or ""
+        ref = lic.get("reference") or ""          # p.ej. https://spdx.org/licenses/Apache-2.0.html
+        details = lic.get("detailsUrl") or lic.get("detailUrl") or ""  # resiliencia por si viene mal escrito
+        if lic_id and details:
+            by_id[_normalize(lic_id)] = details
+        if ref and details:
+            by_ref[_normalize(_strip_spdx_suffix(ref))] = details
+        if details:
+            by_details[_normalize(_strip_spdx_suffix(details))] = details
+    return by_id, by_ref, by_details
+
+def _load_spdx_licenses(spdx_licenses_json=None, spdx_path: str=None) -> Dict:
+    """
+    Carga el objeto JSON de la License List SPDX. Puedes:
+      - pasar 'spdx_licenses_json' ya parseado (dict),
+      - o 'spdx_path' a un archivo local,
+      - o dejar que lo descargue de spdx.org.
+    """
+    if isinstance(spdx_licenses_json, dict):
+        return spdx_licenses_json
+    if spdx_path and os.path.exists(spdx_path):
+        with open(spdx_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    # Fallback a descarga online
+    resp = requests.get(SPDX_DEFAULT_URL, timeout=15)
+    resp.raise_for_status()
+    return resp.json()
 
 def _collect_urls_from_metadata(df, fields_like=None):
     """Extrae URLs de self.metadata (cols: metadata_schema, element, text_value, qualifier)."""
@@ -256,6 +304,51 @@ class Plugin(EvaluatorBase):
             parts = item_id.rstrip("/").split("/")
             return parts[-1]
         return item_id
+    
+
+    @lru_cache(maxsize=1)
+    def _spdx_license_ids(self, include_deprecated=True):
+        """
+        Devuelve un set con todos los licenseId válidos de la lista SPDX.
+        Si include_deprecated=True, añade también 'deprecatedLicenseIds'.
+        En caso de error de red, devuelve un subconjunto básico como fallback.
+        """
+        url = "https://spdx.org/licenses/licenses.json"
+        try:
+            resp = requests.get(url, timeout=15)
+            resp.raise_for_status()
+            data = resp.json()
+
+            ids = {lic.get("licenseId") for lic in data.get("licenses", []) if lic.get("licenseId")}
+            if include_deprecated:
+                ids |= set(data.get("deprecatedLicenseIds", []))
+            # Devuelve inmutables para que lru_cache pueda almacenarlos con seguridad
+            return frozenset(ids)
+        except Exception:
+            # Fallback mínimo por si no hay red (ajusta si necesitas otros IDs)
+            fallback = {"MIT", "Apache-2.0", "GPL-3.0-only", "GPL-3.0-or-later", "CC-BY-4.0"}
+            return frozenset(fallback)
+
+    def _normalize_license_candidate(self, val: str) -> str:
+        """
+        Intenta extraer un licenseId a partir de distintos formatos:
+        - Si es URL a spdx.org (o raw en markdown), toma el último segmento.
+        - Elimina prefijos típicos como 'SPDX:' o 'LicenseRef-'.
+        - No cambia el case (los IDs SPDX son case-sensitive).
+        """
+        v = (val or "").strip()
+        if not v:
+            return v
+        # URL -> último segmento
+        if v.startswith("http://") or v.startswith("https://"):
+            v = v.rstrip("/").split("/")[-1]
+        # Quitar prefijos comunes
+        if v.startswith("SPDX:"):
+            v = v[len("SPDX:"):]
+        if v.startswith("LicenseRef-"):
+            v = v[len("LicenseRef-"):]
+        return v
+
 
     def get_metadata(self) -> Tuple[List[List[Optional[str]]], Optional[Graph]]:
         namespace = "{https://ai4os.eu/metadata}"
@@ -771,6 +864,146 @@ class Plugin(EvaluatorBase):
         Same check as ``rda_i3_03m`` (applies to additional metadata fields or views).
         """
         return self.rda_i3_03m()
+    
+
+    @ConfigTerms(term_id="terms_license")
+    def rda_r1_1_02m(self, license_list=[], machine_readable=False, **kwargs):
+        """Indicator R1.1-02M: Metadata refers to a standard reuse license (SPDX).
+
+        Regresa 100 si encuentra un licenseId de SPDX; 50 si hay licencia
+        pero no mapea a un licenseId; 0 si no hay licencia.
+        """
+        points = 0
+
+        terms_license = kwargs["terms_license"]
+        terms_license_metadata = terms_license["metadata"]
+
+        # Si no llega lista explícita, usa lo de metadatos
+        if not license_list:
+            license_list = terms_license_metadata.text_value.dropna().astype(str).tolist()
+
+        if not license_list:
+            msg = "No license metadata found in record (points: 0)"
+            logger.info(msg)
+            return (0, [{"message": msg, "points": 0}])
+
+        # Normaliza candidatos y comprueba contra licenseId oficiales
+        spdx_ids = self._spdx_license_ids(include_deprecated=True)
+        normalized = [self._normalize_license_candidate(x) for x in license_list if x]
+
+        valid = [v for v in normalized if v in spdx_ids]
+
+        if valid:
+            points = 100
+            msg = "License(s) recognized as SPDX licenseId: %s (points: 100)" % ", ".join(sorted(set(valid)))
+        else:
+            # Hay licencia, pero no es un licenseId válido; puntúa parcialmente
+            points = 50
+            preview = ", ".join(license_list[:5])
+            msg = "License present but not a valid SPDX licenseId. Values: %s (points: 50)" % preview
+
+        logger.info(msg)
+        return (points, [{"message": msg, "points": points}])
+    
+
+    @ConfigTerms(term_id="terms_license")
+    def rda_r1_1_03m(
+        self,
+        license_list: Iterable[str] = None,
+        machine_readable: bool = True,  # mantenemos la firma similar
+        spdx_licenses_json: Dict = None,
+        spdx_local_path: str = None,
+        **kwargs
+    ):
+        """
+        Indicador R1.1-03M: La metadata refiere a una licencia de reutilización 'machine-understandable'.
+
+        Criterio (implementación):
+        - Consideramos 'machine-understandable' si la licencia indicada en la metadata
+            puede mapearse a una entrada de la SPDX License List y obtenemos su `detailsUrl`
+            (endpoint JSON machine-actionable).
+        - Aceptamos como entrada: licenseId, URL HTML canónica de SPDX (reference) o la propia detailsUrl.
+
+        Returns
+        -------
+        (points, msg_list)
+        points = 100 si TODAS las licencias resuelven a un `detailsUrl` de SPDX.
+                >0 si solo un subconjunto resuelve.
+                0 en caso contrario.
+        """
+        points = 0
+
+        terms_license = kwargs["terms_license"]
+        terms_license_metadata = terms_license["metadata"]
+        if not license_list:
+            license_list = list(terms_license_metadata.text_value.values)
+
+        # Carga y prepara índices SPDX
+        try:
+            spdx_obj = _load_spdx_licenses(spdx_licenses_json, spdx_local_path)
+        except Exception as e:
+            msg = f"No se pudo cargar la SPDX License List ({e}). No es posible evaluar R1.1-03M."
+            logger.error(msg)
+            return (0, [{"message": msg, "points": 0}])
+
+        by_id, by_ref, by_details = _build_spdx_indexes(spdx_obj)
+
+        license_num = len(list(license_list))
+        matched = []
+        unmatched = []
+
+        for raw in license_list:
+            cand = (raw or "").strip()
+            logger.debug("R1.1-03M: comprobando licencia: %s", cand)
+            if not cand:
+                unmatched.append(raw)
+                continue
+
+            # Normalizaciones para comparar
+            n_id = _normalize(cand)
+            n_url = _normalize(_strip_spdx_suffix(cand))
+
+            details_url = None
+
+            # 1) ¿Es exactamente un detailsUrl (o variante sin sufijo)?
+            details_url = by_details.get(n_url)
+            # 2) ¿Es la URL canónica HTML (reference)?
+            if not details_url:
+                details_url = by_ref.get(n_url)
+
+            if details_url:
+                matched.append({"input": raw, "detailsUrl": details_url})
+                logger.debug("R1.1-03M: '%s' → detailsUrl: %s", raw, details_url)
+            else:
+                unmatched.append(raw)
+                logger.debug("R1.1-03M: '%s' no mapea a detailsUrl SPDX", raw)
+
+        if matched and len(matched) == license_num:
+            points = 100
+            msg = (
+                "Todas las licencias referencian una expresión machine‑actionable vía SPDX `detailsUrl` "
+                f"(R1.1-03M): {[m['detailsUrl'] for m in matched]}"
+            )
+        elif matched:
+            # puntos proporcionales (p.ej. porcentaje redondeado a enteros de 25 en 25 para ser conservadores)
+            ratio = len(matched) / float(license_num)
+            points = int(round(ratio * 100))
+            msg = (
+                f"Un subconjunto de las licencias ({len(matched)}/{license_num}) mapea a `detailsUrl` de SPDX "
+                f"(R1.1-03M). OK: {[m['detailsUrl'] for m in matched]} | "
+                f"Revisar: {unmatched}"
+            )
+        else:
+            msg = (
+                "Ninguna de las licencias indicadas mapea a un `detailsUrl` de la SPDX License List. "
+                "Usa licenseId/URL de SPDX o provee la `detailsUrl` directa (p.ej. https://spdx.org/licenses/Apache-2.0.json)."
+            )
+
+        # Mensaje final + log
+        msg = f"{msg} (points: {points})"
+        logger.info(msg)
+        return (points, [{"message": msg, "points": points}])
+
 
     def rda_r1_3_01m(self):
         """Indicator RDA-R1.3-01M: (Meta)data meet domain-relevant community standards.
