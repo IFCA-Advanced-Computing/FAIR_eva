@@ -10,18 +10,6 @@ repos:
   rev: 24.3.0
   hooks:
   - id: black
-- repo: https://github.com/PyCQA/docformatter
-  rev: v1.7.5
-  hooks:
-    - id: docformatter
-      args:
-        - --in-place
-        - --wrap-summaries=88
-        - --wrap-descriptions=88
-        - --make-summary-multi-line
-        - --pre-summary-newline
-      additional_dependencies: [tomli]
-      language_version: python3.12   # << evita el bug de 3.13
 - repo: https://github.com/pre-commit/mirrors-isort
   rev: v5.10.1
   hooks:
