@@ -1,21 +1,22 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
-"""
-Plugin to evaluate AI4EOSC models for FAIR EVA, enhanced with detailed provenance metadata.
+"""Plugin to evaluate AI4EOSC models for FAIR EVA, enhanced with detailed provenance
+metadata.
+
 This plugin fetches metadata and provenance RDF for AI4EOSC models and flattens both
 into metadata tuples for FAIR EVA, including selected PROV triples as metadata entries.
 """
 import ast
+import json
 import logging
-import sys
 import re
+import sys
+from functools import lru_cache
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
-import requests
 import pandas as pd
+import requests
 import yaml
-import json
-from functools import lru_cache
 
 try:
     from rdflib import Graph
@@ -23,13 +24,13 @@ try:
 except ImportError:
     Graph = None  # type: ignore
 
+import html
+import json
+import re
+from urllib.parse import urlparse
+
 import api.utils as ut
 from api.evaluator import ConfigTerms, EvaluatorBase
-
-import re
-import json
-from urllib.parse import urlparse
-import html
 
 try:
     from rdflib import Graph, Namespace
@@ -44,6 +45,7 @@ HTTP_OK_SCHEMES = {"http", "https"}
 
 GITHUB_RE = re.compile(r"https?://(www\.)?github\.com/[^/\s]+/[^/\s]+", re.I)
 
+
 def _any_url_uses_http(urls):
     for u in urls:
         try:
@@ -53,26 +55,35 @@ def _any_url_uses_http(urls):
             pass
     return False
 
+
 def _normalize(s: str) -> str:
     return (s or "").strip().lower()
+
 
 def _strip_spdx_suffix(u: str) -> str:
     # Quita sufijos comunes para poder comparar variantes
     u = u.strip()
     return re.sub(r"\.(html|json)$", "", u, flags=re.IGNORECASE)
 
-def _build_spdx_indexes(spdx_obj: Dict) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, str]]:
-    """
-    Devuelve tres índices para resolver entradas de usuario a detailsUrl:
-      - por licenseId
-      - por reference (HTML canónico)
-      - por detailsUrl (JSON machine-actionable)
+
+def _build_spdx_indexes(
+    spdx_obj: Dict,
+) -> Tuple[Dict[str, str], Dict[str, str], Dict[str, str]]:
+    """Devuelve tres índices para resolver entradas de usuario a detailsUrl:
+
+    - por licenseId
+    - por reference (HTML canónico)
+    - por detailsUrl (JSON machine-actionable)
     """
     by_id, by_ref, by_details = {}, {}, {}
     for lic in spdx_obj.get("licenses", []):
         lic_id = lic.get("licenseId") or ""
-        ref = lic.get("reference") or ""          # p.ej. https://spdx.org/licenses/Apache-2.0.html
-        details = lic.get("detailsUrl") or lic.get("detailUrl") or ""  # resiliencia por si viene mal escrito
+        ref = (
+            lic.get("reference") or ""
+        )  # p.ej. https://spdx.org/licenses/Apache-2.0.html
+        details = (
+            lic.get("detailsUrl") or lic.get("detailUrl") or ""
+        )  # resiliencia por si viene mal escrito
         if lic_id and details:
             by_id[_normalize(lic_id)] = details
         if ref and details:
@@ -81,12 +92,13 @@ def _build_spdx_indexes(spdx_obj: Dict) -> Tuple[Dict[str, str], Dict[str, str],
             by_details[_normalize(_strip_spdx_suffix(details))] = details
     return by_id, by_ref, by_details
 
-def _load_spdx_licenses(spdx_licenses_json=None, spdx_path: str=None) -> Dict:
-    """
-    Carga el objeto JSON de la License List SPDX. Puedes:
-      - pasar 'spdx_licenses_json' ya parseado (dict),
-      - o 'spdx_path' a un archivo local,
-      - o dejar que lo descargue de spdx.org.
+
+def _load_spdx_licenses(spdx_licenses_json=None, spdx_path: str = None) -> Dict:
+    """Carga el objeto JSON de la License List SPDX. Puedes:
+
+    - pasar 'spdx_licenses_json' ya parseado (dict),
+    - o 'spdx_path' a un archivo local,
+    - o dejar que lo descargue de spdx.org.
     """
     if isinstance(spdx_licenses_json, dict):
         return spdx_licenses_json
@@ -98,13 +110,15 @@ def _load_spdx_licenses(spdx_licenses_json=None, spdx_path: str=None) -> Dict:
     resp.raise_for_status()
     return resp.json()
 
+
 def _collect_urls_from_metadata(df, fields_like=None):
-    """Extrae URLs de self.metadata (cols: metadata_schema, element, text_value, qualifier)."""
+    """Extrae URLs de self.metadata (cols: metadata_schema, element, text_value,
+    qualifier)."""
     urls = []
     if df is None or len(df) == 0:
         return urls
     for _, row in df.iterrows():
-        key = f"{row['element']}".lower() if 'element' in row else ""
+        key = f"{row['element']}".lower() if "element" in row else ""
         val = f"{row['text_value']}"
         if fields_like and key not in fields_like:
             # si se quiere filtrar por familia de campos
@@ -113,11 +127,13 @@ def _collect_urls_from_metadata(df, fields_like=None):
             urls.append(val)
     return urls
 
+
 def _has_github_repo(df):
     for u in _collect_urls_from_metadata(df):
         if GITHUB_RE.search(u):
             return True, u
     return False, None
+
 
 def _fetch(url, timeout=15, session=None):
     s = session or requests.Session()
@@ -125,14 +141,17 @@ def _fetch(url, timeout=15, session=None):
     r.raise_for_status()
     return r
 
+
 def _extract_jsonld_from_html(html_text):
-    """Devuelve lista de cadenas JSON-LD encontradas en <script type='application/ld+json'>."""
+    """Devuelve lista de cadenas JSON-LD encontradas en <script
+    type='application/ld+json'>."""
     blocks = re.findall(
         r'<script[^>]+type=[\'"]application/ld\+json[\'"][^>]*>(.*?)</script>',
         html_text,
         flags=re.I | re.S,
     )
     return blocks
+
 
 def _is_machine_actionable(page_text, content_type=None):
     """Intenta validar JSON, JSON-LD o RDF con rdflib."""
@@ -166,11 +185,20 @@ def _is_machine_actionable(page_text, content_type=None):
                 continue
 
     # 4) Content-Type orientativo
-    if content_type and any(ct in content_type.lower() for ct in ["application/ld+json", "application/rdf", "text/turtle", "application/json"]):
+    if content_type and any(
+        ct in content_type.lower()
+        for ct in [
+            "application/ld+json",
+            "application/rdf",
+            "text/turtle",
+            "application/json",
+        ]
+    ):
         # cuando el parse no es posible pero el tipo sugiere MA
         return True, "by-content-type"
 
     return False, None
+
 
 def _prov_present_as_standard(graph_or_text):
     """Valida si hay PROV-O: triples con el namespace prov:."""
@@ -196,26 +224,33 @@ def _prov_present_as_standard(graph_or_text):
 
 
 REQUIRED_HUMAN_FIELDS = {
-    "title", "summary", "description", "license", "keywords", "dateCreated", "dateModified",
-    "links.source_code", "links.dataset", "links.docker_image"
+    "title",
+    "summary",
+    "description",
+    "license",
+    "keywords",
+    "dateCreated",
+    "dateModified",
+    "links.source_code",
+    "links.dataset",
+    "links.docker_image",
     # añade los que buscas específicamente (tasks, categories, libraries, data-type, etc.)
 }
+
 
 def _filter_non_prov_fields(fields):
     return {f for f in fields if not f.startswith("prov_") and f not in {"provenance"}}
 
+
 logging.basicConfig(
-    stream=sys.stdout,
-    level=logging.DEBUG,
-    format="'%(name)s:%(lineno)s' | %(message)s"
+    stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
 )
 logger = logging.getLogger("api.plugin.ai4os")
 
+
 class Plugin(EvaluatorBase):
-    """
-    FAIR EVA plugin for AI4EOSC models, now capturing provenance triples
-    to enrich interoperability and provenance indicators.
-    """
+    """FAIR EVA plugin for AI4EOSC models, now capturing provenance triples to enrich
+    interoperability and provenance indicators."""
 
     def __init__(
         self,
@@ -242,7 +277,9 @@ class Plugin(EvaluatorBase):
         )
         self.metadata.drop_duplicates(inplace=True)
         logger.debug("METADATA extracted: %s", self.metadata)
-        self.metadata.to_csv("/home/aguilarf/IFCA/Proyectos/AI4EOSC/FAIR/ai4os_metadata.csv", index=False)
+        self.metadata.to_csv(
+            "/home/aguilarf/IFCA/Proyectos/AI4EOSC/FAIR/ai4os_metadata.csv", index=False
+        )
 
         if len(self.metadata) > 0:
             self.access_protocols = ["http"]
@@ -264,10 +301,16 @@ class Plugin(EvaluatorBase):
             return cfg.get(key, default)
 
         # Load terms from config
-        self.identifier_term = ast.literal_eval(_get_cfg("identifier_term", "['identifier']"))
+        self.identifier_term = ast.literal_eval(
+            _get_cfg("identifier_term", "['identifier']")
+        )
         self.title_term = ast.literal_eval(_get_cfg("title_term", "['title']"))
-        self.description_term = ast.literal_eval(_get_cfg("description_term", "['description']"))
-        self.publisher_term = ast.literal_eval(_get_cfg("publisher_term", "['publisher']"))
+        self.description_term = ast.literal_eval(
+            _get_cfg("description_term", "['description']")
+        )
+        self.publisher_term = ast.literal_eval(
+            _get_cfg("publisher_term", "['publisher']")
+        )
         self.date_term = ast.literal_eval(_get_cfg("date_term", "['date']"))
         self.language_term = ast.literal_eval(_get_cfg("language_term", "['language']"))
         self.license_term = ast.literal_eval(_get_cfg("license_term", "['license']"))
@@ -304,14 +347,13 @@ class Plugin(EvaluatorBase):
             parts = item_id.rstrip("/").split("/")
             return parts[-1]
         return item_id
-    
 
     @lru_cache(maxsize=1)
     def _spdx_license_ids(self, include_deprecated=True):
-        """
-        Devuelve un set con todos los licenseId válidos de la lista SPDX.
-        Si include_deprecated=True, añade también 'deprecatedLicenseIds'.
-        En caso de error de red, devuelve un subconjunto básico como fallback.
+        """Devuelve un set con todos los licenseId válidos de la lista SPDX.
+
+        Si include_deprecated=True, añade también 'deprecatedLicenseIds'. En caso de
+        error de red, devuelve un subconjunto básico como fallback.
         """
         url = "https://spdx.org/licenses/licenses.json"
         try:
@@ -319,14 +361,24 @@ class Plugin(EvaluatorBase):
             resp.raise_for_status()
             data = resp.json()
 
-            ids = {lic.get("licenseId") for lic in data.get("licenses", []) if lic.get("licenseId")}
+            ids = {
+                lic.get("licenseId")
+                for lic in data.get("licenses", [])
+                if lic.get("licenseId")
+            }
             if include_deprecated:
                 ids |= set(data.get("deprecatedLicenseIds", []))
             # Devuelve inmutables para que lru_cache pueda almacenarlos con seguridad
             return frozenset(ids)
         except Exception:
             # Fallback mínimo por si no hay red (ajusta si necesitas otros IDs)
-            fallback = {"MIT", "Apache-2.0", "GPL-3.0-only", "GPL-3.0-or-later", "CC-BY-4.0"}
+            fallback = {
+                "MIT",
+                "Apache-2.0",
+                "GPL-3.0-only",
+                "GPL-3.0-or-later",
+                "CC-BY-4.0",
+            }
             return frozenset(fallback)
 
     def _normalize_license_candidate(self, val: str) -> str:
@@ -344,11 +396,10 @@ class Plugin(EvaluatorBase):
             v = v.rstrip("/").split("/")[-1]
         # Quitar prefijos comunes
         if v.startswith("SPDX:"):
-            v = v[len("SPDX:"):]
+            v = v[len("SPDX:") :]
         if v.startswith("LicenseRef-"):
-            v = v[len("LicenseRef-"):]
+            v = v[len("LicenseRef-") :]
         return v
-
 
     def get_metadata(self) -> Tuple[List[List[Optional[str]]], Optional[Graph]]:
         namespace = "{https://ai4os.eu/metadata}"
@@ -403,7 +454,7 @@ class Plugin(EvaluatorBase):
             except Exception as e:
                 logger.error("Error processing JSON content: %s", e)
             metadata_list.append([namespace, "metadata_source", json_url, None])
-        
+
         # Fetch provenance RDF
         prov_url = f"https://provenance.services.ai4os.eu/rdf?applicationId={slug}"
         try:
@@ -416,12 +467,20 @@ class Plugin(EvaluatorBase):
                         g.parse(data=resp.text, format="json-ld")
                         if len(g) > 0:
                             provenance_graph = g
-                            metadata_list.append([namespace, "provenance", prov_url, None])
-                            logger.debug("Loaded provenance JSON-LD (%d triples)", len(g))
+                            metadata_list.append(
+                                [namespace, "provenance", prov_url, None]
+                            )
+                            logger.debug(
+                                "Loaded provenance JSON-LD (%d triples)", len(g)
+                            )
                         else:
-                            metadata_list.append([namespace, "provenance_unparsed", prov_url, None])
+                            metadata_list.append(
+                                [namespace, "provenance_unparsed", prov_url, None]
+                            )
                     except Exception:
-                        metadata_list.append([namespace, "provenance_unparsed", prov_url, None])
+                        metadata_list.append(
+                            [namespace, "provenance_unparsed", prov_url, None]
+                        )
                 else:
                     provenance_graph = True  # type: ignore
                     metadata_list.append([namespace, "provenance", prov_url, None])
@@ -433,13 +492,12 @@ class Plugin(EvaluatorBase):
             for p in provenance_graph.predicates(None, None):
                 p_str = str(p)
                 if p_str.startswith("http://www.w3.org/ns/prov#"):
-                    local = p_str.split('#')[-1]
+                    local = p_str.split("#")[-1]
                     for o in provenance_graph.objects(None, p):
                         metadata_list.append([namespace, f"prov_{local}", str(o), None])
 
         return metadata_list, provenance_graph
-    
-    
+
     def rda_a1_03d(self):
         """
         Datos descargables: si el módulo expone un repo GitHub (HTTP/HTTPS),
@@ -453,19 +511,38 @@ class Plugin(EvaluatorBase):
         urls = _collect_urls_from_metadata(self.metadata)
         zip_like = [u for u in urls if re.search(r"\.(zip|tar\.gz|tgz)$", u, re.I)]
         if zip_like:
-            return 100, [{"message": f"Distribución descargable encontrada: {zip_like[0]}", "points": 100}]
-        return 0, [{"message": "No se han encontrado URLs de descarga (GitHub/ZIP/Releases).", "points": 0}]
-    
+            return 100, [
+                {
+                    "message": f"Distribución descargable encontrada: {zip_like[0]}",
+                    "points": 100,
+                }
+            ]
+        return 0, [
+            {
+                "message": "No se han encontrado URLs de descarga (GitHub/ZIP/Releases).",
+                "points": 0,
+            }
+        ]
+
     def rda_a1_04m(self):
-        """
-        Protocolo estandarizado para metadatos.
+        """Protocolo estandarizado para metadatos.
+
         Si hay URLs con esquema http/https para la ficha/record ⇒ 100.
         """
         urls = _collect_urls_from_metadata(self.metadata)
         if _any_url_uses_http(urls):
-            return 100, [{"message": "Acceso a metadatos por HTTP/HTTPS (protocolo abierto y universal).", "points": 100}]
-        return 0, [{"message": "No se han encontrado URLs HTTP/HTTPS a metadatos.", "points": 0}]
-
+            return 100, [
+                {
+                    "message": "Acceso a metadatos por HTTP/HTTPS (protocolo abierto y universal).",
+                    "points": 100,
+                }
+            ]
+        return 0, [
+            {
+                "message": "No se han encontrado URLs HTTP/HTTPS a metadatos.",
+                "points": 0,
+            }
+        ]
 
     def rda_a1_05d(self):
         """Indicator RDA-A1-05D: (Meta)data can be accessed automatically.
@@ -523,7 +600,12 @@ class Plugin(EvaluatorBase):
 
         candidates = sorted(set(candidates))
         if not candidates:
-            return 0, [{"message": "No se encontró enlace a repositorio GitHub en los metadatos.", "points": 0}]
+            return 0, [
+                {
+                    "message": "No se encontró enlace a repositorio GitHub en los metadatos.",
+                    "points": 0,
+                }
+            ]
 
         # Best-effort reachability check (does not affect scoring)
         reachable = []
@@ -535,23 +617,30 @@ class Plugin(EvaluatorBase):
             except Exception:
                 pass
 
-        msg_ok = (
-            f"Repositorio(s) GitHub detectado(s): {candidates}. "
-            + (f"Accesibles: {reachable}." if reachable else "")
+        msg_ok = f"Repositorio(s) GitHub detectado(s): {candidates}. " + (
+            f"Accesibles: {reachable}." if reachable else ""
         )
         return 100, [{"message": msg_ok, "points": 100}]
-    
 
     def rda_a1_1_01m(self):
-        """
-        Protocolo abierto/gratuito (A1.1) para acceder a los metadatos.
+        """Protocolo abierto/gratuito (A1.1) para acceder a los metadatos.
+
         HTTP/HTTPS ⇒ 100.
         """
         urls = _collect_urls_from_metadata(self.metadata)
         if _any_url_uses_http(urls):
-            return 100, [{"message": "Protocolo abierto/gratuito (HTTP/HTTPS) para metadatos.", "points": 100}]
-        return 0, [{"message": "No se han detectado protocolos abiertos/gratuitos para metadatos.", "points": 0}]
-
+            return 100, [
+                {
+                    "message": "Protocolo abierto/gratuito (HTTP/HTTPS) para metadatos.",
+                    "points": 100,
+                }
+            ]
+        return 0, [
+            {
+                "message": "No se han detectado protocolos abiertos/gratuitos para metadatos.",
+                "points": 0,
+            }
+        ]
 
     def rda_a1_02m(self):
         """Indicator RDA-A1-02M: Metadata can be accessed manually (human-accessible).
@@ -590,15 +679,27 @@ class Plugin(EvaluatorBase):
         else:
             # try to get metadata_source from flattened metadata
             try:
-                cand = [row[2] for row in self.metadata.itertuples(index=False, name=None)
-                        if (str(row[1]).lower() == "metadata_source" and isinstance(row[2], str) and row[2].startswith("http"))]
+                cand = [
+                    row[2]
+                    for row in self.metadata.itertuples(index=False, name=None)
+                    if (
+                        str(row[1]).lower() == "metadata_source"
+                        and isinstance(row[2], str)
+                        and row[2].startswith("http")
+                    )
+                ]
                 if cand:
                     landing = cand[0]
             except Exception:
                 pass
 
         if not landing:
-            return 0, [{"message": "No se pudo determinar la URL de la landing (ni item_id URL ni metadata_source).", "points": 0}]
+            return 0, [
+                {
+                    "message": "No se pudo determinar la URL de la landing (ni item_id URL ni metadata_source).",
+                    "points": 0,
+                }
+            ]
 
         # 2) Fetch landing HTML
         try:
@@ -607,7 +708,12 @@ class Plugin(EvaluatorBase):
             page = html.unescape(resp.text)
             page_lower = page.lower()
         except Exception as e:
-            return 0, [{"message": f"Error accediendo a la landing {landing}: {e}", "points": 0}]
+            return 0, [
+                {
+                    "message": f"Error accediendo a la landing {landing}: {e}",
+                    "points": 0,
+                }
+            ]
 
         # 3) Collect non-provenance metadata values to check
         checked = 0
@@ -643,7 +749,9 @@ class Plugin(EvaluatorBase):
                 ok = True
             else:
                 # estrategias adicionales: si es URL, prueba variantes sin esquema y sin trailing slash
-                if sval_lower.startswith("http://") or sval_lower.startswith("https://"):
+                if sval_lower.startswith("http://") or sval_lower.startswith(
+                    "https://"
+                ):
                     try:
                         parsed = urlparse(sval)
                         # quitar esquema
@@ -667,20 +775,21 @@ class Plugin(EvaluatorBase):
                     missing_examples.append(f"{element} -> {sval[:120]}")
 
         if checked == 0:
-            return 0, [{"message": "No hay metadatos no-PROV con valores comprobables.", "points": 0}]
+            return 0, [
+                {
+                    "message": "No hay metadatos no-PROV con valores comprobables.",
+                    "points": 0,
+                }
+            ]
 
         points = 100.0
-        msg = (
-            f"Metadata is rendered in the landing page from ai4-metadata.yaml file"
-        )
+        msg = f"Metadata is rendered in the landing page from ai4-metadata.yaml file"
         return points, [{"message": msg, "points": points}]
-
 
     # Si tu evaluación separa rda_a1_03m, puedes reutilizar la misma lógica o
     # pedir un superconjunto de campos (p. ej., 'sources.*', 'continuous_integration.*', 'tosca.*').
     def rda_a1_03m(self):
         return self.rda_a1_02m()
-    
 
     def rda_a2_01m(self):
         """Indicator RDA-A2-01M: Metadata is guaranteed to remain available after data is no longer available.
@@ -718,7 +827,6 @@ class Plugin(EvaluatorBase):
             "o compromiso explícito de retención a largo plazo del registro de metadatos."
         )
         return 0, [{"message": msg, "points": 0}]
-    
 
     def rda_i1_02m(self):
         """Indicator RDA-I1-02M: (Meta)data use a formal, accessible, shared and broadly
@@ -749,8 +857,12 @@ class Plugin(EvaluatorBase):
         tuple
             (points, msg_list) with points in [0,100].
         """
-        return 100, [{"message": f"Metadata is provided in JSON, JSON-LD and other knowledge representation formats", "points": 100}]
-
+        return 100, [
+            {
+                "message": f"Metadata is provided in JSON, JSON-LD and other knowledge representation formats",
+                "points": 100,
+            }
+        ]
 
     def rda_i3_01m(self):
         """Indicator RDA-I3-01M: (Meta)data include qualified references to other
@@ -798,7 +910,12 @@ class Plugin(EvaluatorBase):
         tuple
             (points, msg_list) with points=0 and an explanatory message.
         """
-        return 0, [{"message": "No hay forma automatizada de comprobar que los datos incluyan referencias calificadas a otros datos en esta versión del evaluador.", "points": 0}]
+        return 0, [
+            {
+                "message": "No hay forma automatizada de comprobar que los datos incluyan referencias calificadas a otros datos en esta versión del evaluador.",
+                "points": 0,
+            }
+        ]
 
     def rda_i3_02d(self):
         """Indicator RDA-I3-02D: (Meta)data include qualified references to other data.
@@ -813,15 +930,27 @@ class Plugin(EvaluatorBase):
         tuple
             (points, msg_list) with points=0 and an explanatory message.
         """
-        return 0, [{"message": "No hay forma de comprobar que los datos incluyan referencias a otros datos (I3-02D).", "points": 0}]
+        return 0, [
+            {
+                "message": "No hay forma de comprobar que los datos incluyan referencias a otros datos (I3-02D).",
+                "points": 0,
+            }
+        ]
 
     def _is_persistent_identifier(self, value: str) -> bool:
-        """Heuristic PID check for common patterns (DOI, Handle, ARK, PURL, W3ID, URN UUID, ORCID)."""
+        """Heuristic PID check for common patterns (DOI, Handle, ARK, PURL, W3ID, URN
+        UUID, ORCID)."""
         if not isinstance(value, str) or len(value) < 6:
             return False
         v = value.strip().lower()
         if v.startswith("http://") or v.startswith("https://"):
-            if "doi.org/" in v or "hdl.handle.net/" in v or "purl.org/" in v or "w3id.org/" in v or "orcid.org/" in v:
+            if (
+                "doi.org/" in v
+                or "hdl.handle.net/" in v
+                or "purl.org/" in v
+                or "w3id.org/" in v
+                or "orcid.org/" in v
+            ):
                 return True
         if v.startswith("ark:/") or v.startswith("urn:uuid:") or v.startswith("urn:"):
             return True
@@ -853,8 +982,18 @@ class Plugin(EvaluatorBase):
             if self._is_persistent_identifier(val):
                 pids.append(val)
         if pids:
-            return 100, [{"message": f"Persistent identifier(s) detected: {sorted(set(pids))[:5]}", "points": 100}]
-        return 0, [{"message": "No persistent identifiers detected in qualified references.", "points": 0}]
+            return 100, [
+                {
+                    "message": f"Persistent identifier(s) detected: {sorted(set(pids))[:5]}",
+                    "points": 100,
+                }
+            ]
+        return 0, [
+            {
+                "message": "No persistent identifiers detected in qualified references.",
+                "points": 0,
+            }
+        ]
 
     def rda_i3_04m(self):
         """Indicator RDA-I3-04M: (Meta)data include qualified references that are persistent identifiers.
@@ -864,14 +1003,13 @@ class Plugin(EvaluatorBase):
         Same check as ``rda_i3_03m`` (applies to additional metadata fields or views).
         """
         return self.rda_i3_03m()
-    
 
     @ConfigTerms(term_id="terms_license")
     def rda_r1_1_02m(self, license_list=[], machine_readable=False, **kwargs):
         """Indicator R1.1-02M: Metadata refers to a standard reuse license (SPDX).
 
-        Regresa 100 si encuentra un licenseId de SPDX; 50 si hay licencia
-        pero no mapea a un licenseId; 0 si no hay licencia.
+        Regresa 100 si encuentra un licenseId de SPDX; 50 si hay licencia pero no mapea
+        a un licenseId; 0 si no hay licencia.
         """
         points = 0
 
@@ -880,7 +1018,9 @@ class Plugin(EvaluatorBase):
 
         # Si no llega lista explícita, usa lo de metadatos
         if not license_list:
-            license_list = terms_license_metadata.text_value.dropna().astype(str).tolist()
+            license_list = (
+                terms_license_metadata.text_value.dropna().astype(str).tolist()
+            )
 
         if not license_list:
             msg = "No license metadata found in record (points: 0)"
@@ -895,16 +1035,21 @@ class Plugin(EvaluatorBase):
 
         if valid:
             points = 100
-            msg = "License(s) recognized as SPDX licenseId: %s (points: 100)" % ", ".join(sorted(set(valid)))
+            msg = (
+                "License(s) recognized as SPDX licenseId: %s (points: 100)"
+                % ", ".join(sorted(set(valid)))
+            )
         else:
             # Hay licencia, pero no es un licenseId válido; puntúa parcialmente
             points = 50
             preview = ", ".join(license_list[:5])
-            msg = "License present but not a valid SPDX licenseId. Values: %s (points: 50)" % preview
+            msg = (
+                "License present but not a valid SPDX licenseId. Values: %s (points: 50)"
+                % preview
+            )
 
         logger.info(msg)
         return (points, [{"message": msg, "points": points}])
-    
 
     @ConfigTerms(term_id="terms_license")
     def rda_r1_1_03m(
@@ -913,10 +1058,10 @@ class Plugin(EvaluatorBase):
         machine_readable: bool = True,  # mantenemos la firma similar
         spdx_licenses_json: Dict = None,
         spdx_local_path: str = None,
-        **kwargs
+        **kwargs,
     ):
-        """
-        Indicador R1.1-03M: La metadata refiere a una licencia de reutilización 'machine-understandable'.
+        """Indicador R1.1-03M: La metadata refiere a una licencia de reutilización
+        'machine-understandable'.
 
         Criterio (implementación):
         - Consideramos 'machine-understandable' si la licencia indicada en la metadata
@@ -1004,7 +1149,6 @@ class Plugin(EvaluatorBase):
         logger.info(msg)
         return (points, [{"message": msg, "points": points}])
 
-
     def rda_r1_3_01m(self):
         """Indicator RDA-R1.3-01M: (Meta)data meet domain-relevant community standards.
 
@@ -1014,35 +1158,68 @@ class Plugin(EvaluatorBase):
         metadata and content are provided in common, machine-understandable ways
         (e.g., JSON/JSON-LD/RDF), enabling automated processing.
         """
-        return 100, [{"message": "Provided in common, machine-understandable formats (no single community standard defined).", "points": 100}]
+        return 100, [
+            {
+                "message": "Provided in common, machine-understandable formats (no single community standard defined).",
+                "points": 100,
+            }
+        ]
 
     def rda_r1_3_01d(self):
         """Indicator RDA-R1.3-01D: dataset meets community standards (data level)."""
-        return 100, [{"message": "Dataset provided in common, machine-understandable formats (no single community standard defined).", "points": 100}]
+        return 100, [
+            {
+                "message": "Dataset provided in common, machine-understandable formats (no single community standard defined).",
+                "points": 100,
+            }
+        ]
 
     def rda_r1_3_02m(self):
-        """Indicator RDA-R1.3-02M: metadata use vocabularies/standards appropriate to the domain."""
-        return 100, [{"message": "Metadata expressed in common, machine-understandable formats; community standard not uniquely defined.", "points": 100}]
+        """Indicator RDA-R1.3-02M: metadata use vocabularies/standards appropriate to
+        the domain."""
+        return 100, [
+            {
+                "message": "Metadata expressed in common, machine-understandable formats; community standard not uniquely defined.",
+                "points": 100,
+            }
+        ]
 
     def rda_r1_3_02d(self):
-        """Indicator RDA-R1.3-02D: data use vocabularies/standards appropriate to the domain."""
-        return 100, [{"message": "Data provided in common, machine-understandable formats; community standard not uniquely defined.", "points": 100}]
-    
+        """Indicator RDA-R1.3-02D: data use vocabularies/standards appropriate to the
+        domain."""
+        return 100, [
+            {
+                "message": "Data provided in common, machine-understandable formats; community standard not uniquely defined.",
+                "points": 100,
+            }
+        ]
 
     def rda_i1_02d(self):
         # Busca 'links.dataset' o 'dataset_url' en self.metadata y aplica _is_machine_actionable
-        urls = [v for v in _collect_urls_from_metadata(self.metadata) if "dataset" in v or "weights" in v]
+        urls = [
+            v
+            for v in _collect_urls_from_metadata(self.metadata)
+            if "dataset" in v or "weights" in v
+        ]
         for u in urls:
             try:
                 r = _fetch(u)
                 ok, fmt = _is_machine_actionable(r.text, r.headers.get("Content-Type"))
                 if ok:
-                    return 100, [{"message": f"Datos con metadatos machine-actionable ({fmt}) en {u}", "points": 100}]
+                    return 100, [
+                        {
+                            "message": f"Datos con metadatos machine-actionable ({fmt}) en {u}",
+                            "points": 100,
+                        }
+                    ]
             except Exception:
                 continue
-        return 0, [{"message": "No se detectaron datos con metadatos machine-actionable.", "points": 0}]
-
-    
+        return 0, [
+            {
+                "message": "No se detectaron datos con metadatos machine-actionable.",
+                "points": 0,
+            }
+        ]
 
     def rda_r1_2_01m(self):
         """Indicator RDA-A1-01M
@@ -1073,7 +1250,7 @@ class Plugin(EvaluatorBase):
                     "message": _("Provenance information found in Metadata"),
                     "points": points,
                 }
-            ] 
+            ]
         else:
             points = 0
             msg = [
