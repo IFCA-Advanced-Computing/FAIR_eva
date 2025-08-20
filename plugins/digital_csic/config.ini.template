@@ -1,30 +1,47 @@
 [Generic]
 endpoint=http://digital.csic.es/dspace-oai/request
 [digital_csic]
-db_host =
-db_port =
-db_user =
-db_pass =
-db_db   =
-api_endpoint = http://digital.csic.es/dspace-oai/request
+db_host = 
+db_port = 
+db_user = 
+db_pass = 
+db_db   = 
+oai_base = http://digital.csic.es/dspace-oai/request
 
-# (meta)data terms to find the resource identifier
-identifier_term = [['identifier', 'doi'], ['identifier', 'uri']]
-identifier_term_data = [['identifier', 'doi'], ['identifier', 'uri']]
+# Mapping between plugin terms and standard terms (see main config.ini for the latter)
+terms_map = {
+    'Data Identifier': [['identifier', 'uri'], ['relation', 'publishedversion'], ['identifier', 'citation']],
+    'Metadata Identifier': [['identifier', 'uri']],
+    'Format': [''],
+    'Temporal Coverage': ['coverage'],
+    'Spatial Coverage': ['coverage'],
+    'License': ['rights', ['rights', 'license']],
+    'Person Identifier': [['contributor', 'orcid'], ['author', ''], ['author', 'orcid'], ['contributor', 'author']],
+    'Organisation Identifier': [['contributor', 'ror']],
+    'Title': ['title'],
+    'Description': ['description'],
+    'Type': ['type', ['type', 'coar']],
+    'Keywords': ['subject',['subject', 'uri']],
+    'Paths': [''],
+    'Download Link': [''],
+    'Version': [''],
+    'Security': [''],
+    'Privacy': [''],
+    'Metadata connection': [['relation', ''], ['relation', 'uri'], ['relation', 'csic']],
+    'Data connection': ['relation', ['identifier', 'citation']],
+    'Metadata for accesibility': ['rights'],
+    'Provenance': ['description', 'provenance']}
 
+# Metadata terms to find the resource identifier
+identifier_term = ['Metadata Identifier']
 
-# Metadata terms to check richness (generic). These terms should be included
-terms_quali_generic = [['contributor','author'],
-            ['date', 'issued'],
-            ['title', ''],
-            ['identifier', 'citation'],
-            ['publisher', ''],
-            ['identifier', 'uri'],
-            ['type', ''],
-            ['language', 'iso'],
-            ['relation', 'csic'],
-            ['rights', '']]
+# Metadata terms to find the data identifier
+identifier_term_data = ['Data Identifier']
 
+# Metadata terms to check richness (generic). These terms should be included [term, qualifier]. None means no qualifier
+terms_quali_generic = ['Keywords', 'Person Identifier', 'Organisation Identifier', 'Title', 'Data connection', 'Metadata connection', 'Type', 'License']
+
+# Metadata terms to check richness (disciplinar). These terms should be included [term, qualifier]
 terms_quali_disciplinar = [['contributor','author'],
             ['date', 'issued'],
             ['title', ''],
@@ -36,10 +53,8 @@ terms_quali_disciplinar = [['contributor','author'],
             ['relation', 'csic'],
             ['rights', '']]
 
-terms_access = [['access', ''], ['rights', '']]
-
-# Accepted access protocols
-terms_access_protocols =['http','https']
+# Metadata terms that defines accessibility
+terms_access = ['Metadata for accesibility', 'Data Identifier']
 
 # Manual metadata access
 metadata_access_manual = ['TODO']
@@ -53,44 +68,83 @@ metadata_persistence = []
 #Authentication for EPOS
 metadata_authentication = []
 
-#terms that use vocabularies and vocabularies used
-dict_vocabularies= {'ROR': 'https://ror.org/', 'PIC': 'https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register', 'imtypes': 'https://www.iana.org/assignments/media-types/media-types.xhtml', 'TRL': 'TRL', 'temporal': 'https://www.iso.org/iso-8601-date-and-time-format.html', 'Rolecode': 'Rolecode', 'spdx': 'https://spdx.org/licenses/', 'ORCID': 'https://orcid.org/'}
-
 terms_vocabularies=[['identifiers','relatedDataProducts'],
+                   ['',''],
                    ['availableFormats',''],
+                   ['',''],
                    ['temporalCoverage','relatedDataProducts'],#no temporal metatdata
+                   ['',''],
                    ['license',''],
                    ['contactPoints','relatedDataProducts']]
 
 
-terms_cv = [['coverage', 'spatial'], ['subject', 'lcsh'], ['subject', 'uri'], ['type', 'coar']]
-supported_data_formats = [".tif", ".aig", ".asc", ".agr", ".grd", ".nc", ".hdf", ".hdf5",
-                        ".pdf", ".odf", ".doc", ".docx", ".csv", ".jpg", ".png", ".gif",
-                        ".mp4", ".xml", ".rdf", ".txt", ".mp3", ".wav", ".zip", ".rar",
-                        ".tar", ".tar.gz", ".jpeg", ".xls", ".xlsx"]
+# Metadata terms wich includes controlled vocabularies. More controlled vocabularies can be imlpemented in plugins
+terms_cv = ['Keywords', 'Person Identifier', 'Organisation Identifier', 'Title', 'Data connection', 'Type', 'License', 'Organisation Identifier']
 
-terms_qualified_references = [['identifier','funder']]
-terms_relations = [['relation', 'uri'], ['relation', ''], ['contributor','orcid'], ['contributor', 'funder']]
-terms_relations_only_data = [['relation', 'uri'], ['relation', ''], ['relation','isbasedon'], ['relation', 'isreferencedby)']]
+#terms that use vocabularies and vocabularies used
+dict_vocabularies= {'LibraryOfCongress': 'http://id.loc.gov/authorities/subjects', 'Wikidata': 'https://www.wikidata.org/', 'Unesco': 'http://vocabularies.unesco.org/thesaurus', 'Coar': 'http://purl.org/coar/', 'RoR': 'https://ror.org/', 'PIC': 'https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register', 'imtypes': 'https://www.iana.org/assignments/media-types/media-types.xhtml', 'TRL': 'TRL', 'temporal': 'https://www.iso.org/iso-8601-date-and-time-format.html', 'Rolecode': 'Rolecode', 'spdx': 'https://spdx.org/licenses/', 'ORCID': 'https://orcid.org/', 'Agrovoc': 'http://aims.fao.org/aos/agrovoc/', 'Getty': 'http://vocab.getty.edu/'}
 
 
-terms_license = [['rights', ''], ['license', '']]
+# List of data formats that are standard for the community
+supported_data_formats = [".txt", ".pdf", ".csv", ".nc", ".doc", ".xls", ".zip", ".rar", ".tar", ".png", ".jpg"]
 
-# Metadata terms to check reusability richness
-terms_reusability_richness = [['contributor','author'],
-                            ['date', 'issued'],
-                            ['title', ''],
-                            ['identifier', 'citation'],
-                            ['publisher', ''],
-                            ['identifier', 'uri'],
-                            ['type', ''],
-                            ['language', 'iso'],
-                            ['relation', 'csic'],
-                            ['rights', '']]
+# Metadata terms that defines links or relation with authors, contributors (preferebly in ORCID format)
+terms_qualified_references = ['Metadata connection', 'Organisation Identifier', 'Person Identifier']
+
+# Accepted access protocols
+terms_access_protocols =['http','https','oai-pmh']
+
+# Metadata terms that defines links or relation with other resources, (preferebly in ORCID format, URIs or persistent identifiers)
+terms_relations = ['Data connection', 'Person Identifier']
+
+# Metadata terms that defines the license type
+terms_license = ['License']
+
+metadata_schemas = [{'xml': 'http://datacite.org/schema/kernel-4'}]
 
 #metadata standard
-metadata_standard = ['dc']
+metadata_standard = ['DC']
 
-metadata_schemas = {'dc': 'http://www.openarchives.org/OAI/2.0/oai_dc/'}
+# Metadata terms to check reusability richness
+terms_reusability_richness = ['Temporal Coverage', 'Data connection']
 
-prov_terms = [['description', 'provenance']]
+# Metadata terms that defines metadata about provenance
+terms_provenance =['Provenance']
+
+[vocabularies:agrovoc]
+remote_path = http://aims.fao.org/aos/agrovoc/
+
+[vocabularies:getty]
+remote_path = http://vocab.getty.edu/
+
+[vocabularies:coar]
+remote_path = http://purl.org/coar/
+
+[vocabularies:ror]
+remote_path = https://ror.org/
+
+[vocabularies:unesco]
+remote_path = http://vocabularies.unesco.org/thesaurus
+
+[vocabularies:wikidata]
+remote_path = https://www.wikidata.org/
+
+[vocabularies:loc]
+remote_path = http://id.loc.gov/authorities/subjects
+
+[vocabularies:orcid]
+remote_path = https://orcid.org/
+
+[vocabularies:pic]
+remote_path = https://ec.europa.eu/info/funding-tenders/opportunities/portal/screen/how-to-participate/participant-register
+
+
+[vocabularies:fairsharing]
+remote_path = https://fairsharing.org/
+
+metadata_path = ['static/fairsharing_metadata_standards20240214.json']
+
+formats_path = ['static/fairsharing_formats20240226.txt']
+
+[vocabularies:iana_media_types]
+remote_path = https://www.iana.org/assignments/media-types/media-types.xml
