@@ -1,11 +1,11 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 import ast
-import csv
 import json
 import logging
 import sys
 import urllib
+import xml.etree.ElementTree as ET
 from functools import wraps
 
 import idutils
@@ -602,6 +602,66 @@ class Plugin(EvaluatorBase):
             "DIGITAL.CSIC preservation policy is available at: https://digital.csic.es/dc/politicas/#politica8"
         )
         return points, [{"message": msg, "points": points}]
+
+    def rda_a1_05d(self):
+        """Indicator RDA-A1-01M.
+
+        This indicator is linked to the following principle: A1: (Meta)data are retrievable by their
+        identifier using a standardised communication protocol. More information about that
+        principle can be found here.
+
+        The indicator refers to automated interactions between machines to access digital objects.
+        The way machines interact and grant access to the digital object will be evaluated by the
+        indicator.
+
+        Returns
+        -------
+        points
+            0 since OAI-PMF does not support machine actionable access to data
+        msg
+            Message with the results or recommendations to improve this indicator
+        """
+        item_id_http = idutils.to_url(
+            self.item_id,
+            idutils.detect_identifier_schemes(self.item_id)[0],
+            url_scheme="http",
+        )
+        file_found = []
+        res = requests.head(
+            item_id_http, verify=False, allow_redirects=True, timeout=10
+        )
+        if res.status_code == 200:
+            response = res.headers
+            for e in response["Link"].split(","):
+                if ' rel="item"' in e.split(";"):
+                    file_url = e.split(";")[0][1:-1]
+                    file_res = requests.head(
+                        file_url, verify=False, allow_redirects=True, timeout=10
+                    )
+                    if file_res.status_code == 200:
+                        file_found.append(file_url.split("/")[-1])
+                        logger.info(
+                            f"File found via Singposting: {file_url.split('/')[-1]}"
+                        )
+        msg_list = []
+        if len(file_found) > 0:
+            points = 100
+            msg_list.append(
+                {
+                    "message": _("Machine actionable access to data is available"),
+                    "points": points,
+                }
+            )
+        else:
+            points = 0
+            msg_list.append(
+                {
+                    "message": _("Machine actionable access to data is not available"),
+                    "points": points,
+                }
+            )
+
+        return points, msg_list
 
         # INTEROPERABLE
 

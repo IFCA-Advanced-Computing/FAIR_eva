@@ -113,7 +113,7 @@ def get_locale():
     return default_lang
 
 
-babel.init_app(app, locale_selector=get_locale)
+babel.init_app(app)
 
 
 def lang_in_session():
@@ -135,11 +135,17 @@ def fallback_lang():
     return "es"
 
 
+@app.before_request
+def set_script_name():
+    if "SCRIPT_NAME" in os.environ:
+        app.config["APPLICATION_ROOT"] = os.environ["SCRIPT_NAME"]
+
+
 @app.route("/", defaults={"path": ""}, methods=["GET", "POST"])
 @app.route("/<path:path>", methods=["GET", "POST"])
 def catch_all(path):
     if path == "":
-        return redirect(url_for("home_" + g.language))
+        return redirect("/dev_web" + url_for("home_" + g.language))
     subpaths = path.split("/")
     if len(subpaths) > 2:
         subpaths.pop(0)
@@ -147,20 +153,24 @@ def catch_all(path):
         if len(subpaths) > 1:
             if subpaths[1] in app.config["PATHS"]:
                 return redirect(
-                    url_for(subpaths[1] + "_" + subpaths[0], **request.args)
+                    "/dev_web"
+                    + url_for(subpaths[1] + "_" + subpaths[0], **request.args)
                 )
             else:
                 return redirect(url_for("not-found_" + subpaths[0]))
         else:
-            return redirect(url_for("home_" + subpaths[0]))
+            return redirect("/dev_web" + url_for("home_" + subpaths[0]))
     else:
         if subpaths[0] in app.config["PATHS"]:
-            return redirect(url_for(subpaths[0] + "_" + g.language, **request.args))
+            return redirect(
+                "/dev_web" + url_for(subpaths[0] + "_" + g.language, **request.args)
+            )
         else:
             if len(subpaths) > 1:
                 if subpaths[1] in app.config["PATHS"]:
                     return redirect(
-                        url_for(subpaths[1] + "_" + g.language, **request.args)
+                        "/dev_web"
+                        + url_for(subpaths[1] + "_" + g.language, **request.args)
                     )
             else:
                 return redirect(url_for("not-found_" + g.language))
@@ -207,12 +217,12 @@ def evaluations():
         return render_template("evaluations.html")
 
 
-@app.route("/es/evaluator", endpoint="evaluator_es", methods=["GET", "POST"])
-@app.route("/en/evaluator", endpoint="evaluator_en", methods=["GET", "POST"])
+@app.route("/dev_web/es/evaluator", endpoint="evaluator_es", methods=["GET", "POST"])
+@app.route("/dev_web/en/evaluator", endpoint="evaluator_en", methods=["GET", "POST"])
 def evaluator():
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
     logging.debug(app.config["BABEL_TRANSLATION_DIRECTORIES"])
-    babel.init_app(app, locale_selector=get_locale)
+    babel.init_app(app)
     try:
         args = request.args
         api_endpoint = None
@@ -291,8 +301,8 @@ def evaluator():
                 "plugins/%s/translations" % repo
             )
             logging.debug(app.config["BABEL_TRANSLATION_DIRECTORIES"])
-            babel.init_app(app, locale_selector=get_locale)
-        url = "http://localhost:9090/v1.0/rda/rda_all"
+            babel.init_app(app)
+        url = "http://localhost:8080/v1.0/rda/rda_all"
         result = requests.post(
             url, data=body, headers={"Content-Type": "application/json"}
         )
@@ -404,7 +414,7 @@ def evaluator():
 def export_pdf():
     app.config["BABEL_TRANSLATION_DIRECTORIES"] = "translations"
     logging.debug(app.config["BABEL_TRANSLATION_DIRECTORIES"])
-    babel.init_app(app, locale_selector=get_locale)
+    babel.init_app(app)
     try:
         args = request.args
         api_endpoint = None
@@ -466,8 +476,8 @@ def export_pdf():
                 "plugins/%s/translations" % repo
             )
             logging.debug(app.config["BABEL_TRANSLATION_DIRECTORIES"])
-            babel.init_app(app, locale_selector=get_locale)
-        url = "http://localhost:9090/v1.0/rda/rda_all"
+            babel.init_app(app)
+        url = "http://localhost:8080/v1.0/rda/rda_all"
         result = requests.post(
             url, data=body, headers={"Content-Type": "application/json"}
         )
@@ -659,4 +669,4 @@ class CheckIDForm(FlaskForm):
 
 
 if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=5001, debug=True)
