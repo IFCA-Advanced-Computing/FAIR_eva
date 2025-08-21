@@ -147,7 +147,7 @@ def gbif_doi_download(doi: str, timeout=-1, auth=None):
     except Exception as e:
         logger.debug(f"ERROR Searching Data: {e}")
         return download_dict
-    
+
     logger.debug("Intentando IPT")
     endpoints = search_request["endpoints"]
     logger.debug(endpoints)
@@ -155,7 +155,9 @@ def gbif_doi_download(doi: str, timeout=-1, auth=None):
         logger.debug("Probando endpoints")
         if ep.get("type") == "DWC_ARCHIVE" and ep.get("url"):
             url = ep["url"]
-            logger.debug(f"Intentando descarga directa desde endpoint DWC_ARCHIVE: {url}")
+            logger.debug(
+                f"Intentando descarga directa desde endpoint DWC_ARCHIVE: {url}"
+            )
             try:
                 os.makedirs(os.path.dirname(download_dict["path"]), exist_ok=True)
                 # Hacemos el GET con timeout razonable (por ejemplo 60s)
@@ -166,19 +168,20 @@ def gbif_doi_download(doi: str, timeout=-1, auth=None):
                             if chunk:
                                 f.write(chunk)
                 # Si llegamos aquí, la descarga fue exitosa
-                download_dict.update({
-                    "download_url": url,
-                    "download_method": "endpoint",
-                    # opcionalmente, capturamos size si viene en headers
-                    "size": int(resp.headers.get("content-length", 0))
-                })
+                download_dict.update(
+                    {
+                        "download_url": url,
+                        "download_method": "endpoint",
+                        # opcionalmente, capturamos size si viene en headers
+                        "size": int(resp.headers.get("content-length", 0)),
+                    }
+                )
                 logger.debug("Descarga directa exitosa.")
                 return download_dict
             except Exception as e:
                 logger.debug(f"ERROR descarga directa desde endpoint: {e}")
                 # si falla, seguimos al siguiente endpoint o al fallback
                 continue
-
 
     # Genera la solicitud de descarga
     logger.debug("Solicitud de Descarga")
@@ -263,14 +266,12 @@ def ICA(filepath):
                 results.core_file_location,
                 usecols=taxonomic_columns + geographic_columns + temporal_columns,
                 low_memory=False,
-                keep_default_na=False
+                keep_default_na=False,
             )
         except Exception as e:
             logger.debug(f"ERROR - {e}")
             df = results.pd_read(
-                results.core_file_location,
-                low_memory=False,
-                keep_default_na=False
+                results.core_file_location, low_memory=False, keep_default_na=False
             )
             missing_columns = [
                 col
@@ -586,31 +587,30 @@ def temporal_percentajes(df):
 
     # Asegurarnos de tener copia y detectar columnas
     df = df.copy()
-    has_ev   = 'eventDate' in df.columns
-    has_verb = 'verbatimEventDate' in df.columns
+    has_ev = "eventDate" in df.columns
+    has_verb = "verbatimEventDate" in df.columns
 
     if has_verb and not has_ev:
         # Sólo verbatimEventDate existe → lo renombramos
-        df = df.rename(columns={'verbatimEventDate': 'eventDate'})
+        df = df.rename(columns={"verbatimEventDate": "eventDate"})
     elif has_ev and has_verb:
-        ev   = df['eventDate']
-        verb = df['verbatimEventDate']
+        ev = df["eventDate"]
+        verb = df["verbatimEventDate"]
         # Convertimos a str y recortamos espacios para detectar "" y "nan"
-        ev_str = ev.astype(str).fillna('').str.strip().str.lower()
+        ev_str = ev.astype(str).fillna("").str.strip().str.lower()
         # Mascara de “eventDate válido”: no nulo, no vacío, no "nan"
-        valid_ev = ev.notna() & (ev_str != '') & (ev_str != 'nan')
+        valid_ev = ev.notna() & (ev_str != "") & (ev_str != "nan")
         # Donde valid_ev es True, mantenemos ev; donde es False, tomamos verbatim
-        df['eventDate'] = ev.where(valid_ev, verb)
+        df["eventDate"] = ev.where(valid_ev, verb)
         # Y quitamos ya la columna verbatim
-        df = df.drop(columns=['verbatimEventDate'])
+        df = df.drop(columns=["verbatimEventDate"])
     # si sólo existía eventDate, no tocamos nada
-
 
     # ── 1) y siguientes: idéntico al anterior...
     total_data = len(df)
 
     # Si no hay ninguna fecha, devolvemos la penalización directa
-    if df['eventDate'].notna().sum() == 0:
+    if df["eventDate"].notna().sum() == 0:
         return {
             "Temporal": -15,
             "Years": 0,
@@ -620,82 +620,83 @@ def temporal_percentajes(df):
         }
 
     # Convertimos year/month/day a numérico (NaN si falla)
-    if 'year' in df.columns:
-        df['year'] = pd.to_numeric(df['year'], errors='coerce')
-    if 'month' in df.columns:
-        df['month'] = pd.to_numeric(df['month'], errors='coerce')
-    if 'day' in df.columns:
-        df['day'] = pd.to_numeric(df['day'], errors='coerce')
+    if "year" in df.columns:
+        df["year"] = pd.to_numeric(df["year"], errors="coerce")
+    if "month" in df.columns:
+        df["month"] = pd.to_numeric(df["month"], errors="coerce")
+    if "day" in df.columns:
+        df["day"] = pd.to_numeric(df["day"], errors="coerce")
 
     # 1) Separa eventDate en hasta dos trozos
     date_splits = (
-        df["eventDate"]
-        .astype(str)
-        .str.strip()
-        .str.split("/", n=1, expand=True)
+        df["eventDate"].astype(str).str.strip().str.split("/", n=1, expand=True)
     )
     # Si sólo salió una columna, duplicarla
     if date_splits.shape[1] == 1:
         date_splits[1] = date_splits[0]
     # Rellenar vacíos o NaN de la segunda con la primera
     date_splits[1] = np.where(
-        date_splits[1].eq("") | date_splits[1].isna(),
-        date_splits[0],
-        date_splits[1]
+        date_splits[1].eq("") | date_splits[1].isna(), date_splits[0], date_splits[1]
     )
     # 2) Parseo a datetime (NaT si falla)
     df["start_date"] = pd.to_datetime(date_splits[0], errors="coerce")
-    df["end_date"]   = pd.to_datetime(date_splits[1], errors="coerce")
+    df["end_date"] = pd.to_datetime(date_splits[1], errors="coerce")
 
     # Preparamos variables de salida
     percentage_years = percentage_months = percentage_day = 0
     percentage_incorrect_dates = 100
 
     # ── YEARS ───────────────────────────────────────────────────────────────────────
-    if 'year' in df.columns:
-        df['start_year'] = df['start_date'].dt.year
-        df['end_year']   = df['end_date'].dt.year
+    if "year" in df.columns:
+        df["start_year"] = df["start_date"].dt.year
+        df["end_year"] = df["end_date"].dt.year
 
-        df['year_valid'] = df['year'].between(df['start_year'], df['end_year'])
-        valid_years = int(df['year_valid'].sum())
+        df["year_valid"] = df["year"].between(df["start_year"], df["end_year"])
+        valid_years = int(df["year_valid"].sum())
         percentage_years = valid_years / total_data * 100
 
-        logger.debug(f"Filas con año válido: {valid_years}/{total_data} ({percentage_years:.2f}%)")
+        logger.debug(
+            f"Filas con año válido: {valid_years}/{total_data} ({percentage_years:.2f}%)"
+        )
     else:
         logger.debug("Columna 'year' no existe: ano_valid = 0")
 
     # ── MONTHS ──────────────────────────────────────────────────────────────────────
-    if 'month' in df.columns:
-        df['start_month'] = df['start_date'].dt.month
-        df['end_month']   = df['end_date'].dt.month
+    if "month" in df.columns:
+        df["start_month"] = df["start_date"].dt.month
+        df["end_month"] = df["end_date"].dt.month
 
         # Si start_month o end_month son NaN, la comparación dará False
-        df['month_valid'] = df['month'].between(df['start_month'], df['end_month'])
-        valid_months = int(df['month_valid'].sum())
+        df["month_valid"] = df["month"].between(df["start_month"], df["end_month"])
+        valid_months = int(df["month_valid"].sum())
         percentage_months = valid_months / total_data * 100
 
-        logger.debug(f"Filas con mes válido: {valid_months}/{total_data} ({percentage_months:.2f}%)")
+        logger.debug(
+            f"Filas con mes válido: {valid_months}/{total_data} ({percentage_months:.2f}%)"
+        )
     else:
         logger.debug("Columna 'month' no existe: month_valid = 0")
 
     # ── DAYS ────────────────────────────────────────────────────────────────────────
-    if 'day' in df.columns:
-        df['start_day'] = df['start_date'].dt.day
-        df['end_day']   = df['end_date'].dt.day
+    if "day" in df.columns:
+        df["start_day"] = df["start_date"].dt.day
+        df["end_day"] = df["end_date"].dt.day
 
-        df['day_valid'] = df['day'].between(df['start_day'], df['end_day'])
-        valid_days = int(df['day_valid'].sum())
+        df["day_valid"] = df["day"].between(df["start_day"], df["end_day"])
+        valid_days = int(df["day_valid"].sum())
         percentage_day = valid_days / total_data * 100
 
-        logger.debug(f"Filas con día válido: {valid_days}/{total_data} ({percentage_day:.2f}%)")
+        logger.debug(
+            f"Filas con día válido: {valid_days}/{total_data} ({percentage_day:.2f}%)"
+        )
     else:
         logger.debug("Columna 'day' no existe: day_valid = 0")
 
     # ── VALIDACIÓN FORMATO FECHA ────────────────────────────────────────────────────
     # start/end validas si no son NaT
-    df['start_date_valid'] = df['start_date'].notna()
-    df['end_date_valid']   = df['end_date'].notna()
-    valid_both = int((df['start_date_valid'] & df['end_date_valid']).sum())
+    df["start_date_valid"] = df["start_date"].notna()
+    df["end_date_valid"] = df["end_date"].notna()
+    valid_both = int((df["start_date_valid"] & df["end_date_valid"]).sum())
     percentage_incorrect_dates = 100 - (valid_both / total_data * 100)
 
     logger.debug(
