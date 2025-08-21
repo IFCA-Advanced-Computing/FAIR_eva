@@ -7,7 +7,6 @@ import os
 import sys
 
 import pandas as pd
-
 from api.evaluator import Evaluator
 
 logging.basicConfig(

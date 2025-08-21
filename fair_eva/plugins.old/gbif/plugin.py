@@ -10,9 +10,8 @@ import xml.etree.ElementTree as ET
 import idutils
 import pandas as pd
 import requests
-
-from api.evaluator import Evaluator
-from plugins.gbif.gbif_data import ICA, gbif_doi_download, gbif_doi_search
+from api.evaluator import EvaluatorBase
+from plugins.gbif.gbif_data import ICA, gbif_doi_download
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
