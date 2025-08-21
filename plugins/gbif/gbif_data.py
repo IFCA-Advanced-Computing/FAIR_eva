@@ -11,6 +11,7 @@ import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor
 
 import geopandas as gpd
+import numpy as np
 import pandas as pd
 import pycountry
 import requests
@@ -25,7 +26,6 @@ logging.basicConfig(
 
 # Configura el nivel de registro para GeoPandas y Fiona
 logging.getLogger("geopandas").setLevel(logging.ERROR)
-logging.getLogger("fiona").setLevel(logging.ERROR)
 
 logger = logging.getLogger(os.path.basename(__file__))
 
@@ -147,6 +147,38 @@ def gbif_doi_download(doi: str, timeout=-1, auth=None):
     except Exception as e:
         logger.debug(f"ERROR Searching Data: {e}")
         return download_dict
+    
+    logger.debug("Intentando IPT")
+    endpoints = search_request["endpoints"]
+    logger.debug(endpoints)
+    for ep in endpoints:
+        logger.debug("Probando endpoints")
+        if ep.get("type") == "DWC_ARCHIVE" and ep.get("url"):
+            url = ep["url"]
+            logger.debug(f"Intentando descarga directa desde endpoint DWC_ARCHIVE: {url}")
+            try:
+                os.makedirs(os.path.dirname(download_dict["path"]), exist_ok=True)
+                # Hacemos el GET con timeout razonable (por ejemplo 60s)
+                with requests.get(url, stream=True, timeout=60) as resp:
+                    resp.raise_for_status()
+                    with open(download_dict["path"], "wb") as f:
+                        for chunk in resp.iter_content(chunk_size=8192):
+                            if chunk:
+                                f.write(chunk)
+                # Si llegamos aquí, la descarga fue exitosa
+                download_dict.update({
+                    "download_url": url,
+                    "download_method": "endpoint",
+                    # opcionalmente, capturamos size si viene en headers
+                    "size": int(resp.headers.get("content-length", 0))
+                })
+                logger.debug("Descarga directa exitosa.")
+                return download_dict
+            except Exception as e:
+                logger.debug(f"ERROR descarga directa desde endpoint: {e}")
+                # si falla, seguimos al siguiente endpoint o al fallback
+                continue
+
 
     # Genera la solicitud de descarga
     logger.debug("Solicitud de Descarga")
@@ -225,18 +257,20 @@ def ICA(filepath):
             "countryCode",
             "coordinateUncertaintyInMeters",
         ]
-        temporal_columns = ["eventDate"]
+        temporal_columns = ["eventDate", "verbatimEventDate", "year", "month", "day"]
         try:
             df = results.pd_read(
                 results.core_file_location,
                 usecols=taxonomic_columns + geographic_columns + temporal_columns,
                 low_memory=False,
+                keep_default_na=False
             )
         except Exception as e:
             logger.debug(f"ERROR - {e}")
             df = results.pd_read(
                 results.core_file_location,
                 low_memory=False,
+                keep_default_na=False
             )
             missing_columns = [
                 col
@@ -270,9 +304,9 @@ def ICA(filepath):
 
     # Calcula el ICA utilizando una combinación ponderada de los porcentajes de calidad
     percentajes_ica["ICA"] = (
-        0.45 * percentajes_ica["Taxonomic"]
-        + 0.35 * percentajes_ica["Geographic"]
-        + 0.2 * percentajes_ica["Temporal"]
+        percentajes_ica["Taxonomic"]
+        + percentajes_ica["Geographic"]
+        + percentajes_ica["Temporal"]
     )
 
     return percentajes_ica
@@ -292,7 +326,7 @@ def taxonomic_percentajes(df):
     1. Calcula el total de ocurrencias en el DataFrame.
     2. Calcula el porcentaje de géneros que están presentes en el catálogo de vida (Species2000).
     3. Calcula el porcentaje de especies presentes en el DataFrame.
-    4. Calcula el porcentaje de calidad para la jerarquía taxonómica.
+    4. Calcula el porcentaje de calidad para la jerarquía taxonómica en tres partes: reuino, clase/orden y familia
     5. Calcula el porcentaje de identificadores disponibles en el DataFrame.
     6. Calcula el porcentaje total de calidad taxonómica combinando los porcentajes ponderados.
     7. Imprime el resultado del porcentaje total de calidad taxonómica.
@@ -319,6 +353,7 @@ def taxonomic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR genus - {e}")
         percentaje_genus = 0
@@ -330,22 +365,56 @@ def taxonomic_percentajes(df):
         logger.debug(f"ERROR specificEpithet - {e}")
         percentaje_species = 0
 
-    # Porcentaje de calidad para la jerarquía taxonómica
+    # Porcentaje de calidad para el reino
     try:
-        percentaje_hierarchy = (
+        percentaje_kingdom = (
             df.value_counts(
-                subset=["higherClassification", "kingdom", "class", "order", "family"],
+                subset=["kingdom"],
                 dropna=False,
             )
             .reset_index(name="N")
-            .apply(hierarchy_weights, axis=1)
+            .apply(kingdom_weights, axis=1)
             .sum()
             / total_data
             * 100
         )
     except Exception as e:
-        logger.debug(f"ERROR hierarchy - {e}")
-        percentaje_hierarchy = 0
+        logger.debug(f"ERROR kingdom - {e}")
+        percentaje_kingdom = 0
+
+    # Porcentaje de calidad para la jerarquía taxonómica
+    try:
+        percentaje_class_order = (
+            df.value_counts(
+                subset=["class", "order"],
+                dropna=False,
+            )
+            .reset_index(name="N")
+            .apply(class_order_weights, axis=1)
+            .sum()
+            / total_data
+            * 100
+        )
+    except Exception as e:
+        logger.debug(f"ERROR class_order - {e}")
+        percentaje_class_order = 0
+
+    # Porcentaje de calidad para la jerarquía taxonómica
+    try:
+        percentaje_family = (
+            df.value_counts(
+                subset=["family"],
+                dropna=False,
+            )
+            .reset_index(name="N")
+            .apply(family_weights, axis=1)
+            .sum()
+            / total_data
+            * 100
+        )
+    except Exception as e:
+        logger.debug(f"ERROR family - {e}")
+        percentaje_family = 0
 
     # Porcentaje de identificadores disponibles en el DataFrame
     try:
@@ -358,16 +427,20 @@ def taxonomic_percentajes(df):
     percentaje_taxonomic = (
         0.2 * percentaje_genus
         + 0.1 * percentaje_species
-        + 0.09 * percentaje_hierarchy
+        + 0.03 * percentaje_kingdom
+        + 0.03 * percentaje_class_order
+        + 0.03 * percentaje_family
         + 0.06 * percentaje_identifiers
-    ) / 0.45
+    )
 
     return {
         "Taxonomic": percentaje_taxonomic,
-        "Genus": percentaje_genus,
-        "Species": percentaje_species,
-        "Hierarchy": percentaje_hierarchy,
-        "Identifiers": percentaje_identifiers,
+        "Genus": 0.2 * percentaje_genus,
+        "Species": 0.1 * percentaje_species,
+        "Kingdom": 0.03 * percentaje_kingdom,
+        "Class/Order": 0.03 * percentaje_class_order,
+        "Family": 0.03 * percentaje_family,
+        "Identifiers": 0.06 * percentaje_identifiers,
     }
 
 
@@ -400,10 +473,9 @@ def geographic_percentajes(df):
     {'Geographic': 63.45, 'Coordinates': 25.6, 'Countries': 15.2, 'CoordinatesUncertainty': 18.9, 'IncorrectCoordinates': 3.75}
     """
     try:
-        __BD_BORDERS = gpd.read_file(gpd.datasets.get_path("naturalearth_lowres"))
+        __BD_BORDERS = gpd.read_file("static/ne_110m_admin_0_countries.shp")
         # Total de ocurrencias
         total_data = len(df)
-
         # Porcentaje de ocurrencias con coordenadas válidas (latitud y longitud presentes)
         percentaje_coordinates = (
             len(df[df["decimalLatitude"].notnull() & df["decimalLongitude"].notnull()])
@@ -427,6 +499,7 @@ def geographic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR countries - {e}")
         percentaje_countries = 0
@@ -454,6 +527,7 @@ def geographic_percentajes(df):
             / total_data
             * 100
         )
+
     except Exception as e:
         logger.debug(f"ERROR incorrect coordinates - {e}")
         percentaje_incorrect_coordinates = 0
@@ -465,15 +539,15 @@ def geographic_percentajes(df):
         percentaje_geographic += 0.1 * percentaje_countries
         percentaje_geographic += 0.05 * percentaje_coordinates_uncertainty
         percentaje_geographic -= 0.2 * percentaje_incorrect_coordinates
-        percentaje_geographic = percentaje_geographic / 0.35
+        percentaje_geographic = percentaje_geographic
     except Exception as e:
         logging.error(e)
     return {
         "Geographic": percentaje_geographic,
-        "Coordinates": percentaje_coordinates,
-        "Countries": percentaje_countries,
-        "CoordinatesUncertainty": percentaje_coordinates_uncertainty,
-        "IncorrectCoordinates": percentaje_incorrect_coordinates,
+        "Coordinates": 0.2 * percentaje_coordinates,
+        "Countries": 0.1 * percentaje_countries,
+        "CoordinatesUncertainty": 0.05 * percentaje_coordinates_uncertainty,
+        "IncorrectCoordinates": -0.2 * percentaje_incorrect_coordinates,
     }
 
 
@@ -505,78 +579,145 @@ def temporal_percentajes(df):
     Temporal: 63.45%
     {'Temporal': 63.45, 'Years': 25.6, 'Months': 15.2, 'Days': 18.9, 'IncorrectDates': 3.75}
     """
-    # Total de ocurrencias
+
+    # ── 0) Unificar eventDate: si existe verbatimEventDate y sus valores no están vacíos,
+    # reemplazar en eventDate sólo donde éste sea nulo o cadena vacía.
+    # ── 0) Unificar eventDate / verbatimEventDate ──────────────────────────────
+
+    # Asegurarnos de tener copia y detectar columnas
+    df = df.copy()
+    has_ev   = 'eventDate' in df.columns
+    has_verb = 'verbatimEventDate' in df.columns
+
+    if has_verb and not has_ev:
+        # Sólo verbatimEventDate existe → lo renombramos
+        df = df.rename(columns={'verbatimEventDate': 'eventDate'})
+    elif has_ev and has_verb:
+        ev   = df['eventDate']
+        verb = df['verbatimEventDate']
+        # Convertimos a str y recortamos espacios para detectar "" y "nan"
+        ev_str = ev.astype(str).fillna('').str.strip().str.lower()
+        # Mascara de “eventDate válido”: no nulo, no vacío, no "nan"
+        valid_ev = ev.notna() & (ev_str != '') & (ev_str != 'nan')
+        # Donde valid_ev es True, mantenemos ev; donde es False, tomamos verbatim
+        df['eventDate'] = ev.where(valid_ev, verb)
+        # Y quitamos ya la columna verbatim
+        df = df.drop(columns=['verbatimEventDate'])
+    # si sólo existía eventDate, no tocamos nada
+
+
+    # ── 1) y siguientes: idéntico al anterior...
     total_data = len(df)
 
-    def safe_date(date):
-        try:
-            return str(pd.to_datetime(date))
-        except Exception as e:
-            # print(e)
-            return date
+    # Si no hay ninguna fecha, devolvemos la penalización directa
+    if df['eventDate'].notna().sum() == 0:
+        return {
+            "Temporal": -15,
+            "Years": 0,
+            "Months": 0,
+            "Days": 0,
+            "IncorrectDates": -15,
+        }
 
-    # Columna de fechas
-    dates = df[df.eventDate.notnull()].copy()
-    if dates.empty:
-        return {"Temporal": 0, "Years": 0, "Months": 0, "Days": 0, "IncorrectDates": 0}
-    dates["date"] = dates.eventDate.apply(safe_date)
+    # Convertimos year/month/day a numérico (NaN si falla)
+    if 'year' in df.columns:
+        df['year'] = pd.to_numeric(df['year'], errors='coerce')
+    if 'month' in df.columns:
+        df['month'] = pd.to_numeric(df['month'], errors='coerce')
+    if 'day' in df.columns:
+        df['day'] = pd.to_numeric(df['day'], errors='coerce')
 
-    # Porcentaje de años validos
-    try:
-        dates["year"] = dates.date.str[:4].astype("Int64")
-        percentaje_years = (
-            sum((dates.year >= 0) & (dates.year <= datetime.date.today().year))
-            / total_data
-            * 100
-        )
-    except Exception as e:
-        logger.debug(f"ERROR year - {e}")
-        percentaje_years = 0
+    # 1) Separa eventDate en hasta dos trozos
+    date_splits = (
+        df["eventDate"]
+        .astype(str)
+        .str.strip()
+        .str.split("/", n=1, expand=True)
+    )
+    # Si sólo salió una columna, duplicarla
+    if date_splits.shape[1] == 1:
+        date_splits[1] = date_splits[0]
+    # Rellenar vacíos o NaN de la segunda con la primera
+    date_splits[1] = np.where(
+        date_splits[1].eq("") | date_splits[1].isna(),
+        date_splits[0],
+        date_splits[1]
+    )
+    # 2) Parseo a datetime (NaT si falla)
+    df["start_date"] = pd.to_datetime(date_splits[0], errors="coerce")
+    df["end_date"]   = pd.to_datetime(date_splits[1], errors="coerce")
 
-    # Porcentaje de meses validos
-    try:
-        dates["month"] = dates.date.str[5:7].astype("Int64")
-        percentaje_months = (
-            sum((dates.month >= 1) & (dates.month <= 12)) / total_data * 100
-        )
-    except Exception as e:
-        logger.debug(f"ERROR month - {e}")
-        percentaje_months = 0
+    # Preparamos variables de salida
+    percentage_years = percentage_months = percentage_day = 0
+    percentage_incorrect_dates = 100
 
-    # Porcentaje de días validos
-    try:
-        dates["day"] = dates.date.str[8:10].astype("Int64")
-        percentaje_days = sum((dates.day >= 1) & (dates.day <= 31)) / total_data * 100
-    except Exception as e:
-        logger.debug(f"ERROR day - {e}")
-        percentaje_days = 0
+    # ── YEARS ───────────────────────────────────────────────────────────────────────
+    if 'year' in df.columns:
+        df['start_year'] = df['start_date'].dt.year
+        df['end_year']   = df['end_date'].dt.year
 
-    # Porcentaje de fechas incorrectas
-    try:
-        dates["correct"] = dates.date.apply(
-            lambda x: bool(
-                re.match(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$", x.strip())
-            )
-        )
-        percentaje_incorrect_dates = sum(~dates.correct) / total_data * 100
-    except Exception as e:
-        logger.debug(f"ERROR incorrect dates - {e}")
-        percentaje_incorrect_dates = 0
+        df['year_valid'] = df['year'].between(df['start_year'], df['end_year'])
+        valid_years = int(df['year_valid'].sum())
+        percentage_years = valid_years / total_data * 100
 
-    # Porcentaje total de calidad temporal combinando los porcentajes ponderados
-    percentaje_temporal = (
-        0.11 * percentaje_years
-        + 0.07 * percentaje_months
-        + 0.02 * percentaje_days
-        - 0.15 * percentaje_incorrect_dates
-    ) / 0.2
+        logger.debug(f"Filas con año válido: {valid_years}/{total_data} ({percentage_years:.2f}%)")
+    else:
+        logger.debug("Columna 'year' no existe: ano_valid = 0")
+
+    # ── MONTHS ──────────────────────────────────────────────────────────────────────
+    if 'month' in df.columns:
+        df['start_month'] = df['start_date'].dt.month
+        df['end_month']   = df['end_date'].dt.month
+
+        # Si start_month o end_month son NaN, la comparación dará False
+        df['month_valid'] = df['month'].between(df['start_month'], df['end_month'])
+        valid_months = int(df['month_valid'].sum())
+        percentage_months = valid_months / total_data * 100
+
+        logger.debug(f"Filas con mes válido: {valid_months}/{total_data} ({percentage_months:.2f}%)")
+    else:
+        logger.debug("Columna 'month' no existe: month_valid = 0")
+
+    # ── DAYS ────────────────────────────────────────────────────────────────────────
+    if 'day' in df.columns:
+        df['start_day'] = df['start_date'].dt.day
+        df['end_day']   = df['end_date'].dt.day
+
+        df['day_valid'] = df['day'].between(df['start_day'], df['end_day'])
+        valid_days = int(df['day_valid'].sum())
+        percentage_day = valid_days / total_data * 100
+
+        logger.debug(f"Filas con día válido: {valid_days}/{total_data} ({percentage_day:.2f}%)")
+    else:
+        logger.debug("Columna 'day' no existe: day_valid = 0")
+
+    # ── VALIDACIÓN FORMATO FECHA ────────────────────────────────────────────────────
+    # start/end validas si no son NaT
+    df['start_date_valid'] = df['start_date'].notna()
+    df['end_date_valid']   = df['end_date'].notna()
+    valid_both = int((df['start_date_valid'] & df['end_date_valid']).sum())
+    percentage_incorrect_dates = 100 - (valid_both / total_data * 100)
+
+    logger.debug(
+        f"Rango fechas válidas: {valid_both}/{total_data} "
+        f"({100-percentage_incorrect_dates:.2f}% correctas, "
+        f"{percentage_incorrect_dates:.2f}% incorrectas)"
+    )
+
+    # ── SCORE FINAL ────────────────────────────────────────────────────────────────
+    percentage_temporal = (
+        0.11 * percentage_years
+        + 0.07 * percentage_months
+        + 0.02 * percentage_day
+        - 0.15 * percentage_incorrect_dates
+    )
 
     return {
-        "Temporal": percentaje_temporal,
-        "Years": percentaje_years,
-        "Months": percentaje_months,
-        "Days": percentaje_days,
-        "IncorrectDates": percentaje_incorrect_dates,
+        "Temporal": percentage_temporal,
+        "Years": 0.11 * percentage_years,
+        "Months": 0.07 * percentage_months,
+        "Days": 0.02 * percentage_day,
+        "IncorrectDates": 0.15 * percentage_incorrect_dates,
     }
 
 
@@ -622,6 +763,24 @@ def hierarchy_weights(row):
     )
 
 
+def kingdom_weights(row):
+    """Returns N for each not empty sublevel (kingdom)."""
+    N = row.N
+    return N if pd.notnull(row.kingdom) else 0
+
+
+def class_order_weights(row):
+    """Returns N for each not empty sublevel (class/order)."""
+    N = row.N
+    return N if pd.notnull(row["class"]) or pd.notnull(row.order) else 0
+
+
+def family_weights(row):
+    """Returns N for each not empty sublevel (family)."""
+    N = row.N
+    return N if pd.notnull(row.family) else 0
+
+
 def is_valid_country_code(row):
     """If the countryCode column from the row is valid, return the column N. Otherwise
     return 0.
@@ -644,18 +803,23 @@ def coordinate_in_country(codigo_pais, latitud, longitud):
     interior."""
     # Buscamos el país correspondiente al código ISO alpha-2
     try:
-        pais = pycountry.countries.get(alpha_2=codigo_pais).alpha_3
+        if len(codigo_pais) == 2:
+            pais = pycountry.countries.get(alpha_2=codigo_pais).alpha_3
+        elif len(codigo_pais) == 3:
+            pais = pycountry.countries.get(alpha_3=codigo_pais).alpha_3
         if pais:
             # Cargamos el conjunto de datos de límites de países
+            __BD_BORDERS = gpd.read_file("static/ne_110m_admin_0_countries.shp")
             world = __BD_BORDERS.copy()
 
             # Obtenemos el polígono del país
-            poligono_pais = world[world["iso_a3"] == pais].geometry.squeeze()
+            poligono_pais = world[world["ADM0_A3"] == pais].geometry.squeeze()
 
             # Verificamos si el polígono del país contiene el punto con las coordenadas dadas
             if poligono_pais.contains(Point(longitud, latitud)):
                 return True
-    except Exception:
+    except Exception as e:
+        logger.error(e)
         pass
 
     # Si no se encuentra el país o no contiene las coordenadas, devolvemos False

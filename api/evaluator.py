@@ -2237,6 +2237,7 @@ class EvaluatorBase(ABC):
 
         return (_points, [{"message": _msg, "points": _points}])
 
+
     def rda_r1_3_02m(self, **kwargs):
         """Indicator RDA-1.3-02M: Metadata is expressed in compliance with a machine-
         understandable community standard.
