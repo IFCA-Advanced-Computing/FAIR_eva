@@ -1794,14 +1794,16 @@ class EvaluatorBase(ABC):
         terms_reusability_richness_list = terms_reusability_richness["list"]
         terms_reusability_richness_metadata = terms_reusability_richness["metadata"]
 
-        element = terms_reusability_richness_metadata.loc[
-            terms_reusability_richness_metadata["element"].isin(["availableFormats"]),
-            "text_value",
-        ].values[0]
-        for form in element:
-            availableFormats.append(form["label"])
-
         try:
+            element = terms_reusability_richness_metadata.loc[
+                terms_reusability_richness_metadata["element"].isin(
+                    ["availableFormats"]
+                ),
+                "text_value",
+            ].values[0]
+            for form in element:
+                availableFormats.append(form["label"])
+
             f = open(path)
             f.close()
 

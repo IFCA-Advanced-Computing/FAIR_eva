@@ -577,10 +577,10 @@ def orcid_basic_info(orcid):
         item = xmlTree.findall(
             ".//{http://www.orcid.org/ns/common}assertion-origin-name"
         )
+        basic_info = "ORCID Name: %s" % item[0].text
     except Exception as e:
         logging.error(e)
         return basic_info
-    basic_info = "ORCID Name: %s" % item[0].text
     return basic_info
 
 
