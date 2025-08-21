@@ -28,7 +28,7 @@ setup(
     packages=find_packages(),
     package_data={"": ["fair-api.yaml"]},
     include_package_data=True,
-    entry_points={"console_scripts": ["openapi_server=fair:main"]},
+    entry_points={"console_scripts": ["fair_eva=fair_eva.__main__:main"]},
     long_description="""\
     API for evaluate FAIRness of digital objects in repositories.
     """,

@@ -46,7 +46,7 @@ def load_config(plugin, fail_if_no_config=True):
     return config
 
 
-if __name__ == "__main__":
+def main():
     app = connexion.FlaskApp(__name__)
     app.add_api(
         "fair-api.yaml",

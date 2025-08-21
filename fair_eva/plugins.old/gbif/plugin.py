@@ -10,7 +10,6 @@ import xml.etree.ElementTree as ET
 import idutils
 import pandas as pd
 import requests
-
 from api.evaluator import EvaluatorBase
 from plugins.gbif.gbif_data import ICA, gbif_doi_download
 
