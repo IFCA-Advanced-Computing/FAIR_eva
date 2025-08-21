@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import re
 import sys
 import urllib
@@ -429,46 +430,28 @@ def check_metadata_terms_with_values(metadata, terms):
 
 
 def find_dataset_file(metadata, url, data_formats):
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_10_1) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/39.0.2171.95 Safari/537.36"
-    }
-    response = requests.get(url, headers=headers, verify=False)
-    url = response.url
-    soup = BeautifulSoup(response.text, features="html.parser")
+    try:
+        response = requests.get(url)
+        response.raise_for_status()
+        html_content = response.text
+    except Exception as e:
+        logger.error(f"Error fetching URL: {url} - {e}")
+        return None
 
-    msg = "No dataset files found"
-    points = 0
-
-    data_files = []
-    for tag in soup.find_all("a"):
-        try:
-            url_link = tag.get("href")
-            response = requests.head(url_link, timeout=3, verify=False)
-        except Exception as e:
-            logging.debug(e)
-
-        try:
-            cut_index = url.find(urllib.parse.urlparse(url).netloc) + len(
-                urllib.parse.urlparse(url).netloc
-            )
-            url_link = url[:cut_index] + url_link
-            logging.debug("Trying: " + url_link)
-            response = requests.head(url_link, timeout=3, verify=False)
-            content_type = response.headers.get("Content-Type")
-            if content_type in data_formats:
-                data_files.append(url_link)
-            else:
-                for f in data_formats:
-                    if f in url_link:
-                        data_files.append(url_link)
-        except Exception as e:
-            logging.error(e)
-
-    if len(data_files) > 0:
-        points = 100
-        msg = "Potential datasets files found: %s" % data_files
-
-    return points, msg, data_files
+    soup = BeautifulSoup(html_content, "html.parser")
+    matches = []
+    for a in soup.find_all("a", href=True):
+        href = a["href"]
+        for fmt in data_formats:
+            if href.lower().endswith(fmt.lower()):
+                matches.append(href)
+                break
+    if len(matches) == 1:
+        return matches[0]
+    elif len(matches) > 1:
+        return matches
+    else:
+        return None
 
 
 def metadata_human_accessibility(metadata, url):
@@ -571,13 +554,16 @@ def orcid_basic_info(orcid):
         "Authorization": "Bearer a354d82e-37fa-47de-b4a2-740dbe90f355",
     }
     try:
+        if not idutils.is_orcid(orcid):
+            raise Exception("Malformed ORCID value: %s" % orcid)
         url = "https://pub.orcid.org/v3.0/" + orcid
         r = requests.get(url, verify=False, headers=headers)  # GET with headers
         xmlTree = ET.fromstring(r.text)
-        item = xmlTree.findall(
-            ".//{http://www.orcid.org/ns/common}assertion-origin-name"
-        )
-        basic_info = "ORCID Name: %s" % item[0].text
+        for prop in ["assertion-origin-name", "source-name"]:
+            item = xmlTree.findall(".//{http://www.orcid.org/ns/common}%s" % prop)
+            if item:
+                break
+
     except Exception as e:
         logging.error(e)
         return basic_info
@@ -878,13 +864,23 @@ def resolve_handle(handle_id):
     return resolves, msg, values
 
 
-def check_link(address):
+def check_link(address, return_http_code=False):
+    resolves = False
     req = urllib.request.Request(url=address)
-    resp = urllib.request.urlopen(req)
-    if resp.status in [400, 404, 403, 408, 409, 501, 502, 503]:
-        return False
+    try:
+        resp = urllib.request.urlopen(req, timeout=15)
+    except urllib.error.URLError as e:
+        logging.warning("Timeout reached while trying to connect to '%s'" % address)
+    except urllib.error.HTTPError as e:
+        logging.warning("Could not access to resource: %s" % address)
     else:
-        return True
+        http_code = resp.status
+        logging.debug("Returned HTTP status from '%s': %s" % (address, http_code))
+        if return_http_code:
+            return http_code
+        if http_code not in ["400", "404", "403", "408", "409", "501", "502", "503"]:
+            resolves = True
+    return resolves
 
 
 def get_protocol_scheme(url):
@@ -913,76 +909,6 @@ def make_http_request(url, request_type="GET", verify=False):
     return payload
 
 
-def get_fairsharing_metadata(offline=True, username="", password="", path=""):
-    if offline == True:
-        f = open(path)
-        fairlist = json.load(f)
-        f.close()
-
-    else:
-        url = "https://api.fairsharing.org/users/sign_in"
-        payload = {"user": {"login": username, "password": password}}
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
-
-        response = requests.request(
-            "POST", url, headers=headers, data=json.dumps(payload)
-        )
-
-        # Get the JWT from the response.text to use in the next part.
-        data = response.json()
-        jwt = data["jwt"]
-
-        url = "https://api.fairsharing.org/search/fairsharing_records?page[size]=2500&fairsharing_registry=standard&user_defined_tags=metadata standardization"
-
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": "Bearer {0}".format(jwt),
-        }
-
-        response = requests.request("POST", url, headers=headers)
-        fairlist = response.json()
-        user = open(path, "w")
-        json.dump(fairlist, user)
-        user.close()
-    return fairlist
-
-
-def get_fairsharing_formats(offline=True, username="", password="", path=""):
-    if offline == True:
-        f = open(path)
-        fairlist = json.load(f)
-        f.close()
-
-    else:
-        url = "https://api.fairsharing.org/users/sign_in"
-        payload = {"user": {"login": username, "password": password}}
-        headers = {"Accept": "application/json", "Content-Type": "application/json"}
-
-        response = requests.request(
-            "POST", url, headers=headers, data=json.dumps(payload)
-        )
-
-        # Get the JWT from the response.text to use in the next part.
-        data = response.json()
-        jwt = data["jwt"]
-
-        url = "https://api.fairsharing.org/search/fairsharing_records?page[size]=2500&user_defined_tags=Geospatial data"
-
-        headers = {
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-            "Authorization": "Bearer {0}".format(jwt),
-        }
-
-        response = requests.request("POST", url, headers=headers)
-        fairlist = response.json()
-        user = open(path, "w")
-        json.dump(fairlist, user)
-        user.close()
-    return fairlist
-
-
 def check_fairsharing_abbreviation(fairlist, abreviation):
     for standard in fairlist["data"]:
         if abreviation == standard["attributes"]["abbreviation"]:
@@ -1000,3 +926,13 @@ def check_ror(ror):
         return (True, name)
     else:
         return (False, "")
+
+
+def validate_any_pid(value):
+    valid = False
+    schemas = idutils.detect_identifier_schemes(value)
+    for v in schemas:
+        if check_link(idutils.to_url(value, v)):
+            valid = True
+            logger.info("Valid PID: %s (type: %s)" % (value, v))
+    return valid

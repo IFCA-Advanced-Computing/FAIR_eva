@@ -189,8 +189,14 @@ msgstr "Los metadatos son accesibles a traves de estos protocolos gratuitos:"
 msgid "Repository allow access management and authentication and authorisation from CSIC CAS"
 msgstr "Este repositorio permite la gestion del acceso autorizacion y autenticaion con el sistema CSIC CAS"
 
+msgid "DIGITAL.CSIC allow access management and authentication and authorisation from CSIC CAS"
+msgstr "DIGITAl.CSIC permite la gestion del acceso autorizacion y autenticaion con el sistema CSIC CAS"
+
 msgid "REPOSITORY preservation policy is available at: https://REPOSITORY.es/dc/politicas/#politica8"
 msgstr "La politica de preservacion de REPOSITORY esta disponible en: https://REPOSITORY.es/dc/politicas/#politica8"
+
+msgid "DIGITAL.CSIC preservation policy is available at: https://digital.csic.es/dc/politicas/#politica8"
+msgstr "La politica de preservacion de DIGITAL.CSIC esta disponible en: https://digital.csic.es/dc/politicas/#politica8"
 
 #: api/evaluator.py:780
 msgid "Metadata can not be accessed via free protocols"
@@ -1024,3 +1030,90 @@ msgstr "Este test implementa el realizado en RDA-R1-01D. Puede ser redefinido po
 
 msgid "rda_r1_3_02d.tips"
 msgstr "Si vas a compartir tus ficheros de datos en un formato propietario, es recomendable proporcionar también una copia en un formato abierto. Puedes convertir los ficheros del objeto digital a uno de los formatos recomendados usando las siguientes herramientas gratuitas <span style=\"text-decoration:underline;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;color:#1155cc;\"><a target=\"_blank\" href=\"https://formatfactory.online/\">Format Factory </a></span>https://formatfactory.online/ o <span style=\"text-decoration:underline;-webkit-text-decoration-skip:none;text-decoration-skip-ink:none;color:#1155cc;\"><a target=\"_blank\" href=\"http://REPOSITORY.es/dc/faqs/#faq26\">zamzar y lee las recomendaciones de REPOSITORY sobre denominación de ficheros.</a></span></tbody>"
+
+msgid "Found persistent identifier for the"
+msgstr "Encontrado identificador persistente para"
+
+msgid "Found a globally unique identifier for the"
+msgstr "Encontrado potencial identificador único global para"
+
+msgid "Identifier is not persistent for the"
+msgstr "El identificador no es persistente para"
+
+msgid "Found metadata elements matching 'Metadata for Resource Discovery' elements"
+msgstr "Encontrados elementos de metadatos que coinciden con los elementos 'Metadata for Resource Discovery'"
+
+msgid "Metadata includes identifier/s for the data:"
+msgstr "Los metadatos incluyen identificador/es para los datos:"
+
+msgid "Found a non-standarised protocol to access the metadata record:"
+msgstr "Encontrado un protocolo no estandarizado para acceder al registro de metadatos:"
+
+msgid "The API endpoint provided does not support machine-actionable access to data"
+msgstr "El endpoint API proporcionado no soporta el acceso a datos de forma automatizada"
+
+msgid "File format is listed under IANA Internet Media Types"
+msgstr "El formato de archivo se encuentra listado en IANA Internet Media Types"
+
+msgid "Found metadata elements using standard vocabularies:"
+msgstr "Encontrados elementos de metadatos utilizando vocabularios estándar:"
+
+msgid "The checked vocabularies the current version are:"
+msgstr "Los vocabularios verificados en la versión actual son:"
+
+msgid "No controlled vocabularies found"
+msgstr "No se han encontrado vocabularios controlados"
+
+msgid "Currently, this tool does not include community-bsed schemas. If you need to include yours, please contact."
+msgstr "Actualmente, esta herramienta no incluye esquemas basados en la comunidad. Si necesita incluir el suyo, por favor contacte."
+
+msgid "License/s are machine readable according to SPDX"
+msgstr "Las licencias son legibles por máquina según SPDX"
+
+msgid "License/s arenot machine readable according to SPDX"
+msgstr "Las licencias no son legibles por máquina según SPDX"
+
+msgid "A subset of the license/s are machine readable according to SPDX"
+msgstr "Un subconjunto de las licencias es legible por máquina según SPDX"
+
+msgid "License is considered as standard by SPDX:"
+msgstr "La licencia se considera estándar según SPDX:"
+
+msgid "License/s in use are considered as standard according to SPDX license list:"
+msgstr "Las licencias en uso se consideran estándar según la lista de licencias SPDX:"
+
+msgid "A subset of the license/s in use are standard according to SDPX license list:"
+msgstr "Un subconjunto de las licencias en uso es estándar según la lista de licencias SDPX:"
+
+msgid "None of the license/s defined are standard according to SPDX license list"
+msgstr "Ninguna de las licencias definidas es estándar según la lista de licencias SPDX"
+
+msgid "No machine-actionable metadata format found. If you are using OAI-PMH endpoint it should expose RDF schema"
+msgstr "No se encontró un formato de metadatos accionable por máquina. Si está utilizando un endpoint OAI-PMH, debería exponer un esquema RDF"
+
+msgid "After applying weigh"
+msgstr "Después de aplicar el peso"
+
+msgid "Metadata does not have qualified references to other metadata"
+msgstr "Los metadatos no tienen referencias cualificadas a otros metadatos"
+
+msgid "Found metadata elements that enhance reusability:"
+msgstr "Encontrados elements de metadatos que mejoran la reusabilidad:"
+
+msgid "README file not found"
+msgstr "Fichero README no encontrado"
+
+msgid "README file found:"
+msgstr "Fichero README encontrado:"
+
+msgid "After applying weigh"
+msgstr "Después de aplicar el peso"
+
+msgid "Metadata found for provenance"
+msgstr "Metadatos sobre procedencia (provenance) encontrados"
+
+msgid "Found a non-standarised protocol to access the metadata record:"
+msgstr "Encontrado un protocolo no estandarizado para acceder al registro de metadatos:"
+
+msgid "Community schema found:"
+msgstr "Esquema de comunidad encontrado:"

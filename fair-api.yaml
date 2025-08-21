@@ -5,7 +5,7 @@ info:
   license:
     name: MIT
 servers:
-  - url: http://localhost:9090/v1.0
+  - url: http://localhost:8080/v1.0
 paths:
   /rda:
     x-indicator: False
@@ -1560,14 +1560,14 @@ components:
           type: string
         id:
           type: string
-        oai_base:
+        api_endpoint:
           type: string
         lang:
           type: string
       example:
         repo: oai-pmh
         id: 10.5281/zenodo.2654428
-        oai_base: https://zenodo.org/oai2d
+        api_endpoint: https://zenodo.org/oai2d
         lang: en
     data_test:
       required:

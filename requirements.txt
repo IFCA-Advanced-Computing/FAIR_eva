@@ -21,10 +21,8 @@ reportlab
 PyPDF2
 rdflib
 dicttoxml
-tqdm==4.66.1
+tqdm==4.66.3
 python-dwca-reader==0.15.1
-pycountry==22.3.5
-geopandas==1.0.1
 shapely==2.0.3
 prettytable
 pyarrow
