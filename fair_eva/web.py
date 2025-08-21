@@ -7,9 +7,11 @@ import os.path
 import sys
 from math import pi
 
+import api.utils as ut
 import numpy as np
 import pandas as pd
 import requests
+import utils.pdf_gen as pdf_gen
 from bokeh.embed import components
 from bokeh.layouts import row
 from bokeh.models import ColumnDataSource, LabelSet
@@ -28,11 +30,8 @@ from flask import (
 from flask_babel import Babel, gettext
 from flask_babel import lazy_gettext as _l
 from flask_wtf import FlaskForm
-from wtforms import SelectField, StringField
-
-import api.utils as ut
-import utils.pdf_gen as pdf_gen
 from utils.smart_plugin import Smart_plugin
+from wtforms import SelectField, StringField
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"

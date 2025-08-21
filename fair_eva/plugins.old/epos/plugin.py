@@ -10,14 +10,13 @@ import sys
 import urllib
 import xml.etree.ElementTree as ET
 
+import api.utils as ut
 import idutils
 import numpy as np
 import pandas as pd
 import requests
-from dicttoxml import dicttoxml
-
-import api.utils as ut
 from api.evaluator import ConfigTerms, EvaluatorBase
+from dicttoxml import dicttoxml
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"

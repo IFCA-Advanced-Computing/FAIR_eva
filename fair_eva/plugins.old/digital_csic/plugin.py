@@ -8,14 +8,13 @@ import sys
 import urllib
 from functools import wraps
 
+import api.utils as ut
 import idutils
 import pandas as pd
 import psycopg2
 import requests
-from bs4 import BeautifulSoup
-
-import api.utils as ut
 from api.evaluator import ConfigTerms, EvaluatorBase
+from bs4 import BeautifulSoup
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"

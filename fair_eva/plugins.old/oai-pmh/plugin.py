@@ -5,11 +5,10 @@ import sys
 import urllib
 import xml.etree.ElementTree as ET
 
+import api.utils as ut
 import idutils
 import pandas as pd
 import requests
-
-import api.utils as ut
 from api.evaluator import EvaluatorBase
 
 logging.basicConfig(
