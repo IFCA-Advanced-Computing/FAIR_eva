@@ -1,5 +1,5 @@
 [project]
-name = "FAIR_eva"
+name = "fair_eva"
 version = "1.5.0"
 authors = [
   { name="Fernando Aguilar Gómez", email="aguilarf@ifca.unican.es" },

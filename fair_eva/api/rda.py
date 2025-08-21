@@ -5,11 +5,10 @@ import os
 import sys
 from functools import wraps
 
-import yaml
-from connexion import NoContent
-
 import api.utils as ut
+import yaml
 from api import evaluator
+from connexion import NoContent
 from fair import app_dirname, load_config
 
 logging.basicConfig(
