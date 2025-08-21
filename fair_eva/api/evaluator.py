@@ -9,10 +9,11 @@ import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from functools import wraps
 
-import api.utils as ut
 import idutils
 import pandas as pd
 import requests
+
+import fair_eva.api.utils as ut
 
 logger = logging.getLogger("api.plugin.evaluation_steps")
 
