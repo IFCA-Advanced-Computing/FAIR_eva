@@ -1,3 +1,7 @@
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
+
 [project]
 name = "fair_eva"
 version = "1.5.0"
@@ -16,25 +20,24 @@ classifiers = [
 ]
 
 dependencies = [
-    "werkzeug == 3.0.3",
-    "connexion",
-    "swagger-ui-bundle == 0.0.6",
-   "flask == 2.2.5",
-   "flask_wtf",
-   "bs4",
-   "psycopg2-binary",
-   "pandas",
-   "idutils",
-   "Babel",
-   "flask_babel",
-   "bokeh == 2.3.3",
-   "reportlab",
-   "PyPDF2",
+    "werkzeug==3.0.3",
+    "connexion[flask,uvicorn]",
+    "swagger-ui-bundle==0.0.6",
+    "flask==2.2.5",
+    "flask_wtf",
+    "bs4",
+    "psycopg2-binary",
+    "pandas",
+    "idutils",
+    "Babel",
+    "flask_babel",
+    "bokeh==2.3.3",
+    "reportlab",
+    "PyPDF2",
 ]
 
-[build-system]
-requires = ["flit_core<4"]
-build-backend = "flit_core.buildapi"
+[project.scripts]
+fair-eva = "fair_eva.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/ifca-advanced-computing/FAIR_eva"
