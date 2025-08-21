@@ -6,6 +6,7 @@ import os
 import sys
 import urllib
 import xml.etree.ElementTree as ET
+from abc import ABC, abstractmethod
 from functools import wraps
 
 import idutils
@@ -63,53 +64,7 @@ class ConfigTerms(property):
         return wrapper
 
 
-class ConfigTerms(property):
-    def __init__(self, term_id):
-        self.term_id = term_id
-
-    def __call__(self, wrapped_func):
-        @wraps(wrapped_func)
-        def wrapper(plugin, **kwargs):
-            metadata = plugin.metadata
-            has_metadata = True
-
-            term_list = ast.literal_eval(plugin.config[plugin.name][self.term_id])
-            # Get values in config for the given term
-            if not term_list:
-                msg = (
-                    "Cannot find any value for term <%s> in configuration"
-                    % self.term_id
-                )
-                has_metadata = False
-            else:
-                # Get metadata associated with the term ID
-                term_metadata = pd.DataFrame(
-                    term_list, columns=["element", "qualifier"]
-                )
-                term_metadata = ut.check_metadata_terms_with_values(
-                    metadata, term_metadata
-                )
-                if term_metadata.empty:
-                    msg = (
-                        "No access information can be found in the metadata for: %s. Please double-check the value/s provided for '%s' configuration parameter"
-                        % (term_list, self.term_id)
-                    )
-                    has_metadata = False
-
-            if not has_metadata:
-                logger.warning(msg)
-                return (0, [{"message": msg, "points": 0}])
-
-            # Update kwargs with collected metadata for the required terms
-            kwargs.update(
-                {self.term_id: {"list": term_list, "metadata": term_metadata}}
-            )
-            return wrapped_func(plugin, **kwargs)
-
-        return wrapper
-
-
-class Evaluator(object):
+class EvaluatorBase(ABC):
     """A class used to define FAIR indicators tests. It contains all the references to all the tests
 
     ...
@@ -120,121 +75,97 @@ class Evaluator(object):
         Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
             identifier from the repo)
 
-    oai_base : str
+    api_endpoint : str
         Open Archives initiative , This is the place in which the API will ask for the metadata
 
-    lang : Language
+    lang : str
+        Two-letter language code
+
+    config : ConfigParser object
+        ConfigParser's object containing both plugin's and main configuration.
+
+    name : str
+        FAIR-EVA's plugin name.
     """
 
-    def __init__(self, item_id, oai_base=None, lang="en", plugin=None, config=None):
+    def __init__(
+        self, item_id, api_endpoint=None, lang="en", config=None, name=None, **kwargs
+    ):
         self.item_id = item_id
-        self.oai_base = oai_base
-        self.metadata = None
-        self.access_protocols = []
-        self.cvs = []
+        self.api_endpoint = api_endpoint
+        self.lang = lang
         self.config = config
-        # configuration terms
-        self.terms_access_metadata = pd.DataFrame()
-        self.terms_license_metadata = pd.DataFrame()
-
-        logger.debug("OAI_BASE IN evaluator: %s" % oai_base)
-        if oai_base is not None and oai_base != "" and self.metadata is None:
-            metadataFormats = ut.oai_metadataFormats(oai_base)
-            dc_prefix = ""
-            for e in metadataFormats:
-                if metadataFormats[e] == "http://www.openarchives.org/OAI/2.0/oai_dc/":
-                    dc_prefix = e
-            logger.debug("DC_PREFIX: %s" % dc_prefix)
-
-            try:
-                id_type = idutils.detect_identifier_schemes(self.item_id)[0]
-            except Exception as e:
-                id_type = "internal"
-
-            logger.debug("Trying to get metadata")
-            try:
-                item_metadata = ut.oai_get_metadata(
-                    ut.oai_check_record_url(oai_base, dc_prefix, self.item_id)
-                ).find(".//{http://www.openarchives.org/OAI/2.0/}metadata")
-            except Exception as e:
-                logger.error("Problem getting metadata: %s" % e)
-                item_metadata = ET.fromstring("<metadata></metadata>")
-            data = []
-            for tags in item_metadata.findall(".//"):
-                metadata_schema = tags.tag[0 : tags.tag.rfind("}") + 1]
-                element = tags.tag[tags.tag.rfind("}") + 1 : len(tags.tag)]
-                text_value = tags.text
-                qualifier = None
-                data.append([metadata_schema, element, text_value, qualifier])
-            self.metadata = pd.DataFrame(
-                data, columns=["metadata_schema", "element", "text_value", "qualifier"]
-            )
-
-        if self.metadata is not None:
-            if len(self.metadata) > 0:
-                self.access_protocols = ["http", "oai-pmh"]
+        self.name = name
+        self.metadata = None
+        self.cvs = []
 
         # Config attributes
-        self.name = plugin
-        if self.name == None:
-            self.name = "oai-pmh"
-        try:
-            self.identifier_term = ast.literal_eval(
-                self.config[self.name]["identifier_term"]
-            )
-            self.terms_quali_generic = ast.literal_eval(
-                self.config[self.name]["terms_quali_generic"]
-            )
-            self.terms_quali_disciplinar = ast.literal_eval(
-                self.config[self.name]["terms_quali_disciplinar"]
-            )
-            self.terms_access = ast.literal_eval(self.config[self.name]["terms_access"])
-            self.terms_cv = ast.literal_eval(self.config[self.name]["terms_cv"])
-            self.supported_data_formats = ast.literal_eval(
-                self.config[self.name]["supported_data_formats"]
-            )
-            self.terms_qualified_references = ast.literal_eval(
-                self.config[self.name]["terms_qualified_references"]
-            )
-            self.terms_relations = ast.literal_eval(
-                self.config[self.name]["terms_relations"]
-            )
-            self.terms_license = ast.literal_eval(
-                self.config[self.name]["terms_license"]
-            )
-            self.metadata_quality = 100  # Value for metadata quality
-            self.terms_access_protocols = ast.literal_eval(
-                self.config[self.name]["terms_access_protocols"]
-            )
-            self.metadata_standard = ast.literal_eval(
-                self.config[self.name]["metadata_standard"]
-            )
-            self.fairsharing_username = ast.literal_eval(
-                self.config["fairsharing"]["username"]
-            )
+        self.identifier_term = ast.literal_eval(
+            self.config[self.name]["identifier_term"]
+        )
+        self.terms_quali_generic = ast.literal_eval(
+            self.config[self.name]["terms_quali_generic"]
+        )
+        self.terms_quali_disciplinar = ast.literal_eval(
+            self.config[self.name]["terms_quali_disciplinar"]
+        )
+        self.terms_cv = ast.literal_eval(self.config[self.name]["terms_cv"])
+        self.supported_data_formats = ast.literal_eval(
+            self.config[self.name]["supported_data_formats"]
+        )
+        self.terms_qualified_references = ast.literal_eval(
+            self.config[self.name]["terms_qualified_references"]
+        )
+        self.terms_relations = ast.literal_eval(
+            self.config[self.name]["terms_relations"]
+        )
+        self.metadata_access_manual = ast.literal_eval(
+            self.config[self.name]["metadata_access_manual"]
+        )
+        self.data_access_manual = ast.literal_eval(
+            self.config[self.name]["data_access_manual"]
+        )
+        self.terms_access_protocols = ast.literal_eval(
+            self.config[self.name]["terms_access_protocols"]
+        )
 
-            self.fairsharing_password = ast.literal_eval(
-                self.config["fairsharing"]["password"]
-            )
-            self.fairsharing_metadata_path = ast.literal_eval(
-                self.config["fairsharing"]["metadata_path"]
-            )
-            self.fairsharing_formats_path = ast.literal_eval(
-                self.config["fairsharing"]["formats_path"]
-            )
-            self.internet_media_types_path = ast.literal_eval(
-                self.config["internet media types"]["path"]
-            )
-            self.metadata_schemas = ast.literal_eval(
-                self.config[self.name]["metadata_schemas"]
-            )
-        except Exception as e:
-            logger.error("Problem loading plugin config: %s" % e)
+        # self.vocabularies = ast.literal_eval(self.config[self.name]["vocabularies"])
 
-        # Translations
-        self.lang = lang
-        logger.debug("El idioma es: %s" % self.lang)
-        logger.debug("METAdata: %s" % self.metadata)
+        self.dict_vocabularies = ast.literal_eval(
+            self.config[self.name]["dict_vocabularies"]
+        )
+
+        self.vocabularies = list(self.dict_vocabularies.keys())
+        self.metadata_standard = ast.literal_eval(
+            self.config[self.name]["metadata_standard"]
+        )
+
+        self.metadata_authentication = ast.literal_eval(
+            self.config[self.name]["metadata_authentication"]
+        )
+        self.metadata_persistence = ast.literal_eval(
+            self.config[self.name]["metadata_persistence"]
+        )
+        self.terms_vocabularies = ast.literal_eval(
+            self.config[self.name]["terms_vocabularies"]
+        )
+
+        self.fairsharing_username = ast.literal_eval(
+            self.config["fairsharing"]["username"]
+        )
+
+        self.fairsharing_password = ast.literal_eval(
+            self.config["fairsharing"]["password"]
+        )
+        self.fairsharing_metadata_path = ast.literal_eval(
+            self.config["fairsharing"]["metadata_path"]
+        )
+        self.fairsharing_formats_path = ast.literal_eval(
+            self.config["fairsharing"]["formats_path"]
+        )
+        self.internet_media_types_path = ast.literal_eval(
+            self.config["internet media types"]["path"]
+        )
         global _
         _ = self.translation()
 
@@ -266,6 +197,11 @@ class Evaluator(object):
             msg_list.append({"message": _msg, "points": _points})
 
         return (points, msg_list)
+
+    @abstractmethod
+    def get_metadata(self):
+        """Method to be implemented by plugins."""
+        raise NotImplementedError("Derived class mus implement get_metadata method")
 
     def eval_uniqueness(self, id_list, data_or_metadata="(meta)data"):
         points = 0
@@ -738,7 +674,7 @@ class Evaluator(object):
             )
         except Exception as e:
             logger.error(e)
-            item_id_http = self.oai_base
+            item_id_http = self.api_endpoint
         points, msg = ut.metadata_human_accessibility(self.metadata, item_id_http)
         return (points, [{"message": msg, "points": points}])
 
@@ -852,7 +788,7 @@ class Evaluator(object):
         msg_list = []
         points = 0
         try:
-            landing_url = urllib.parse.urlparse(self.oai_base).netloc
+            landing_url = urllib.parse.urlparse(self.api_endpoint).netloc
             item_id_http = idutils.to_url(
                 self.item_id,
                 idutils.detect_identifier_schemes(self.item_id)[0],
@@ -917,7 +853,7 @@ class Evaluator(object):
         """
         points = 0
 
-        protocol = ut.get_protocol_scheme(self.oai_base)
+        protocol = ut.get_protocol_scheme(self.api_endpoint)
         if protocol in self.terms_access_protocols:
             points = 100
             msg = "Found a standarised protocol to access the metadata record: " + str(
@@ -1248,6 +1184,7 @@ class Evaluator(object):
         return (points, msg_list)
 
     def rda_i1_02m(self):
+        # TOFIX - This is very OAI-PMH dependant
         """Indicator RDA-A1-01M.
 
         This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
@@ -1268,11 +1205,11 @@ class Evaluator(object):
         points = 0
         msg_list = []
         try:
-            if self.oai_base is not None:
-                metadata_formats = ut.get_rdf_metadata_format(self.oai_base)
+            if self.api_endpoint is not None:
+                metadata_formats = ut.get_rdf_metadata_format(self.api_endpoint)
                 rdf_metadata = None
                 for e in metadata_formats:
-                    url = ut.oai_check_record_url(self.oai_base, e, self.item_id)
+                    url = ut.oai_check_record_url(self.api_endpoint, e, self.item_id)
                     rdf_metadata = ut.oai_get_metadata(url)
                     if rdf_metadata is not None:
                         points = 100
@@ -1423,7 +1360,7 @@ class Evaluator(object):
         term_metadata = term_data["metadata"]
         id_list = []
         for index, row in term_metadata.iterrows():
-            logging.debug(self.item_id)
+            logger.debug(self.item_id)
 
             if row["text_value"].split("/")[-1] not in self.item_id:
                 id_list.append(row["text_value"])
@@ -1536,56 +1473,58 @@ class Evaluator(object):
         return self.rda_i3_03m()
 
     # REUSABLE
-    def rda_r1_01m(self):
-        """Indicator RDA-A1-01M
+    @ConfigTerms(term_id="terms_reusability_richness")
+    def rda_r1_01m(self, **kwargs):
+        """Indicator RDA-R1-01M: Plurality of accurate and relevant attributes are provided to allow reuse.
+
         This indicator is linked to the following principle: R1: (Meta)data are richly described with a
         plurality of accurate and relevant attributes. More information about that principle can be
         found here.
+
         The indicator concerns the quantity but also the quality of metadata provided in order to
         enhance data reusability.
-        Technical proposal:
-        Parameters
-        ----------
-        item_id : str
-            Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
+
         Returns
         -------
         points
-            A number between 0 and 100 to indicate how well this indicator is supported
+            Proportional to the number of terms considered to enhance reusability
         msg
             Message with the results or recommendations to improve this indicator
         """
-        # Depending on the metadata schema used, checks that at least the mandatory terms are filled (75%)
-        # and the number of terms are high (25%)
-        msg_list = []
-        logger.debug(_("Checking Dublin Core as multidisciplinar schema"))
+        points = 0
 
-        md_term_list = pd.DataFrame(
-            self.terms_quali_disciplinar, columns=["term", "qualifier"]
-        )
-        md_term_list = ut.check_metadata_terms(self.metadata, md_term_list)
-        points = (
-            100
-            * (len(md_term_list) - (len(md_term_list) - sum(md_term_list["found"])))
-            / len(md_term_list)
-        )
-        if points == 100:
-            msg_list.append(
-                {"message": _("All mandatory terms included"), "points": points}
+        terms_reusability_richness = kwargs["terms_reusability_richness"]
+        terms_reusability_richness_list = terms_reusability_richness["list"]
+        terms_reusability_richness_metadata = terms_reusability_richness["metadata"]
+
+        reusability_element_list = []
+        for element in terms_reusability_richness_list:
+            element_df = terms_reusability_richness_metadata.loc[
+                terms_reusability_richness_metadata["element"].isin([element[0]]),
+                "text_value",
+            ]
+
+            element_values = element_df.values
+            if len(element_values) > 0:
+                reusability_element_list.extend(element_values)
+        if len(reusability_element_list) > 0:
+            msg = "Found %s metadata elements that enhance reusability: %s" % (
+                len(reusability_element_list),
+                reusability_element_list,
             )
         else:
-            for i, e in md_term_list.iterrows():
-                if e["found"] == 0:
-                    msg_list.append(
-                        {
-                            "message": _("Missing term")
-                            + ": %s, qualifier: %s" % (e["term"], e["qualifier"]),
-                            "points": points,
-                        }
-                    )
+            msg = "Could not find any metadata element that enhance reusability"
+        points = (
+            len(
+                terms_reusability_richness_metadata.groupby(
+                    ["element", "qualifier"]
+                ).count()
+            )
+            / len(terms_reusability_richness["list"])
+            * 100
+        )
 
-        return (points, msg_list)
+        return (points, [{"message": msg, "points": points}])
 
     @ConfigTerms(term_id="terms_license")
     def rda_r1_1_01m(self, license_list=[], **kwargs):
@@ -2069,49 +2008,3 @@ class Evaluator(object):
                             % _url
                         )
         return license_name
-
-
-class ConfigTerms(property):
-    def __init__(self, term_id):
-        self.term_id = term_id
-
-    def __call__(self, wrapped_func):
-        @wraps(wrapped_func)
-        def wrapper(plugin, **kwargs):
-            metadata = plugin.metadata
-            has_metadata = True
-
-            term_list = ast.literal_eval(plugin.config[plugin.name][self.term_id])
-            # Get values in config for the given term
-            if not term_list:
-                msg = (
-                    "Cannot find any value for term <%s> in configuration"
-                    % self.term_id
-                )
-                has_metadata = False
-            else:
-                # Get metadata associated with the term ID
-                term_metadata = pd.DataFrame(
-                    term_list, columns=["element", "qualifier"]
-                )
-                term_metadata = ut.check_metadata_terms_with_values(
-                    metadata, term_metadata
-                )
-                if term_metadata.empty:
-                    msg = (
-                        "No access information can be found in the metadata for: %s. Please double-check the value/s provided for '%s' configuration parameter"
-                        % (term_list, self.term_id)
-                    )
-                    has_metadata = False
-
-            if not has_metadata:
-                logger.warning(msg)
-                return (0, msg)
-
-            # Update kwargs with collected metadata for the required terms
-            kwargs.update(
-                {self.term_id: {"list": term_list, "metadata": term_metadata}}
-            )
-            return wrapped_func(plugin, **kwargs)
-
-        return wrapper

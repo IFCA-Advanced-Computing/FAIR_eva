@@ -17,7 +17,7 @@ import requests
 from dicttoxml import dicttoxml
 
 import api.utils as ut
-from api.evaluator import ConfigTerms, Evaluator
+from api.evaluator import ConfigTerms, EvaluatorBase
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
@@ -25,36 +25,15 @@ logging.basicConfig(
 logger = logging.getLogger("api.plugin")
 
 
-class Plugin(Evaluator):
-    """A class used to define FAIR indicators tests. It is tailored towards the EPOS repository
+class Plugin(EvaluatorBase):
+    """A class used to define FAIR indicators tests, tailored to the DT-GEO prototype
+    metadata catalog (EPOS ICS-C based)."""
 
-    ...
-
-    Attributes
-    ----------
-    item_id : str
-        Digital Object identifier, which can be a generic one (DOI, PID), or an internal (e.g. an
-            identifier from the repo)
-
-    oai_base : str
-        Open Archives Initiative , This is the place in which the API will ask for the metadata. If you are working with  EPOS https://www.ics-c.epos-eu.org/api/v1/resources
-
-    lang : Language
-
-    """
-
-    name = "epos"
-
-    def __init__(self, item_id, oai_base=None, lang="en", config=None, name="epos"):
-        # FIXME: Disable calls to parent class until a EvaluatorBase class is implemented
-        # super().__init__(item_id, oai_base, lang, self.name)
-        # global _
-        # _ = super().translation()
-
-        self.name = name
-        self.item_id = item_id
-        self.api_endpoint = oai_base
-        self.config = config
+    def __init__(self, *args, **kwargs):
+        super().__init__(
+            *args,
+            **kwargs,
+        )
 
         logger.debug("Using FAIR-EVA's plugin: %s" % self.name)
 
@@ -139,8 +118,8 @@ class Plugin(Evaluator):
         )
 
     @staticmethod
-    def get_ids(oai_base, pattern_to_query=""):
-        url = oai_base + "/resources/search?facets=false&q=" + pattern_to_query
+    def get_ids(api_endpoint, pattern_to_query=""):
+        url = api_endpoint + "/resources/search?facets=false&q=" + pattern_to_query
         response_payload = ut.make_http_request(url=url)
         results = response_payload.get("results", [])
         return [
@@ -529,7 +508,7 @@ class Plugin(Evaluator):
         else:
             msg = (
                 "Could not gather metadata from endpoint: %s. Metadata cannot be harvested and indexed."
-                % self.oai_base
+                % self.api_endpoint
             )
             points = 0
 
@@ -847,7 +826,7 @@ class Plugin(Evaluator):
         """
         points = 0
 
-        protocol = ut.get_protocol_scheme(self.oai_base)
+        protocol = ut.get_protocol_scheme(self.api_endpoint)
         if protocol in self.terms_access_protocols:
             points = 100
             msg = "Found a standarised protocol to access the metadata record: " + str(
@@ -1074,9 +1053,7 @@ class Plugin(Evaluator):
             Message with the results or recommendations to improve this indicator
         """
         points = 0
-        msg = _(
-            "At the time, EPOS does not provide authentication or authorisation protocols"
-        )
+        msg = "At the time, EPOS does not provide authentication or authorisation protocols"
         if self.metadata_authentication:
             points = 100
             msg = "The authentication is given by: " + str(
@@ -1100,9 +1077,7 @@ class Plugin(Evaluator):
             Message with the results or recommendations to improve this indicator
         """
         points = 50
-        msg = _(
-            "Preservation policy depends on the authority where this Digital Object is stored"
-        )
+        msg = "Preservation policy depends on the authority where this Digital Object is stored"
 
         if self.metadata_persistence:
             if ut.check_link(self.metadata_persistence[0]):
