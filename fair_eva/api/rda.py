@@ -5,11 +5,12 @@ import os
 import sys
 from functools import wraps
 
-import api.utils as ut
 import yaml
-from api import evaluator
 from connexion import NoContent
-from fair import app_dirname, load_config
+
+import fair_eva.api.utils as ut
+from fair_eva import app_dirname, load_config
+from fair_eva.api import evaluator
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
