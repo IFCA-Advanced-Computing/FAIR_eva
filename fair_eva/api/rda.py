@@ -26,6 +26,8 @@ def collect_plugins():
 
 
 def load_plugin(wrapped_func):
+    """Loads the plugin module passed in the JSON payload."""
+
     @wraps(wrapped_func)
     def wrapper(body, **kwargs):
         repo = body.get("repo")
