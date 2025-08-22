@@ -46,7 +46,7 @@ paths:
       summary: Return all the possible endpoints in a JSON format
       tags:
         - RDA indicators
-      operationId: api.rda.endpoints
+      operationId: fair_eva.api.rda.endpoints
       parameters:
       - in: query
         name: plugin
@@ -83,7 +83,7 @@ paths:
       summary: Run all RDA indicators tests
       tags:
         - RDA indicators
-      operationId: api.rda.rda_all
+      operationId: fair_eva.api.rda.rda_all
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -115,7 +115,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Findable
-      operationId: api.rda.rda_f1_01m
+      operationId: fair_eva.api.rda.rda_f1_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -147,7 +147,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Findable
-      operationId: api.rda.rda_f1_01d
+      operationId: fair_eva.api.rda.rda_f1_01d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -179,7 +179,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Findable
-      operationId: api.rda.rda_f1_02m
+      operationId: fair_eva.api.rda.rda_f1_02m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -211,7 +211,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Findable
-      operationId: api.rda.rda_f1_02d
+      operationId: fair_eva.api.rda.rda_f1_02d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -243,7 +243,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Findable
-      operationId: api.rda.rda_f2_01m
+      operationId: fair_eva.api.rda.rda_f2_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -275,7 +275,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Findable
-      operationId: api.rda.rda_f3_01m
+      operationId: fair_eva.api.rda.rda_f3_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -307,7 +307,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Findable
-      operationId: api.rda.rda_f4_01m
+      operationId: fair_eva.api.rda.rda_f4_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -339,7 +339,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_01m
+      operationId: fair_eva.api.rda.rda_a1_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -371,7 +371,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_02m
+      operationId: fair_eva.api.rda.rda_a1_02m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -403,7 +403,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_02d
+      operationId: fair_eva.api.rda.rda_a1_02d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -435,7 +435,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_03m
+      operationId: fair_eva.api.rda.rda_a1_03m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -467,7 +467,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_03d
+      operationId: fair_eva.api.rda.rda_a1_03d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -499,7 +499,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_04m
+      operationId: fair_eva.api.rda.rda_a1_04m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -531,7 +531,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_04d
+      operationId: fair_eva.api.rda.rda_a1_04d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -563,7 +563,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_05d
+      operationId: fair_eva.api.rda.rda_a1_05d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -595,7 +595,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_1_01m
+      operationId: fair_eva.api.rda.rda_a1_1_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -627,7 +627,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_1_01d
+      operationId: fair_eva.api.rda.rda_a1_1_01d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -659,7 +659,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a1_2_01d
+      operationId: fair_eva.api.rda.rda_a1_2_01d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -691,7 +691,7 @@ paths:
       summary: Perform test
       tags:
         - RDA accessible
-      operationId: api.rda.rda_a2_01m
+      operationId: fair_eva.api.rda.rda_a2_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -723,7 +723,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i1_01m
+      operationId: fair_eva.api.rda.rda_i1_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -755,7 +755,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i1_01d
+      operationId: fair_eva.api.rda.rda_i1_01d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -787,7 +787,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i1_02m
+      operationId: fair_eva.api.rda.rda_i1_02m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -819,7 +819,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i1_02d
+      operationId: fair_eva.api.rda.rda_i1_02d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -851,7 +851,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i2_01m
+      operationId: fair_eva.api.rda.rda_i2_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -883,7 +883,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i2_01d
+      operationId: fair_eva.api.rda.rda_i2_01d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -915,7 +915,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i3_01m
+      operationId: fair_eva.api.rda.rda_i3_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -947,7 +947,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i3_01d
+      operationId: fair_eva.api.rda.rda_i3_01d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -979,7 +979,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i3_02m
+      operationId: fair_eva.api.rda.rda_i3_02m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1011,7 +1011,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i3_02d
+      operationId: fair_eva.api.rda.rda_i3_02d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1043,7 +1043,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i3_03m
+      operationId: fair_eva.api.rda.rda_i3_03m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1075,7 +1075,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Interoperable
-      operationId: api.rda.rda_i3_04m
+      operationId: fair_eva.api.rda.rda_i3_04m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1107,7 +1107,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_01m
+      operationId: fair_eva.api.rda.rda_r1_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1139,7 +1139,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_1_01m
+      operationId: fair_eva.api.rda.rda_r1_1_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1171,7 +1171,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_1_02m
+      operationId: fair_eva.api.rda.rda_r1_1_02m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1203,7 +1203,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_1_03m
+      operationId: fair_eva.api.rda.rda_r1_1_03m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1235,7 +1235,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_2_01m
+      operationId: fair_eva.api.rda.rda_r1_2_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1267,7 +1267,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_2_02m
+      operationId: fair_eva.api.rda.rda_r1_2_02m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1299,7 +1299,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_3_01m
+      operationId: fair_eva.api.rda.rda_r1_3_01m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1331,7 +1331,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_3_01d
+      operationId: fair_eva.api.rda.rda_r1_3_01d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1363,7 +1363,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_3_02m
+      operationId: fair_eva.api.rda.rda_r1_3_02m
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1395,7 +1395,7 @@ paths:
       summary: Perform test
       tags:
         - RDA Reusable
-      operationId: api.rda.rda_r1_3_02d
+      operationId: fair_eva.api.rda.rda_r1_3_02d
       requestBody:
         description: Repository to query and ID of the digital object to test
         content:
@@ -1428,7 +1428,7 @@ paths:
       summary: Perform test over data
       tags:
         - Signposting Data Test
-      operationId: api.rda.data_01
+      operationId: fair_eva.api.rda.data_01
       requestBody:
         description: URL to get the data for the test
         content:
@@ -1461,7 +1461,7 @@ paths:
       summary: Perform test over data
       tags:
         - Signposting Data Test
-      operationId: api.rda.data_02
+      operationId: fair_eva.api.rda.data_02
       requestBody:
         description: URL to get the data for the test
         content:

@@ -51,6 +51,6 @@ def main():
     app.add_api(
         "fair-api.yaml",
         arguments={"title": "FAIR evaluator Example"},
-        resolver=RestyResolver("api"),
+        resolver=RestyResolver("fair_eva.api"),
     )
     app.run(port=9090)
