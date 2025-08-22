@@ -1,9 +1,9 @@
 import glob
-import importlib
 import logging
 import os
 import sys
 from functools import wraps
+from importlib import resources
 
 import yaml
 from connexion import NoContent
@@ -16,6 +16,13 @@ logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
 )
 logger = logging.getLogger("api")
+
+
+def collect_plugins():
+    """Collect plugins in 'fair_eva' namespace."""
+    return [
+        resource.stem for resource in resources.files(f"{__package__}.plugin").iterdir()
+    ]
 
 
 def load_plugin(wrapped_func):
