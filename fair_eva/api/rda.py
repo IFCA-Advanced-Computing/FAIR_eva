@@ -48,14 +48,14 @@ def load_plugin(wrapped_func):
         downstream_logger = None
         try:
             logger.debug("Trying to import plugin from plugins.%s.plugin" % (repo))
-            plugin = importlib.import_module("plugins.%s.plugin" % (repo), ".")
-            downstream_logger = plugin.logger
+            plugin_module = importlib.import_module("plugins.%s.plugin" % (repo), ".")
+            downstream_logger = plugin_module.logger
         except Exception as e:
             logger.error(str(e))
             return str(e), 400
         if pattern_to_query:
             try:
-                ids = plugin.Plugin.get_ids(
+                ids = plugin_module.Plugin.get_ids(
                     api_endpoint=api_endpoint, pattern_to_query=pattern_to_query
                 )
             except Exception as e:
@@ -73,7 +73,7 @@ def load_plugin(wrapped_func):
         result = {}
         exit_code = 200
         for item_id in ids:
-            eva = plugin.Plugin(
+            eva = plugin_module.Plugin(
                 item_id, api_endpoint, lang, name=repo, config=config_data
             )
             _result, _exit_code = wrapped_func(body, eva=eva)
