@@ -3,7 +3,7 @@ import logging
 import os
 import sys
 from functools import wraps
-from importlib import resources
+from importlib import import_module, resources
 
 import yaml
 from connexion import NoContent
@@ -30,7 +30,7 @@ def load_plugin(wrapped_func):
 
     @wraps(wrapped_func)
     def wrapper(body, **kwargs):
-        repo = body.get("repo")
+        plugin_name = body.get("repo")
         item_id = body.get("id", "")
         api_endpoint = body.get("api_endpoint")
         lang = body.get("lang", "en")
@@ -42,17 +42,31 @@ def load_plugin(wrapped_func):
             msg = "Neither the identifier nor the pattern to query was provided. Exiting.."
             logger.error(msg)
             return msg, 400
+
+        # Load the plugin module
+        plugin_import_error = True
+        plugin_import_error_exception = ""
+        plugin_list = collect_plugins()
+        if plugin_name in plugin_list:
+            try:
+                plugin_module = import_module(f"{__package__}.plugin.{plugin_name}")
+                plugin_import_error = False
+                logger.debug(
+                    f"Successfully imported plugin module from {__package__}.plugin.{plugin_name}"
+                )
+            except ImportError as e:
+                plugin_import_error_exception = str(e)
+        if plugin_import_error:
+            logger.warning(
+                f"Could not import plugin <{plugin_name}>! Current list of plugins available in '{__package__}.plugin' namespace:              >  \{plugin_list}"
+            )
+            if plugin_import_error_exception:
+                logger.debug(str(e))
+                return str(e), 400
+        downstream_logger = plugin_module.logger
+
         # Get the identifiers through a search query
         ids = [item_id]
-
-        downstream_logger = None
-        try:
-            logger.debug("Trying to import plugin from plugins.%s.plugin" % (repo))
-            plugin_module = importlib.import_module("plugins.%s.plugin" % (repo), ".")
-            downstream_logger = plugin_module.logger
-        except Exception as e:
-            logger.error(str(e))
-            return str(e), 400
         if pattern_to_query:
             try:
                 ids = plugin_module.Plugin.get_ids(
@@ -67,14 +81,14 @@ def load_plugin(wrapped_func):
         downstream_logger.addHandler(evaluator_handler)
 
         # Load configuration
-        config_data = load_config(plugin=repo)
+        config_data = load_config(plugin=plugin_name)
 
         # Collect FAIR checks per metadata identifier
         result = {}
         exit_code = 200
         for item_id in ids:
             eva = plugin_module.Plugin(
-                item_id, api_endpoint, lang, name=repo, config=config_data
+                item_id, api_endpoint, lang, name=plugin_name, config=config_data
             )
             _result, _exit_code = wrapped_func(body, eva=eva)
             logger.debug(
