@@ -18,7 +18,7 @@ logging.basicConfig(
 logger = logging.getLogger("api")
 
 
-def load_evaluator(wrapped_func):
+def load_plugin(wrapped_func):
     @wraps(wrapped_func)
     def wrapper(body, **kwargs):
         repo = body.get("repo")
@@ -120,7 +120,7 @@ def endpoints(plugin=None, plugins_path="plugins"):
     return enp
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_01m(body, eva):
     try:
         points, msg = eva.rda_f1_01m()
@@ -148,7 +148,7 @@ def rda_f1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_01d(body, eva):
     try:
         points, msg = eva.rda_f1_01d()
@@ -176,7 +176,7 @@ def rda_f1_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_02m(body, eva):
     try:
         points, msg = eva.rda_f1_02m()
@@ -204,7 +204,7 @@ def rda_f1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_02d(body, eva):
     try:
         points, msg = eva.rda_f1_02d()
@@ -232,7 +232,7 @@ def rda_f1_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f2_01m(body, eva):
     try:
         points, msg = eva.rda_f2_01m()
@@ -260,7 +260,7 @@ def rda_f2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f3_01m(body, eva):
     try:
         points, msg = eva.rda_f3_01m()
@@ -288,7 +288,7 @@ def rda_f3_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f4_01m(body, eva):
     try:
         points, msg = eva.rda_f4_01m()
@@ -316,7 +316,7 @@ def rda_f4_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_01m(body, eva):
     try:
         points, msg = eva.rda_a1_01m()
@@ -344,7 +344,7 @@ def rda_a1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_02m(body, eva):
     try:
         points, msg = eva.rda_a1_02m()
@@ -372,7 +372,7 @@ def rda_a1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_02d(body, eva):
     try:
         points, msg = eva.rda_a1_02d()
@@ -400,7 +400,7 @@ def rda_a1_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_03m(body, eva):
     try:
         points, msg = eva.rda_a1_03m()
@@ -428,7 +428,7 @@ def rda_a1_03m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_03d(body, eva):
     try:
         points, msg = eva.rda_a1_03d()
@@ -456,7 +456,7 @@ def rda_a1_03d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_04m(body, eva):
     try:
         points, msg = eva.rda_a1_04m()
@@ -484,7 +484,7 @@ def rda_a1_04m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_04d(body, eva):
     try:
         points, msg = eva.rda_a1_04d()
@@ -512,7 +512,7 @@ def rda_a1_04d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_05d(body, eva):
     try:
         points, msg = eva.rda_a1_05d()
@@ -540,7 +540,7 @@ def rda_a1_05d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_1_01m(body, eva):
     try:
         points, msg = eva.rda_a1_1_01m()
@@ -568,7 +568,7 @@ def rda_a1_1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_1_01d(body, eva):
     try:
         points, msg = eva.rda_a1_1_01d()
@@ -596,7 +596,7 @@ def rda_a1_1_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_2_01d(body, eva):
     try:
         points, msg = eva.rda_a1_2_01d()
@@ -624,7 +624,7 @@ def rda_a1_2_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a2_01m(body, eva):
     try:
         points, msg = eva.rda_a2_01m()
@@ -652,7 +652,7 @@ def rda_a2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_01m(body, eva):
     try:
         points, msg = eva.rda_i1_01m()
@@ -680,7 +680,7 @@ def rda_i1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_01d(body, eva):
     try:
         points, msg = eva.rda_i1_01d()
@@ -708,7 +708,7 @@ def rda_i1_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_02m(body, eva):
     try:
         points, msg = eva.rda_i1_02m()
@@ -736,7 +736,7 @@ def rda_i1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_02d(body, eva):
     try:
         points, msg = eva.rda_i1_02d()
@@ -764,7 +764,7 @@ def rda_i1_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i2_01m(body, eva):
     try:
         points, msg = eva.rda_i2_01m()
@@ -792,7 +792,7 @@ def rda_i2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i2_01d(body, eva):
     try:
         points, msg = eva.rda_i2_01d()
@@ -820,7 +820,7 @@ def rda_i2_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_01m(body, eva):
     try:
         points, msg = eva.rda_i3_01m()
@@ -848,7 +848,7 @@ def rda_i3_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_01d(body, eva):
     try:
         points, msg = eva.rda_i3_01d()
@@ -876,7 +876,7 @@ def rda_i3_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_02m(body, eva):
     try:
         points, msg = eva.rda_i3_02m()
@@ -904,7 +904,7 @@ def rda_i3_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_02d(body, eva):
     try:
         points, msg = eva.rda_i3_02d()
@@ -932,7 +932,7 @@ def rda_i3_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_03m(body, eva):
     try:
         points, msg = eva.rda_i3_03m()
@@ -960,7 +960,7 @@ def rda_i3_03m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_04m(body, eva):
     try:
         points, msg = eva.rda_i3_04m()
@@ -988,7 +988,7 @@ def rda_i3_04m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_01m(body, eva):
     try:
         points, msg = eva.rda_r1_01m()
@@ -1016,7 +1016,7 @@ def rda_r1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_1_01m(body, eva):
     try:
         points, msg = eva.rda_r1_1_01m()
@@ -1044,7 +1044,7 @@ def rda_r1_1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_1_02m(body, eva):
     try:
         points, msg = eva.rda_r1_1_02m()
@@ -1072,7 +1072,7 @@ def rda_r1_1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_1_03m(body, eva):
     try:
         points, msg = eva.rda_r1_1_03m()
@@ -1100,7 +1100,7 @@ def rda_r1_1_03m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_2_01m(body, eva):
     try:
         points, msg = eva.rda_r1_2_01m()
@@ -1128,7 +1128,7 @@ def rda_r1_2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_2_02m(body, eva):
     try:
         points, msg = eva.rda_r1_2_02m()
@@ -1156,7 +1156,7 @@ def rda_r1_2_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_01m(body, eva):
     try:
         points, msg = eva.rda_r1_3_01m()
@@ -1184,7 +1184,7 @@ def rda_r1_3_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_01d(body, eva):
     try:
         points, msg = eva.rda_r1_3_01d()
@@ -1212,7 +1212,7 @@ def rda_r1_3_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_02m(body, eva):
     try:
         points, msg = eva.rda_r1_3_02m()
@@ -1240,7 +1240,7 @@ def rda_r1_3_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_02d(body, eva):
     try:
         points, msg = eva.rda_r1_3_02d()
@@ -1268,7 +1268,7 @@ def rda_r1_3_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def data_01(body, eva):
     try:
         points, msg = eva.data_01()
@@ -1296,7 +1296,7 @@ def data_01(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def data_02(body, eva):
     try:
         points, msg = eva.data_02()
@@ -1324,7 +1324,7 @@ def data_02(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_all(body, eva):
     findable = {}
     accessible = {}
