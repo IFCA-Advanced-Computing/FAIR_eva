@@ -120,33 +120,9 @@ def endpoints(plugin=None):
     if not plugin_list:
         logger.warning(f"No plugin found under '{PLUGIN_PATH}' namespace")
         return [], 404
-
-    # Obtain endpoint from each plugin's config
-    plugins_with_endpoint = []
-    links = []
-    for plug in plugin_list:
-        _config = load_config(plugin=plug, fail_if_no_config=False)
-        endpoint = _config.get("Generic", "endpoint", fallback="")
-        if not endpoint:
-            logger.debug(
-                "Plugin's config does not contain 'Generic:endpoint' section: %s" % plug
-            )
-            logger.warning(
-                "Could not get (meta)data endpoint from plugin's config: %s " % plug
-            )
-        else:
-            logger.debug("Obtained endpoint for plugin '%s': %s" % (plug, endpoint))
-            links.append(endpoint)
-            plugins_with_endpoint.append(plug)
-    # Create a dict with all the found endpoints
-    enp = dict(zip(plugins_with_endpoint, links))
-    # If the plugin is given then only returns a message
-    if plugin:
-        try:
-            return enp[plugin]
-        except:
-            return (enp, 404)
-    return enp
+    else:
+        logger.debug(f"Plugins found under  '{PLUGIN_PATH}' namespace: {plugin_list}")
+    return plugin_list
 
 
 @load_plugin
