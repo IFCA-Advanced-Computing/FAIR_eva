@@ -38,6 +38,7 @@ def load_plugin(wrapped_func):
 
     @wraps(wrapped_func)
     def wrapper(body, **kwargs):
+        plugin_module = None
         plugin_name = body.get("repo")
         item_id = body.get("id", "")
         api_endpoint = body.get("api_endpoint")
@@ -57,7 +58,7 @@ def load_plugin(wrapped_func):
         plugin_list = collect_plugins()
         if plugin_name in plugin_list:
             try:
-                plugin_module = import_module(f"{PLUGIN_PATH}.{plugin_name}")
+                plugin_module = import_module(f"{PLUGIN_PATH}.{plugin_name}.plugin")
                 plugin_import_error = False
                 logger.debug(
                     f"Successfully imported plugin module from {PLUGIN_PATH}.{plugin_name}"
