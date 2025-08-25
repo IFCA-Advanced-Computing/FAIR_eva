@@ -70,8 +70,8 @@ def load_plugin(wrapped_func):
                 f"Could not import plugin <{plugin_name}>! Current list of plugins available in '{PLUGIN_PATH}' namespace: {plugin_list}"
             )
             if plugin_import_error_exception:
-                logger.debug(str(e))
-                return str(e), 400
+                logger.debug(str(plugin_import_error_exception))
+                return str(plugin_import_error_exception), 400
         downstream_logger = plugin_module.logger
 
         # Get the identifiers through a search query
