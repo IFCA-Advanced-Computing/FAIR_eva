@@ -12,6 +12,8 @@ import fair_eva.api.utils as ut
 from fair_eva import app_dirname, load_config
 from fair_eva.api import evaluator
 
+PLUGIN_PATH = "plugin"  # FIXME get it from main config.ini
+
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
 )
@@ -20,9 +22,16 @@ logger = logging.getLogger("api")
 
 def collect_plugins():
     """Collect plugins in 'fair_eva' namespace."""
-    return [
-        resource.stem for resource in resources.files(f"{__package__}.plugin").iterdir()
-    ]
+    plugin_list = []
+    try:
+        plugin_list = [
+            resource.stem
+            for resource in resources.files(f"{__package__}.{PLUGIN_PATH}").iterdir()
+        ]
+    except ModuleNotFoundError as e:
+        logger.error(str(e))
+
+    return plugin_list
 
 
 def load_plugin(wrapped_func):
@@ -49,16 +58,18 @@ def load_plugin(wrapped_func):
         plugin_list = collect_plugins()
         if plugin_name in plugin_list:
             try:
-                plugin_module = import_module(f"{__package__}.plugin.{plugin_name}")
+                plugin_module = import_module(
+                    f"{__package__}.{PLUGIN_PATH}.{plugin_name}"
+                )
                 plugin_import_error = False
                 logger.debug(
-                    f"Successfully imported plugin module from {__package__}.plugin.{plugin_name}"
+                    f"Successfully imported plugin module from {__package__}.{PLUGIN_PATH}.{plugin_name}"
                 )
             except ImportError as e:
                 plugin_import_error_exception = str(e)
         if plugin_import_error:
             logger.warning(
-                f"Could not import plugin <{plugin_name}>! Current list of plugins available in '{__package__}.plugin' namespace:              >  \{plugin_list}"
+                f"Could not import plugin <{plugin_name}>! Current list of plugins available in '{__package__}.{PLUGIN_PATH}' namespace: {plugin_list}"
             )
             if plugin_import_error_exception:
                 logger.debug(str(e))
