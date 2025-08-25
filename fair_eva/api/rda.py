@@ -118,18 +118,16 @@ def load_plugin(wrapped_func):
     return wrapper
 
 
-def endpoints(plugin=None, plugins_path="plugins"):
-    plugins_with_endpoint = []
-    links = []
-
-    # Get the list of plugins
-    modules = glob.glob(os.path.join(app_dirname, plugins_path, "*"))
-    plugins_list = [
-        os.path.basename(folder) for folder in modules if os.path.isdir(folder)
-    ]
+def endpoints(plugin=None):
+    plugin_list = collect_plugins()
+    if not plugin_list:
+        logger.warning(f"No plugin found under '{__package__}.plugin' namespace")
+        return [], 404
 
     # Obtain endpoint from each plugin's config
-    for plug in plugins_list:
+    plugins_with_endpoint = []
+    links = []
+    for plug in plugin_list:
         _config = load_config(plugin=plug, fail_if_no_config=False)
         endpoint = _config.get("Generic", "endpoint", fallback="")
         if not endpoint:
