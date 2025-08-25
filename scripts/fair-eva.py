@@ -23,10 +23,12 @@ repo = "oai-pmh"
 import argparse
 import json
 import logging
+import os.path
 import socket
 import sys
 import time
 
+import pandas as pd
 import requests
 from flask_babel import Babel, gettext
 from flask_babel import lazy_gettext as _l
@@ -523,17 +525,11 @@ def search(keytext):
         sys.exit()
 
 
-def store(identifier, score_data, file_format="feather", path="/tmp"):
-    import os.path
-
-    import pandas as pd
-
-    dframe = pd.DataFrame(score_data)
-    dframe.columns = ["fair_indicator", "fair_principle", "score", "message"]
-    dframe["score"] = pd.to_numeric(dframe["score"])
-    logging.debug("Resultant Pandas data frame: %s" % dframe)
-
-    file_name = "fair_eva_results-%s.%s" % (identifier, file_format)
+def _store(identifier, dframe, file_format="feather", path="/tmp", file_prefix=""):
+    if file_prefix:
+        file_name = "fair_eva_results-%s-%s.%s" % (file_prefix, identifier, file_format)
+    else:
+        file_name = "fair_eva_results-%s.%s" % (identifier, file_format)
     file_path = os.path.join(path, file_name)
     if file_format not in ["feather", "csv"]:
         logging.error("Output file format not supported: %s" % file_format)
@@ -544,8 +540,31 @@ def store(identifier, score_data, file_format="feather", path="/tmp"):
             dframe.to_feather(file_path)
         elif file_format in ["csv"]:
             dframe.to_csv(file_path)
+    return file_path
 
-    logging.info("Stored FAIR assessment results to: %s" % file_path)
+
+def store(identifier, score_data, file_format="feather", path="/tmp"):
+    dframe = pd.DataFrame(score_data)
+    dframe.columns = ["fair_indicator", "fair_principle", "score", "message"]
+    dframe["score"] = pd.to_numeric(dframe["score"])
+    logging.debug("Resultant Pandas data frame: %s" % dframe)
+    file_path = _store(
+        identifier, dframe, file_format, path, file_prefix="per-indicator"
+    )
+    logging.info("FAIR assessment results per-indicator stored in: %s" % file_path)
+
+
+def store_totals(plugin, identifier, score_data, file_format="feather", path="/tmp"):
+    score_data_new = list(map(list, score_data.items()))
+    score_data_new = list(map(lambda item: [plugin, identifier] + item, score_data_new))
+    dframe = pd.DataFrame(score_data_new)
+    dframe.columns = ["identifier", "plugin", "fair_principle", "score"]
+    dframe["score"] = pd.to_numeric(dframe["score"])
+    logging.debug("Resultant Pandas data frame: %s" % dframe)
+    file_path = _store(
+        identifier, dframe, file_format, path, file_prefix="per-principle"
+    )
+    logging.info("FAIR assessment results per-principle stored in: %s" % file_path)
 
 
 def main():
