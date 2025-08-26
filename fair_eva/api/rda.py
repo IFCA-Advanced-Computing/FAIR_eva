@@ -82,8 +82,15 @@ def load_plugin(wrapped_func):
                     api_endpoint=api_endpoint, pattern_to_query=pattern_to_query
                 )
             except Exception as e:
-                logger.error(str(e))
-                return str(e), 400
+                message = (
+                    f"Error in {plugin_name} plugin while getting the identifiers: {e}"
+                )
+                logger.error(message)
+                return message, 400
+            else:
+                logger.debug(
+                    f"Successfully obtained the identifiers through a search query: {ids}"
+                )
 
         # Set handler for evaluator logs
         evaluator_handler = ut.EvaluatorLogHandler()
@@ -96,9 +103,14 @@ def load_plugin(wrapped_func):
         result = {}
         exit_code = 200
         for item_id in ids:
-            eva = plugin_module.Plugin(
-                item_id, api_endpoint, lang, name=plugin_name, config=config_data
-            )
+            try:
+                eva = plugin_module.Plugin(
+                    item_id, api_endpoint, lang, name=plugin_name, config=config_data
+                )
+            except Exception as e:
+                message = f"Error while initiating {plugin_name} plugin: {e}"
+                logger.error(message)
+                return message, 400
             _result, _exit_code = wrapped_func(body, eva=eva)
             logger.debug(
                 "Raw result returned for indicator ID '%s': %s" % (item_id, _result)
