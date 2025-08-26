@@ -53,7 +53,7 @@ def load_plugin(wrapped_func):
 
         # Load the plugin module
         plugin_import_error = True
-        plugin_import_error_exception = ""
+        plugin_error_message = ""
         plugin_list = collect_plugins()
         if plugin_name in plugin_list:
             try:
@@ -63,14 +63,13 @@ def load_plugin(wrapped_func):
                     f"Successfully imported plugin module from {PLUGIN_PATH}.{plugin_name}.plugin"
                 )
             except ImportError as e:
-                plugin_import_error_exception = str(e)
+                plugin_error_message = f"Could not import plugin <{plugin_name}>!: {e}"
+        else:
+            plugin_error_message = f"Could not find plugin module <{plugin_name}>! Current list of plugins available in '{PLUGIN_PATH}' namespace: {plugin_list}"
         if plugin_import_error:
-            logger.warning(
-                f"Could not import plugin <{plugin_name}>! Current list of plugins available in '{PLUGIN_PATH}' namespace: {plugin_list}"
-            )
-            if plugin_import_error_exception:
-                logger.debug(str(plugin_import_error_exception))
-                return str(plugin_import_error_exception), 400
+            logger.error(plugin_error_message)
+            return plugin_error_message, 400
+
         downstream_logger = plugin_module.logger
 
         # Get the identifiers through a search query
