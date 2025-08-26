@@ -61,7 +61,7 @@ def load_plugin(wrapped_func):
                 plugin_module = import_module(f"{PLUGIN_PATH}.{plugin_name}.plugin")
                 plugin_import_error = False
                 logger.debug(
-                    f"Successfully imported plugin module from {PLUGIN_PATH}.{plugin_name}"
+                    f"Successfully imported plugin module from {PLUGIN_PATH}.{plugin_name}.plugin"
                 )
             except ImportError as e:
                 plugin_import_error_exception = str(e)
