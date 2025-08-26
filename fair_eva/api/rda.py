@@ -9,7 +9,6 @@ import yaml
 from connexion import NoContent
 
 import fair_eva.api.utils as ut
-from fair_eva import app_dirname, load_config
 from fair_eva.api import evaluator
 
 PLUGIN_PATH = "fair_eva.plugin"  # FIXME get it from main config.ini
@@ -97,7 +96,7 @@ def load_plugin(wrapped_func):
         downstream_logger.addHandler(evaluator_handler)
 
         # Load configuration
-        config_data = load_config(plugin=plugin_name)
+        config_data = plugin_module.Plugin.load_config(f"{PLUGIN_PATH}.{plugin_name}")
 
         # Collect FAIR checks per metadata identifier
         result = {}
@@ -1355,9 +1354,7 @@ def rda_all(body, eva):
     num_of_tests = 10
 
     generic_config = eva.config["Generic"]
-    api_config = os.path.join(
-        app_dirname, generic_config.get("api_config", "fair-api.yaml")
-    )
+    api_config = generic_config.get("api_config", "fair-api.yaml")
     try:
         with open(api_config, "r") as f:
             documents = yaml.full_load(f)
