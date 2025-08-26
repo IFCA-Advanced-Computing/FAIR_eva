@@ -9,6 +9,7 @@ import urllib
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from functools import wraps
+from importlib.resources import read_text
 
 import idutils
 import pandas as pd
@@ -181,6 +182,29 @@ class EvaluatorBase(ABC):
         )
         global _
         _ = self.translation()
+
+    @staticmethod
+    def load_config(plugin_path, fail_if_no_config=True):
+        """Find the path to a data file."""
+        config = configparser.ConfigParser()
+        try:
+            config.read_string(read_text("fair_eva", "config.ini"))
+            config.read_string(read_text(plugin_path, "config.ini"))
+        except FileNotFoundError as e:
+            logging.error("Could not load config file: %s" % str(e))
+            if fail_if_no_config:
+                raise (e)
+        except configparser.MissingSectionHeaderError as e:
+            message = "Bad INI format in main and/or plugin's configuration files"
+            logging.error(message)
+            logging.debug(e)
+            error = {"code": 500, "message": "%s" % message}
+            logging.debug("Returning API response: %s" % error)
+            return json.dumps(error), 500
+        else:
+            logging.debug("Successfully loaded main & plugin's configuration files")
+
+        return config
 
     def translation(self):
         # Translations
