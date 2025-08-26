@@ -1,4 +1,5 @@
 import ast
+import configparser
 import csv
 import gettext
 import logging
@@ -92,12 +93,24 @@ class EvaluatorBase(ABC):
         self, item_id, api_endpoint=None, lang="en", config=None, name=None, **kwargs
     ):
         self.item_id = item_id
-        self.api_endpoint = api_endpoint
         self.lang = lang
         self.config = config
         self.name = name
         self.metadata = None
         self.cvs = []
+
+        # API endpoint
+        self.api_endpoint = api_endpoint
+        if not self.api_endpoint:
+            try:
+                self.api_endpoint = self.config.get("Generic", "endpoint")
+            except configparser.NoOptionError as e:
+                raise (e)
+            else:
+                logger.debug(
+                    "API endpoint not passed as input argument, getting it from configuration: %s"
+                    % self.api_endpoint
+                )
 
         # Config attributes
         self.identifier_term = ast.literal_eval(
