@@ -133,41 +133,15 @@ class EvaluatorBase(ABC):
         self.terms_relations = ast.literal_eval(
             self.config[self.name]["terms_relations"]
         )
-        self.metadata_access_manual = ast.literal_eval(
-            self.config[self.name]["metadata_access_manual"]
-        )
-        self.data_access_manual = ast.literal_eval(
-            self.config[self.name]["data_access_manual"]
-        )
         self.terms_access_protocols = ast.literal_eval(
             self.config[self.name]["terms_access_protocols"]
         )
-
-        # self.vocabularies = ast.literal_eval(self.config[self.name]["vocabularies"])
-
-        self.dict_vocabularies = ast.literal_eval(
-            self.config[self.name]["dict_vocabularies"]
-        )
-
-        self.vocabularies = list(self.dict_vocabularies.keys())
         self.metadata_standard = ast.literal_eval(
             self.config[self.name]["metadata_standard"]
         )
-
-        self.metadata_authentication = ast.literal_eval(
-            self.config[self.name]["metadata_authentication"]
-        )
-        self.metadata_persistence = ast.literal_eval(
-            self.config[self.name]["metadata_persistence"]
-        )
-        self.terms_vocabularies = ast.literal_eval(
-            self.config[self.name]["terms_vocabularies"]
-        )
-
         self.fairsharing_username = ast.literal_eval(
             self.config["fairsharing"]["username"]
         )
-
         self.fairsharing_password = ast.literal_eval(
             self.config["fairsharing"]["password"]
         )
