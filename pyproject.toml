@@ -43,6 +43,9 @@ fair-eva = "fair_eva.__main__:main"
 "Homepage" = "https://github.com/ifca-advanced-computing/FAIR_eva"
 "Bug Tracker" = "https://github.com/ifca-advanced-computing/FAIR_eva/issues"
 
+[tool.setuptools.package-data]
+"fair_eva" = ["*.ini"]
+
 [tool.docformatter]
 black = true
 recursive = true
