@@ -1609,7 +1609,7 @@ class EvaluatorBase(ABC):
         terms_license_list = terms_license["list"]
         terms_license_metadata = terms_license["metadata"]
 
-        if not license_list:
+        if license_list is None or len(license_list) == 0:
             license_list = terms_license_metadata.text_value.values
 
         license_num = len(license_list)
