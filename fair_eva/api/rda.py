@@ -1352,7 +1352,6 @@ def rda_all(body, eva):
     result_points = 10
     num_of_tests = 10
 
-    generic_config = eva.config["Generic"]
     api_config = eva.config.get("Generic", "api_config", fallback="fair-api.yaml")
     try:
         with open(api_config, "r") as f:
