@@ -1352,7 +1352,10 @@ def rda_all(body, eva):
     result_points = 10
     num_of_tests = 10
 
-    api_config = eva.config.get("Generic", "api_config", fallback="fair-api.yaml")
+    import fair_eva
+
+    api_config_file = eva.config.get("Generic", "api_config", fallback="fair-api.yaml")
+    api_config = os.path.join(os.path.dirname(fair_eva.__file__), api_config_file)
     try:
         with open(api_config, "r") as f:
             documents = yaml.full_load(f)
