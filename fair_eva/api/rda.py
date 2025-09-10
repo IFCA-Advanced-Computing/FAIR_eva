@@ -1,16 +1,17 @@
 import glob
-import importlib
 import logging
 import os
 import sys
 from functools import wraps
+from importlib import import_module, resources
 
 import yaml
 from connexion import NoContent
 
-import api.utils as ut
-from api import evaluator
-from fair import app_dirname, load_config
+import fair_eva.api.utils as ut
+from fair_eva.api import evaluator
+
+PLUGIN_PATH = "fair_eva.plugin"  # FIXME get it from main config.ini
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
@@ -18,10 +19,26 @@ logging.basicConfig(
 logger = logging.getLogger("api")
 
 
-def load_evaluator(wrapped_func):
+def collect_plugins():
+    """Collect plugins in 'fair_eva' namespace."""
+    plugin_list = []
+    try:
+        plugin_list = [
+            resource.stem for resource in resources.files(f"{PLUGIN_PATH}").iterdir()
+        ]
+    except ModuleNotFoundError as e:
+        logger.error(str(e))
+
+    return plugin_list
+
+
+def load_plugin(wrapped_func):
+    """Loads the plugin module passed in the JSON payload."""
+
     @wraps(wrapped_func)
     def wrapper(body, **kwargs):
-        repo = body.get("repo")
+        plugin_module = None
+        plugin_name = body.get("repo")
         item_id = body.get("id", "")
         api_endpoint = body.get("api_endpoint")
         lang = body.get("lang", "en")
@@ -33,40 +50,65 @@ def load_evaluator(wrapped_func):
             msg = "Neither the identifier nor the pattern to query was provided. Exiting.."
             logger.error(msg)
             return msg, 400
+
+        # Load the plugin module
+        plugin_import_error = True
+        plugin_error_message = ""
+        plugin_list = collect_plugins()
+        if plugin_name in plugin_list:
+            try:
+                plugin_module = import_module(f"{PLUGIN_PATH}.{plugin_name}.plugin")
+                plugin_import_error = False
+                logger.debug(
+                    f"Successfully imported plugin module from {PLUGIN_PATH}.{plugin_name}.plugin"
+                )
+            except ImportError as e:
+                plugin_error_message = f"Could not import plugin <{plugin_name}>!: {e}"
+        else:
+            plugin_error_message = f"Could not find plugin module <{plugin_name}>! Current list of plugins available in '{PLUGIN_PATH}' namespace: {plugin_list}"
+        if plugin_import_error:
+            logger.error(plugin_error_message)
+            return plugin_error_message, 400
+
+        downstream_logger = plugin_module.logger
+
         # Get the identifiers through a search query
         ids = [item_id]
-
-        downstream_logger = None
-        try:
-            logger.debug("Trying to import plugin from plugins.%s.plugin" % (repo))
-            plugin = importlib.import_module("plugins.%s.plugin" % (repo), ".")
-            downstream_logger = plugin.logger
-        except Exception as e:
-            logger.error(str(e))
-            return str(e), 400
         if pattern_to_query:
             try:
-                ids = plugin.Plugin.get_ids(
+                ids = plugin_module.Plugin.get_ids(
                     api_endpoint=api_endpoint, pattern_to_query=pattern_to_query
                 )
             except Exception as e:
-                logger.error(str(e))
-                return str(e), 400
+                message = (
+                    f"Error in {plugin_name} plugin while getting the identifiers: {e}"
+                )
+                logger.error(message)
+                return message, 400
+            else:
+                logger.debug(
+                    f"Successfully obtained the identifiers through a search query: {ids}"
+                )
 
         # Set handler for evaluator logs
         evaluator_handler = ut.EvaluatorLogHandler()
         downstream_logger.addHandler(evaluator_handler)
 
         # Load configuration
-        config_data = load_config(plugin=repo)
+        config_data = plugin_module.Plugin.load_config(f"{PLUGIN_PATH}.{plugin_name}")
 
         # Collect FAIR checks per metadata identifier
         result = {}
         exit_code = 200
         for item_id in ids:
-            eva = plugin.Plugin(
-                item_id, api_endpoint, lang, name=repo, config=config_data
-            )
+            try:
+                eva = plugin_module.Plugin(
+                    item_id, api_endpoint, lang, name=plugin_name, config=config_data
+                )
+            except Exception as e:
+                message = f"Error while initiating {plugin_name} plugin: {e}"
+                logger.error(message)
+                return message, 400
             _result, _exit_code = wrapped_func(body, eva=eva)
             logger.debug(
                 "Raw result returned for indicator ID '%s': %s" % (item_id, _result)
@@ -84,43 +126,17 @@ def load_evaluator(wrapped_func):
     return wrapper
 
 
-def endpoints(plugin=None, plugins_path="plugins"):
-    plugins_with_endpoint = []
-    links = []
-
-    # Get the list of plugins
-    modules = glob.glob(os.path.join(app_dirname, plugins_path, "*"))
-    plugins_list = [
-        os.path.basename(folder) for folder in modules if os.path.isdir(folder)
-    ]
-
-    # Obtain endpoint from each plugin's config
-    for plug in plugins_list:
-        _config = load_config(plugin=plug, fail_if_no_config=False)
-        endpoint = _config.get("Generic", "endpoint", fallback="")
-        if not endpoint:
-            logger.debug(
-                "Plugin's config does not contain 'Generic:endpoint' section: %s" % plug
-            )
-            logger.warning(
-                "Could not get (meta)data endpoint from plugin's config: %s " % plug
-            )
-        else:
-            logger.debug("Obtained endpoint for plugin '%s': %s" % (plug, endpoint))
-            links.append(endpoint)
-            plugins_with_endpoint.append(plug)
-    # Create a dict with all the found endpoints
-    enp = dict(zip(plugins_with_endpoint, links))
-    # If the plugin is given then only returns a message
-    if plugin:
-        try:
-            return enp[plugin]
-        except:
-            return (enp, 404)
-    return enp
+def endpoints(plugin=None):
+    plugin_list = collect_plugins()
+    if not plugin_list:
+        logger.warning(f"No plugin found under '{PLUGIN_PATH}' namespace")
+        return [], 404
+    else:
+        logger.debug(f"Plugins found under  '{PLUGIN_PATH}' namespace: {plugin_list}")
+    return plugin_list
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_01m(body, eva):
     try:
         points, msg = eva.rda_f1_01m()
@@ -148,7 +164,7 @@ def rda_f1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_01d(body, eva):
     try:
         points, msg = eva.rda_f1_01d()
@@ -176,7 +192,7 @@ def rda_f1_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_02m(body, eva):
     try:
         points, msg = eva.rda_f1_02m()
@@ -204,7 +220,7 @@ def rda_f1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f1_02d(body, eva):
     try:
         points, msg = eva.rda_f1_02d()
@@ -232,7 +248,7 @@ def rda_f1_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f2_01m(body, eva):
     try:
         points, msg = eva.rda_f2_01m()
@@ -260,7 +276,7 @@ def rda_f2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f3_01m(body, eva):
     try:
         points, msg = eva.rda_f3_01m()
@@ -288,7 +304,7 @@ def rda_f3_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_f4_01m(body, eva):
     try:
         points, msg = eva.rda_f4_01m()
@@ -316,7 +332,7 @@ def rda_f4_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_01m(body, eva):
     try:
         points, msg = eva.rda_a1_01m()
@@ -344,7 +360,7 @@ def rda_a1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_02m(body, eva):
     try:
         points, msg = eva.rda_a1_02m()
@@ -372,7 +388,7 @@ def rda_a1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_02d(body, eva):
     try:
         points, msg = eva.rda_a1_02d()
@@ -400,7 +416,7 @@ def rda_a1_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_03m(body, eva):
     try:
         points, msg = eva.rda_a1_03m()
@@ -428,7 +444,7 @@ def rda_a1_03m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_03d(body, eva):
     try:
         points, msg = eva.rda_a1_03d()
@@ -456,7 +472,7 @@ def rda_a1_03d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_04m(body, eva):
     try:
         points, msg = eva.rda_a1_04m()
@@ -484,7 +500,7 @@ def rda_a1_04m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_04d(body, eva):
     try:
         points, msg = eva.rda_a1_04d()
@@ -512,7 +528,7 @@ def rda_a1_04d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_05d(body, eva):
     try:
         points, msg = eva.rda_a1_05d()
@@ -540,7 +556,7 @@ def rda_a1_05d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_1_01m(body, eva):
     try:
         points, msg = eva.rda_a1_1_01m()
@@ -568,7 +584,7 @@ def rda_a1_1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_1_01d(body, eva):
     try:
         points, msg = eva.rda_a1_1_01d()
@@ -596,7 +612,7 @@ def rda_a1_1_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a1_2_01d(body, eva):
     try:
         points, msg = eva.rda_a1_2_01d()
@@ -624,7 +640,7 @@ def rda_a1_2_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_a2_01m(body, eva):
     try:
         points, msg = eva.rda_a2_01m()
@@ -652,7 +668,7 @@ def rda_a2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_01m(body, eva):
     try:
         points, msg = eva.rda_i1_01m()
@@ -680,7 +696,7 @@ def rda_i1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_01d(body, eva):
     try:
         points, msg = eva.rda_i1_01d()
@@ -708,7 +724,7 @@ def rda_i1_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_02m(body, eva):
     try:
         points, msg = eva.rda_i1_02m()
@@ -736,7 +752,7 @@ def rda_i1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i1_02d(body, eva):
     try:
         points, msg = eva.rda_i1_02d()
@@ -764,7 +780,7 @@ def rda_i1_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i2_01m(body, eva):
     try:
         points, msg = eva.rda_i2_01m()
@@ -792,7 +808,7 @@ def rda_i2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i2_01d(body, eva):
     try:
         points, msg = eva.rda_i2_01d()
@@ -820,7 +836,7 @@ def rda_i2_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_01m(body, eva):
     try:
         points, msg = eva.rda_i3_01m()
@@ -848,7 +864,7 @@ def rda_i3_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_01d(body, eva):
     try:
         points, msg = eva.rda_i3_01d()
@@ -876,7 +892,7 @@ def rda_i3_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_02m(body, eva):
     try:
         points, msg = eva.rda_i3_02m()
@@ -904,7 +920,7 @@ def rda_i3_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_02d(body, eva):
     try:
         points, msg = eva.rda_i3_02d()
@@ -932,7 +948,7 @@ def rda_i3_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_03m(body, eva):
     try:
         points, msg = eva.rda_i3_03m()
@@ -960,7 +976,7 @@ def rda_i3_03m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_i3_04m(body, eva):
     try:
         points, msg = eva.rda_i3_04m()
@@ -988,7 +1004,7 @@ def rda_i3_04m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_01m(body, eva):
     try:
         points, msg = eva.rda_r1_01m()
@@ -1016,7 +1032,7 @@ def rda_r1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_1_01m(body, eva):
     try:
         points, msg = eva.rda_r1_1_01m()
@@ -1044,7 +1060,7 @@ def rda_r1_1_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_1_02m(body, eva):
     try:
         points, msg = eva.rda_r1_1_02m()
@@ -1072,7 +1088,7 @@ def rda_r1_1_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_1_03m(body, eva):
     try:
         points, msg = eva.rda_r1_1_03m()
@@ -1100,7 +1116,7 @@ def rda_r1_1_03m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_2_01m(body, eva):
     try:
         points, msg = eva.rda_r1_2_01m()
@@ -1128,7 +1144,7 @@ def rda_r1_2_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_2_02m(body, eva):
     try:
         points, msg = eva.rda_r1_2_02m()
@@ -1156,7 +1172,7 @@ def rda_r1_2_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_01m(body, eva):
     try:
         points, msg = eva.rda_r1_3_01m()
@@ -1184,7 +1200,7 @@ def rda_r1_3_01m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_01d(body, eva):
     try:
         points, msg = eva.rda_r1_3_01d()
@@ -1212,7 +1228,7 @@ def rda_r1_3_01d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_02m(body, eva):
     try:
         points, msg = eva.rda_r1_3_02m()
@@ -1240,7 +1256,7 @@ def rda_r1_3_02m(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_r1_3_02d(body, eva):
     try:
         points, msg = eva.rda_r1_3_02d()
@@ -1268,7 +1284,7 @@ def rda_r1_3_02d(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def data_01(body, eva):
     try:
         points, msg = eva.data_01()
@@ -1296,7 +1312,7 @@ def data_01(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def data_02(body, eva):
     try:
         points, msg = eva.data_02()
@@ -1324,7 +1340,7 @@ def data_02(body, eva):
     return result, exit_code
 
 
-@load_evaluator
+@load_plugin
 def rda_all(body, eva):
     findable = {}
     accessible = {}
@@ -1336,10 +1352,10 @@ def rda_all(body, eva):
     result_points = 10
     num_of_tests = 10
 
-    generic_config = eva.config["Generic"]
-    api_config = os.path.join(
-        app_dirname, generic_config.get("api_config", "fair-api.yaml")
-    )
+    import fair_eva
+
+    api_config_file = eva.config.get("Generic", "api_config", fallback="fair-api.yaml")
+    api_config = os.path.join(os.path.dirname(fair_eva.__file__), api_config_file)
     try:
         with open(api_config, "r") as f:
             documents = yaml.full_load(f)

@@ -10,9 +10,8 @@ import xml.etree.ElementTree as ET
 import idutils
 import pandas as pd
 import requests
-from bs4 import BeautifulSoup
-
 from api.evaluator import Evaluator
+from bs4 import BeautifulSoup
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"

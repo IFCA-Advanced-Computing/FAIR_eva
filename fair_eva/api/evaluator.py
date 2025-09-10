@@ -1,4 +1,5 @@
 import ast
+import configparser
 import csv
 import gettext
 import logging
@@ -8,12 +9,13 @@ import urllib
 import xml.etree.ElementTree as ET
 from abc import ABC, abstractmethod
 from functools import wraps
+from importlib.resources import read_text
 
 import idutils
 import pandas as pd
 import requests
 
-import api.utils as ut
+import fair_eva.api.utils as ut
 
 logger = logging.getLogger("api.plugin.evaluation_steps")
 
@@ -92,12 +94,24 @@ class EvaluatorBase(ABC):
         self, item_id, api_endpoint=None, lang="en", config=None, name=None, **kwargs
     ):
         self.item_id = item_id
-        self.api_endpoint = api_endpoint
         self.lang = lang
         self.config = config
         self.name = name
         self.metadata = None
         self.cvs = []
+
+        # API endpoint
+        self.api_endpoint = api_endpoint
+        if not self.api_endpoint:
+            try:
+                self.api_endpoint = self.config.get("Generic", "endpoint")
+            except configparser.NoOptionError as e:
+                raise (e)
+            else:
+                logger.debug(
+                    "API endpoint not passed as input argument, getting it from configuration: %s"
+                    % self.api_endpoint
+                )
 
         # Config attributes
         self.identifier_term = ast.literal_eval(
@@ -119,41 +133,15 @@ class EvaluatorBase(ABC):
         self.terms_relations = ast.literal_eval(
             self.config[self.name]["terms_relations"]
         )
-        self.metadata_access_manual = ast.literal_eval(
-            self.config[self.name]["metadata_access_manual"]
-        )
-        self.data_access_manual = ast.literal_eval(
-            self.config[self.name]["data_access_manual"]
-        )
         self.terms_access_protocols = ast.literal_eval(
             self.config[self.name]["terms_access_protocols"]
         )
-
-        # self.vocabularies = ast.literal_eval(self.config[self.name]["vocabularies"])
-
-        self.dict_vocabularies = ast.literal_eval(
-            self.config[self.name]["dict_vocabularies"]
-        )
-
-        self.vocabularies = list(self.dict_vocabularies.keys())
         self.metadata_standard = ast.literal_eval(
             self.config[self.name]["metadata_standard"]
         )
-
-        self.metadata_authentication = ast.literal_eval(
-            self.config[self.name]["metadata_authentication"]
-        )
-        self.metadata_persistence = ast.literal_eval(
-            self.config[self.name]["metadata_persistence"]
-        )
-        self.terms_vocabularies = ast.literal_eval(
-            self.config[self.name]["terms_vocabularies"]
-        )
-
         self.fairsharing_username = ast.literal_eval(
             self.config["fairsharing"]["username"]
         )
-
         self.fairsharing_password = ast.literal_eval(
             self.config["fairsharing"]["password"]
         )
@@ -168,6 +156,29 @@ class EvaluatorBase(ABC):
         )
         global _
         _ = self.translation()
+
+    @staticmethod
+    def load_config(plugin_path, fail_if_no_config=True):
+        """Find the path to a data file."""
+        config = configparser.ConfigParser()
+        try:
+            config.read_string(read_text("fair_eva", "config.ini"))
+            config.read_string(read_text(plugin_path, "config.ini"))
+        except FileNotFoundError as e:
+            logging.error("Could not load config file: %s" % str(e))
+            if fail_if_no_config:
+                raise (e)
+        except configparser.MissingSectionHeaderError as e:
+            message = "Bad INI format in main and/or plugin's configuration files"
+            logging.error(message)
+            logging.debug(e)
+            error = {"code": 500, "message": "%s" % message}
+            logging.debug("Returning API response: %s" % error)
+            return json.dumps(error), 500
+        else:
+            logging.debug("Successfully loaded main & plugin's configuration files")
+
+        return config
 
     def translation(self):
         # Translations
@@ -1598,7 +1609,7 @@ class EvaluatorBase(ABC):
         terms_license_list = terms_license["list"]
         terms_license_metadata = terms_license["metadata"]
 
-        if not license_list:
+        if license_list is None or len(license_list) == 0:
             license_list = terms_license_metadata.text_value.values
 
         license_num = len(license_list)

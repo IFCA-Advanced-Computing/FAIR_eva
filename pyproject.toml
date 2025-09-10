@@ -1,5 +1,9 @@
+[build-system]
+requires = ["flit_core<4"]
+build-backend = "flit_core.buildapi"
+
 [project]
-name = "FAIR_eva"
+name = "fair_eva"
 version = "1.5.0"
 authors = [
   { name="Fernando Aguilar Gómez", email="aguilarf@ifca.unican.es" },
@@ -16,29 +20,29 @@ classifiers = [
 ]
 
 dependencies = [
-    "werkzeug == 3.0.3",
-    "connexion",
-    "swagger-ui-bundle == 0.0.6",
-   "flask == 2.2.5",
-   "flask_wtf",
-   "bs4",
-   "psycopg2-binary",
-   "pandas",
-   "idutils",
-   "Babel",
-   "flask_babel",
-   "bokeh == 2.3.3",
-   "reportlab",
-   "PyPDF2",
+    "werkzeug==3.0.3",
+    "connexion[flask,uvicorn]",
+    "swagger-ui-bundle==0.0.6",
+    "flask==2.2.5",
+    "flask_wtf",
+    "bs4",
+    "psycopg2-binary",
+    "pandas",
+    "idutils",
+    "Babel",
+    "flask_babel",
+    "reportlab",
 ]
 
-[build-system]
-requires = ["flit_core<4"]
-build-backend = "flit_core.buildapi"
+[project.scripts]
+fair-eva = "fair_eva.__main__:main"
 
 [project.urls]
 "Homepage" = "https://github.com/ifca-advanced-computing/FAIR_eva"
 "Bug Tracker" = "https://github.com/ifca-advanced-computing/FAIR_eva/issues"
+
+[tool.setuptools.package-data]
+"fair_eva" = ["*.ini"]
 
 [tool.docformatter]
 black = true

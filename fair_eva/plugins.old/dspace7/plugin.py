@@ -7,10 +7,9 @@ import logging
 import sys
 import xml.etree.ElementTree as ET
 
+import api.utils as ut
 import pandas as pd
 import requests
-
-import api.utils as ut
 from api.evaluator import Evaluator
 
 logging.basicConfig(
