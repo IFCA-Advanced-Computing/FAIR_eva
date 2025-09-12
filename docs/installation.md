@@ -5,10 +5,18 @@ FAIR EVA can be run locally via Python or containerised with Docker.  The follo
 ```bash
 git clone https://github.com/IFCA-Advanced-Computing/FAIR_eva.git
 cd FAIR_eva
-git checkout synergy_contributions
+pip install .
+```
+Then you can run FAIR EVA launching the appplication, by default listenning in port 9090:
+
+```bash
+git clone https://github.com/IFCA-Advanced-Computing/FAIR_eva.git
+cd FAIR_eva
+pip install .
 ```
 
 If you cannot clone from GitHub directly (e.g., due to network restrictions), download the source code as a ZIP from the GitHub web interface and extract it locally.
+
 
 ## Using Python
 
@@ -35,23 +43,17 @@ An easier way to run FAIR EVA is through Docker.  The repository includes a `Do
 ```bash
 docker build -t fair_eva .
 docker run --name=fair_eva \
-    -p 9090:9090 -p 8080:8080 -dit \
+    -p 9090:9090 -dit \
     fair_eva
 ```
 
-The container exposes two ports: 9090 for the REST API and 8080 for the web interface.  Once the container is running, navigate to `http://localhost:8080` in your browser to access the evaluation dashboard.
+The container exposes two ports: 9090 for the REST API.  Once the container is running, you cna run tests requesting HTTP to `http://localhost:9090` in your browser to access the evaluation dashboard.
 
 ## Configuration files
 
 FAIR EVA reads configuration parameters from INI files.  When running the evaluator, two files are loaded:
 <!-- TODO: revisar este párrafo -->
 1. **Global configuration** – typically named `config.ini` or derived from `config.ini.template` in the project root.  It defines generic terms, supported vocabularies and repository mappings【634087979570097†L31-L45】.
-2. **Plugin configuration** – located at `plugins/<plugin_name>/config.ini`.  It customises the tests for a specific repository.  For example, the **GBIF** plugin defines which metadata fields correspond to identifiers, licences, access protocols and controlled vocabularies【274614149785346†L16-L57】.
+2. **Plugin configuration** – located at `plugins/<plugin_name>/config.ini` (in each plugin repo).  It customises the tests for a specific repository.  For example, the **GBIF** plugin defines which metadata fields correspond to identifiers, licences, access protocols and controlled vocabularies【274614149785346†L16-L57】.
 
-You can override the default configuration by passing the `-c` or `--config` option to the `web.py` script:
 
-```bash
-python3 web.py --config my_config.ini
-```
-
-For the REST API, configuration is loaded automatically by the `fair.py` script.  See the [Using FAIR EVA](usage.md) section for details.
