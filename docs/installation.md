@@ -1,22 +1,17 @@
 # Installation
 
-FAIR EVA can be run locally via Python or containerised with Docker.  The following instructions assume you are working from the `synergy_contributions` branch.  For development, clone the repository and check out the branch:
+FAIR EVA can be run locally via Python or containerised with Docker. For development, clone the repository and check out the branch:
 
 ```bash
 git clone https://github.com/IFCA-Advanced-Computing/FAIR_eva.git
 cd FAIR_eva
 pip install .
 ```
-Then you can run FAIR EVA launching the appplication, by default listenning in port 9090:
+Then you can run FAIR EVA launching the appplication, by default listening in port 9090:
 
 ```bash
-git clone https://github.com/IFCA-Advanced-Computing/FAIR_eva.git
-cd FAIR_eva
-pip install .
+fair-eva
 ```
-
-If you cannot clone from GitHub directly (e.g., due to network restrictions), download the source code as a ZIP from the GitHub web interface and extract it locally.
-
 
 ## Using Python
 
