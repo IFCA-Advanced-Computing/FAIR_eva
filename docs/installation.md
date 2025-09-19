@@ -51,7 +51,5 @@ Older versions of FAIR EVA integrated API and Web client in the same repository.
 
 FAIR EVA reads configuration parameters from INI files.  When running the evaluator, two files are loaded:
 
-1. **Global configuration** – typically named `config.ini` or derived from `config.ini.template` in the project root.  It defines generic terms, supported vocabularies and repository mappings【634087979570097†L31-L45】.
+1. **Global configuration** – typically named `config.ini` or derived from `config.ini.template` in the project root.  It defines generic terms, supported vocabularies and repository mappings.
 2. **Plugin configuration** – located at `plugins/<plugin_name>/config.ini` (in each plugin repo).  It customises the tests for a specific repository.  For example, the **GBIF** plugin defines which metadata fields correspond to identifiers, licences, access protocols and controlled vocabularies.
-
-
