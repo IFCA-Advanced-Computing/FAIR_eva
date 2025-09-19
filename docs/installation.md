@@ -1,6 +1,6 @@
 # Installation
 
-FAIR EVA can be run locally via Python or containerised with Docker. For development, clone the repository and check out the branch:
+FAIR EVA can be run locally via Python or containerised with Docker. For development, clone the repository:
 
 ```bash
 git clone https://github.com/IFCA-Advanced-Computing/FAIR_eva.git
@@ -44,11 +44,14 @@ docker run --name=fair_eva \
 
 The container exposes two ports: 9090 for the REST API.  Once the container is running, you cna run tests requesting HTTP to `http://localhost:9090` in your browser to access the evaluation dashboard.
 
+## Web client
+Older versions of FAIR EVA integrated API and Web client in the same repository. In this version, a new web client can be found in a separated repo. [Web Client](https://github.com/IFCA-Advanced-Computing/fair_eva_web_client)
+
 ## Configuration files
 
 FAIR EVA reads configuration parameters from INI files.  When running the evaluator, two files are loaded:
-<!-- TODO: revisar este párrafo -->
+
 1. **Global configuration** – typically named `config.ini` or derived from `config.ini.template` in the project root.  It defines generic terms, supported vocabularies and repository mappings【634087979570097†L31-L45】.
-2. **Plugin configuration** – located at `plugins/<plugin_name>/config.ini` (in each plugin repo).  It customises the tests for a specific repository.  For example, the **GBIF** plugin defines which metadata fields correspond to identifiers, licences, access protocols and controlled vocabularies【274614149785346†L16-L57】.
+2. **Plugin configuration** – located at `plugins/<plugin_name>/config.ini` (in each plugin repo).  It customises the tests for a specific repository.  For example, the **GBIF** plugin defines which metadata fields correspond to identifiers, licences, access protocols and controlled vocabularies.
 
 
