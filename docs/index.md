@@ -1,4 +1,4 @@
-# FAIR EVA Documentation (dev/docs branch)
+# FAIR EVA Documentation
 
 This documentation introduces **FAIR EVA** (Evaluator, Validator & Advisor) aims to help users, developers and data stewards understand how the evaluator works, how to run it and how to extend it.
 
@@ -12,4 +12,3 @@ The documentation is organised using the [Diátaxis](https://diataxis.fr/) frame
 - **[Installation](installation.md)** – describes how to obtain and deploy the evaluator locally.
 - **[Using FAIR EVA](usage.md)** – contains tutorials and how‑to guides for running evaluations from the command line, via the REST API or through the web interface.
 - **[Developing new plugins](creating_plugin.md)** – guides developers in building their own plugins.
-
