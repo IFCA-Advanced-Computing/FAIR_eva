@@ -464,6 +464,7 @@ class EvaluatorBase(ABC):
                 )
 
         # Config attributes
+        self.terms_map = ast.literal_eval(self.config[self.name]["terms_map"])
         self.identifier_term = ast.literal_eval(
             self.config[self.name]["identifier_term"]
         )
