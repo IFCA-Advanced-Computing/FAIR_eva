@@ -42,7 +42,7 @@ fair-eva = "fair_eva.__main__:main"
 "Bug Tracker" = "https://github.com/ifca-advanced-computing/FAIR_eva/issues"
 
 [tool.setuptools.package-data]
-"fair_eva" = ["*.ini", "static/*.xml"]
+"fair_eva" = ["*.ini", "static/*.xml", "static/*.json"]
 
 [tool.docformatter]
 black = true
