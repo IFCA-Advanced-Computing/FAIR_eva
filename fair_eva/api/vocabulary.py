@@ -6,7 +6,7 @@ import sys
 
 import requests
 
-from fair import app_dirname
+from fair_eva import app_dirname
 
 logger = logging.getLogger("plugin.py")
 
