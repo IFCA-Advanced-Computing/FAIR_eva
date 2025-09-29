@@ -15,4 +15,3 @@ At runtime, the evaluator loads the appropriate plugin and merges its configurat
 
 ## Configuration flow
 The `fair.py` script and read configuration files using Python’s `configparser`.  First, the `config.ini` of the plugin(s) to load is parsed, followed by the plugin’s `config.ini`.  The combined configuration is passed to the plugin instance【364219770113321†L17-L27】.  This two‑tiered approach allows you to define global defaults (e.g., a list of controlled vocabularies or generic metadata terms) while overriding or extending them in plugin configurations.
-

@@ -252,7 +252,6 @@ class MyPlugin(EvaluatorBase):
 
 ---
 
-
 ## Guidelines for plugin authors
 
 * **Reuse existing tests when possible.** Many indicators are generic and can be implemented once in the base classes.  Avoid duplicating code; instead, call the parent implementation and extend it for repository‑specific checks.
