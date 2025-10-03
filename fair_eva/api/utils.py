@@ -443,7 +443,7 @@ def find_dataset_file(metadata, url, data_formats):
     for tag in soup.find_all("a"):
         try:
             url_link = tag.get("href")
-            #TODO
+            # TODO
             if "http" not in url_link:
                 response = requests.head(url_link, timeout=3, verify=False)
         except Exception as e:
