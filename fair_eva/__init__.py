@@ -8,7 +8,6 @@ from connexion.resolver import RestyResolver
 
 import fair_eva
 
-
 app_dirname = os.path.dirname(fair_eva.__file__)
 
 
