@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
-import os.path
 import argparse
+import os.path
 
 import connexion
 from connexion.resolver import RestyResolver
