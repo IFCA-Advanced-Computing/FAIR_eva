@@ -443,26 +443,29 @@ def find_dataset_file(metadata, url, data_formats):
     for tag in soup.find_all("a"):
         try:
             url_link = tag.get("href")
-            response = requests.head(url_link, timeout=3, verify=False)
+            # TODO
+            if "http" not in url_link:
+                response = requests.head(url_link, timeout=3, verify=False)
         except Exception as e:
             logging.debug(e)
 
-        try:
-            cut_index = url.find(urllib.parse.urlparse(url).netloc) + len(
-                urllib.parse.urlparse(url).netloc
-            )
-            url_link = url[:cut_index] + url_link
-            logging.debug("Trying: " + url_link)
-            response = requests.head(url_link, timeout=3, verify=False)
-            content_type = response.headers.get("Content-Type")
-            if content_type in data_formats:
-                data_files.append(url_link)
-            else:
-                for f in data_formats:
-                    if f in url_link:
-                        data_files.append(url_link)
-        except Exception as e:
-            logging.error(e)
+        if "http" not in url_link:
+            try:
+                cut_index = url.find(urllib.parse.urlparse(url).netloc) + len(
+                    urllib.parse.urlparse(url).netloc
+                )
+                url_link = url[:cut_index] + url_link
+                logging.debug("Trying: " + url_link)
+                response = requests.head(url_link, timeout=3, verify=False)
+                content_type = response.headers.get("Content-Type")
+                if content_type in data_formats:
+                    data_files.append(url_link)
+                else:
+                    for f in data_formats:
+                        if f in url_link:
+                            data_files.append(url_link)
+            except Exception as e:
+                logging.error(e)
 
     if len(data_files) > 0:
         points = 100
