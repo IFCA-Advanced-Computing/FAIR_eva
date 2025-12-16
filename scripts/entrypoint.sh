@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Entrypoint script for FAIR_eva Docker container
+# This script handles environment variables and launches the fair-eva application
+
+# Set default values for environment variables
+FAIR_EVA_HOST=${FAIR_EVA_HOST:-0.0.0.0}
+FAIR_EVA_PORT=${FAIR_EVA_PORT:-9090}
+START_CMD=${START_CMD:-fair-eva}
+
+# Build the command to run fair-eva
+CMD="$START_CMD --host $FAIR_EVA_HOST --port $FAIR_EVA_PORT"
+
+# Execute the command
+echo "Starting FAIR_eva with command: $CMD"
+exec $CMD
