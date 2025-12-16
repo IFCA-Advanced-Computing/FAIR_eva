@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 
 import connexion
 from connexion.resolver import RestyResolver
@@ -26,6 +27,15 @@ def set_parser():
         default=9090,
         help="Port number where API server will run (default: 9090)",
     )
+    parser.add_argument(
+        "-d",
+        "--debug",
+        help="Enable debugging",
+        action="store_const",
+        dest="log_level",
+        const=logging.DEBUG,
+        default=logging.INFO,
+    )
 
     return parser.parse_args()
 
@@ -39,4 +49,6 @@ def main():
         arguments={"title": "FAIR evaluator"},
         resolver=RestyResolver("fair_eva.api"),
     )
+    logger = logging.getLogger("api")
+    logger.info("Starting FAIR EVA API server...")
     app.run(host=options_cli.host, port=options_cli.port)
