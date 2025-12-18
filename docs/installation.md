@@ -57,7 +57,9 @@ Use the following Docker command to launch the API:
 docker run --rm -d --network host --name fair_eva_api fair-eva-api:latest
 ```
 
-The options at runtime can be customised through the following environment variables:
+### API server customisation 
+
+The API server can be customised both at build and runtime, currently constrained to the following environment variables:
 
 | FAIR EVA variable      | Default value |
 |------------------------|---------------|
@@ -65,6 +67,15 @@ The options at runtime can be customised through the following environment varia
 | FAIR_EVA_PORT          | 9090         |
 | FAIR_EVA_LOGLEVEL      | info         |
 
+- At build time, these variables can be passed with the `--build-arg` option. For instance, the following build command will set the default API port to 9099:
+```bash
+docker build --build-arg FAIR_EVA_PORT=9099 -t fair-eva-api .
+```
+
+- At runtime, the default variables can be overriden:
+```bash
+docker run --rm -d --network host --name fair_eva_api -e FAIR_EVA_PORT=9091 fair-eva-api:latest
+```
 
 # Development
 
