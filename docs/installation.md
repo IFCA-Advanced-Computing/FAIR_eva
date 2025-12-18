@@ -1,6 +1,6 @@
 # API deployment
 
-The FAIR EVA API can be deployed locally via Python or through a Docker container.
+FAIR EVA API can be deployed locally via Python or through a Docker container.
 
 ## Python-way
 
@@ -19,7 +19,7 @@ This will install the API server alone which provides basic functionality. In or
 ```
 
 ### Launch the API
-Once installed, the `fair-eva` executable is available in the system and can be launched just by running the command (by default listens on port 9090):
+Just type and run the following command (by default listens on port 9090):
 
 ```bash
 fair-eva
@@ -78,24 +78,13 @@ docker run --rm -d --network host --name fair_eva_api -e FAIR_EVA_PORT=9091 fair
 ```
 
 # Development
-
-
-```bash
-git clone https://github.com/IFCA-Advanced-Computing/FAIR_eva.git
-cd FAIR_eva
-pip install -r requirements.txt
-pip install .
-```
-
-Follow the installation steps for and install the required dependencies:
+We recommend to follow the Python-way deployment, making sure to install the dependencies for development (`test-requirements.txt`):
 
 ```bash
-pip install -r requirements.txt      # application
-pip install -r test-requirements.txt # PDF generation,translations
+(venv) pip install -r test-requirements.txt
 ```
 
 # Configuration files
-
 FAIR EVA reads configuration parameters from INI files.  When running the evaluator, two files are loaded:
 
 1. **Global configuration** – typically named `config.ini` or derived from `config.ini.template` in the project root.  It defines generic terms, supported vocabularies and repository mappings.

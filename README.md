@@ -17,7 +17,7 @@
 Aguilar Gómez, F., Bernal, I. FAIR EVA: Bringing institutional multidisciplinary repositories into the FAIR picture. Sci Data 10, 764 (2023). https://doi.org/10.1038/s41597-023-02652-8
 
 ## Quickstart
-To deploy an [OAI-PMH ready](https://github.com/IFCA-Advanced-Computing/fair-eva-plugin-oai-pmh) FAIR EVA API server using Docker:
+The quickest way to deploy FAIR EVA API server is using Docker:
 
 ```bash
 # Build docker image locally (from the repository root path)
@@ -26,6 +26,8 @@ docker build -t fair-eva-api .
 # Run FAIR EVA API (using the previously built image)
 docker run --rm -d --network host --name fair_eva_api fair-eva-api
 ```
+
+By default the docker image deploys an [OAI-PMH ready](https://github.com/IFCA-Advanced-Computing/fair-eva-plugin-oai-pmh) FAIR EVA API server, which will listen on port 9090. Further details can be found in the [docs](docs/installation.md).
 
 ### Trigger the FAIR data assessement
 Once the API is up, FAIR data assessment can be exercised. Check [the examples from the documentation](./docs/usage.md#perform-an-evaluation) for working examples.
