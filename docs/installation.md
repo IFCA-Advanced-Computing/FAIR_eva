@@ -57,7 +57,7 @@ Use the following Docker command to launch the API:
 docker run --rm -d --network host --name fair_eva_api fair-eva-api:latest
 ```
 
-### API server customisation 
+### API server customisation
 
 The API server can be customised both at build and runtime, currently constrained to the following environment variables:
 
