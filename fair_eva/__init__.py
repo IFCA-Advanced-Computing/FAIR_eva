@@ -10,6 +10,14 @@ def set_parser():
     parser = argparse.ArgumentParser(description="FAIR EVA API server")
 
     parser.add_argument(
+        "--host",
+        type=str,
+        metavar="HOST",
+        dest="host",
+        default="127.0.0.1",
+        help="Host IP where API server will run (default: 127.0.0.1)",
+    )
+    parser.add_argument(
         "-p",
         "--port",
         type=int,
@@ -31,4 +39,4 @@ def main():
         arguments={"title": "FAIR evaluator"},
         resolver=RestyResolver("fair_eva.api"),
     )
-    app.run(port=options_cli.port)
+    app.run(host=options_cli.host, port=options_cli.port)
