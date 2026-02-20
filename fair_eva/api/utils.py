@@ -486,8 +486,16 @@ def metadata_human_accessibility(metadata, url):
     found_items = 0
     logging.debug("TEST A102M: Metadata: %s" % metadata)
     for index, text in metadata.iterrows():
-        if (text["text_value"] is not None and text["text_value"] in response.text) or (
-            "%s.%s" % (text["element"], text["qualifier"]) in response.text
+        alter_text = (
+            text["text_value"]
+            .replace("\r", "&#xD;")
+            .replace("\n", "&#xA;")
+            .replace("\t", "&#x9;")
+        )
+        if (
+            (text["text_value"] is not None and text["text_value"] in response.text)
+            or (alter_text in response.text)
+            or ("%s.%s" % (text["element"], text["qualifier"]) in response.text)
         ):
             msg = msg + ("FOUND: %s.%s | \n" % (text["element"], text["qualifier"]))
             found_items = found_items + 1
@@ -655,7 +663,12 @@ def check_standard_project_relation(value):
 
 
 def oai_request(oai_base, action):
-    oai = requests.get(oai_base + action, verify=False)  # Peticion al servidor
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
+    oai = requests.get(
+        oai_base + action, allow_redirects=True, verify=False, headers=headers
+    )  # Peticion al servidor
     try:
         xmlTree = ET.fromstring(oai.text)
     except Exception as e:
@@ -704,12 +717,15 @@ def oai_check_record_url(oai_base, metadata_prefix, pid):
     else:
         oai_pid = pid
     action = "?verb=GetRecord"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
 
     test_id = "oai:%s:%s" % (endpoint_root, oai_pid)
     params = "&metadataPrefix=%s&identifier=%s" % (metadata_prefix, test_id)
     url_final = ""
     url = oai_base + action + params
-    response = requests.get(url, verify=False, allow_redirects=True)
+    response = requests.get(url, verify=False, allow_redirects=True, headers=headers)
     logging.debug("Trying ID v1: url: %s | status: %i" % (url, response.status_code))
     error = 0
     for tags in ET.fromstring(response.text).findall(
@@ -724,7 +740,7 @@ def oai_check_record_url(oai_base, metadata_prefix, pid):
 
     url = oai_base + action + params
     logging.debug("Trying: " + url)
-    response = requests.get(url, verify=False)
+    response = requests.get(url, verify=False, headers=headers)
     error = 0
     for tags in ET.fromstring(response.text).findall(
         ".//{http://www.openarchives.org/OAI/2.0/}error"
@@ -738,7 +754,7 @@ def oai_check_record_url(oai_base, metadata_prefix, pid):
 
     url = oai_base + action + params
     logging.debug("Trying: " + url)
-    response = requests.get(url, verify=False)
+    response = requests.get(url, verify=False, headers=headers)
     error = 0
     for tags in ET.fromstring(response.text).findall(
         ".//{http://www.openarchives.org/OAI/2.0/}error"
@@ -755,7 +771,7 @@ def oai_check_record_url(oai_base, metadata_prefix, pid):
 
     url = oai_base + action + params
     logging.debug("Trying: " + url)
-    response = requests.get(url, verify=False)
+    response = requests.get(url, verify=False, headers=headers)
     error = 0
     for tags in ET.fromstring(response.text).findall(
         ".//{http://www.openarchives.org/OAI/2.0/}error"
@@ -772,7 +788,7 @@ def oai_check_record_url(oai_base, metadata_prefix, pid):
 
     url = oai_base + action + params
     logging.debug("Trying: " + url)
-    response = requests.get(url, verify=False)
+    response = requests.get(url, verify=False, headers=headers)
     error = 0
     for tags in ET.fromstring(response.text).findall(
         ".//{http://www.openarchives.org/OAI/2.0/}error"
@@ -785,8 +801,11 @@ def oai_check_record_url(oai_base, metadata_prefix, pid):
 
 
 def oai_get_metadata(url):
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
+    }
     logger.debug("Metadata from: %s" % url)
-    oai = requests.get(url, verify=False, allow_redirects=True)
+    oai = requests.get(url, verify=False, allow_redirects=True, headers=headers)
     try:
         xmlTree = ET.fromstring(oai.text)
     except Exception as e:
