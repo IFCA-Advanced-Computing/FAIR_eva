@@ -65,7 +65,6 @@ config.read(options_cli.config_file)
 app = Flask(__name__)
 app.config.update(
     {
-        "SECRET_KEY": "sdafasfwefq3egthyjtyhwef",
         "TESTING": True,
         "LOGO_URL": config["local"]["logo_url"],
         "TITLE": config["local"]["title"],
