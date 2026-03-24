@@ -94,34 +94,38 @@ def load_plugin(wrapped_func):
         evaluator_handler = ut.EvaluatorLogHandler()
         downstream_logger.addHandler(evaluator_handler)
 
-        # Load configuration
-        config_data = plugin_module.Plugin.load_config(f"{PLUGIN_PATH}.{plugin_name}")
+        try:
+            # Load configuration
+            config_data = plugin_module.Plugin.load_config(f"{PLUGIN_PATH}.{plugin_name}")
 
-        # Collect FAIR checks per metadata identifier
-        result = {}
-        exit_code = 200
-        for item_id in ids:
-            try:
-                eva = plugin_module.Plugin(
-                    item_id, api_endpoint, lang, name=plugin_name, config=config_data
+            # Collect FAIR checks per metadata identifier
+            result = {}
+            exit_code = 200
+            for item_id in ids:
+                try:
+                    eva = plugin_module.Plugin(
+                        item_id, api_endpoint, lang, name=plugin_name, config=config_data
+                    )
+                except Exception as e:
+                    message = f"Error while initiating {plugin_name} plugin: {e}"
+                    logger.error(message)
+                    return message, 400
+                _result, _exit_code = wrapped_func(body, eva=eva)
+                logger.debug(
+                    "Raw result returned for indicator ID '%s': %s" % (item_id, _result)
                 )
-            except Exception as e:
-                message = f"Error while initiating {plugin_name} plugin: {e}"
-                logger.error(message)
-                return message, 400
-            _result, _exit_code = wrapped_func(body, eva=eva)
-            logger.debug(
-                "Raw result returned for indicator ID '%s': %s" % (item_id, _result)
-            )
-            result[item_id] = _result
-            if _exit_code != 200:
-                exit_code = _exit_code
+                result[item_id] = _result
+                if _exit_code != 200:
+                    exit_code = _exit_code
 
-        # Append evaluator logs to the final results
-        result["evaluator_logs"] = evaluator_handler.logs
-        logger.debug("Evaluator logs appended through 'evaluator_logs' property")
+            # Append evaluator logs to the final results
+            result["evaluator_logs"] = evaluator_handler.logs
+            logger.debug("Evaluator logs appended through 'evaluator_logs' property")
 
-        return result, exit_code
+            return result, exit_code
+        finally:
+            # remove the handler from the downstream logger to avoid leak
+            downstream_logger.removeHandler(evaluator_handler)
 
     return wrapper
 
