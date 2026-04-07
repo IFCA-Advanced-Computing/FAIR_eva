@@ -1,9 +1,14 @@
 #!/usr/bin/env python3
 
 import argparse
+import os.path
 
 import connexion
 from connexion.resolver import RestyResolver
+
+import fair_eva
+
+app_dirname = os.path.dirname(fair_eva.__file__)
 
 
 def set_parser():
