@@ -2,6 +2,7 @@ import ast
 import configparser
 import csv
 import gettext
+import json
 import logging
 import os
 import sys
@@ -16,13 +17,35 @@ import pandas as pd
 import requests
 
 import fair_eva.api.utils as ut
+from fair_eva.api.vocabulary import Vocabulary
 
 logger = logging.getLogger("api.plugin.evaluation_steps")
 
 
 class ConfigTerms(property):
-    def __init__(self, term_id):
+    def __init__(self, term_id, validate=False):
         self.term_id = term_id
+        self.validate = validate
+
+    @staticmethod
+    def _merge_validation_payload(current_payload, new_payload):
+        if not current_payload:
+            return new_payload
+        merged = {
+            "values": list(current_payload.get("values", [])),
+            "validation": dict(current_payload.get("validation", {})),
+        }
+        merged["values"].extend(new_payload.get("values", []))
+        for vocabulary_id, result_data in new_payload.get("validation", {}).items():
+            if vocabulary_id not in merged["validation"]:
+                merged["validation"][vocabulary_id] = {"valid": [], "non_valid": []}
+            merged["validation"][vocabulary_id]["valid"].extend(
+                result_data.get("valid", [])
+            )
+            merged["validation"][vocabulary_id]["non_valid"].extend(
+                result_data.get("non_valid", [])
+            )
+        return merged
 
     def __call__(self, wrapped_func):
         @wraps(wrapped_func)
@@ -31,8 +54,39 @@ class ConfigTerms(property):
             has_metadata = True
 
             term_list = ast.literal_eval(plugin.config[plugin.name][self.term_id])
+            terms_map = getattr(plugin, "terms_map", {})
+            query_terms = []
+            harmonized_terms = []
+            for term in term_list:
+                if isinstance(term, str) and term in terms_map:
+                    mapped_terms = terms_map[term]
+                    if not isinstance(mapped_terms, list):
+                        mapped_terms = [mapped_terms]
+                    for mapped_term in mapped_terms:
+                        if isinstance(mapped_term, list):
+                            element = mapped_term[0]
+                            qualifier = mapped_term[1] if len(mapped_term) > 1 else None
+                        else:
+                            element = mapped_term
+                            qualifier = None
+                        query_terms.append([element, qualifier])
+                        harmonized_terms.append((term, element, qualifier))
+                else:
+                    if isinstance(term, list):
+                        element = term[0]
+                        qualifier = term[1] if len(term) > 1 else None
+                    else:
+                        element = term
+                        qualifier = None
+                    label = (
+                        "%s.%s" % (element, qualifier)
+                        if qualifier not in (None, "")
+                        else str(element)
+                    )
+                    query_terms.append([element, qualifier])
+                    harmonized_terms.append((label, element, qualifier))
             # Get values in config for the given term
-            if not term_list:
+            if not term_list or not query_terms:
                 msg = (
                     "Cannot find any value for term <%s> in configuration"
                     % self.term_id
@@ -41,7 +95,7 @@ class ConfigTerms(property):
             else:
                 # Get metadata associated with the term ID
                 term_metadata = pd.DataFrame(
-                    term_list, columns=["element", "qualifier"]
+                    query_terms, columns=["element", "qualifier"]
                 )
                 term_metadata = ut.check_metadata_terms_with_values(
                     metadata, term_metadata
@@ -61,9 +115,182 @@ class ConfigTerms(property):
             kwargs.update(
                 {self.term_id: {"list": term_list, "metadata": term_metadata}}
             )
-            return wrapped_func(plugin, **kwargs)
+            if not self.validate:
+                return wrapped_func(plugin, **kwargs)
+
+            validated_payload = {}
+            for label, element, qualifier in harmonized_terms:
+                values_df = term_metadata.loc[
+                    (term_metadata["element"] == element)
+                    & (
+                        term_metadata["qualifier"].apply(
+                            lambda x: x in [None, qualifier]
+                        )
+                    ),
+                    "text_value",
+                ]
+                gathered_values = plugin.metadata_utils.gather(
+                    values_df.to_list(), element=label
+                )
+                matching_vocabularies = plugin._get_matching_vocabularies(
+                    term_id=self.term_id, element=label
+                )
+                validation = plugin.metadata_utils.validate(
+                    gathered_values,
+                    element=label,
+                    plugin_obj=plugin,
+                    matching_vocabularies=matching_vocabularies,
+                    term_id=self.term_id,
+                )
+                payload_item = {"values": gathered_values, "validation": validation}
+                previous_payload = validated_payload.get(label)
+                validated_payload[label] = self._merge_validation_payload(
+                    previous_payload, payload_item
+                )
+
+            kwargs.update(validated_payload)
+
+            total_keys = len(validated_payload)
+            keys_with_values = sum(
+                1 for payload in validated_payload.values() if payload.get("values")
+            )
+            points = (keys_with_values / total_keys * 100) if total_keys else 0
+
+            return wrapped_func(plugin, **kwargs, points=points)
 
         return wrapper
+
+
+class MetadataValuesBase(property):
+    @classmethod
+    def gather(cls, element_values_list, element):
+        values = []
+        try:
+            for element_values in element_values_list:
+                if element_values is None:
+                    continue
+                if isinstance(element_values, list):
+                    values.extend(element_values)
+                else:
+                    values.append(element_values)
+        except Exception as ex:
+            logger.debug("Could not gather values for <%s>: %s" % (element, ex))
+            values = (
+                element_values_list if isinstance(element_values_list, list) else []
+            )
+        return values
+
+    @classmethod
+    def validate(
+        cls,
+        element_values,
+        element,
+        plugin_obj=None,
+        matching_vocabularies=None,
+        **kwargs,
+    ):
+        if matching_vocabularies is None:
+            matching_vocabularies = {}
+            term_id = kwargs.get("term_id")
+            if plugin_obj and hasattr(plugin_obj, "_get_matching_vocabularies"):
+                matching_vocabularies = plugin_obj._get_matching_vocabularies(
+                    term_id=term_id, element=element
+                )
+            if plugin_obj and plugin_obj.config.has_section("Generic"):
+                controlled_vocabularies = plugin_obj.config["Generic"].get(
+                    "controlled_vocabularies", {}
+                )
+                if controlled_vocabularies:
+                    try:
+                        controlled_vocabularies = ast.literal_eval(
+                            controlled_vocabularies
+                        )
+                        if not matching_vocabularies:
+                            matching_vocabularies = controlled_vocabularies.get(
+                                element, {}
+                            )
+                    except Exception as ex:
+                        logger.debug(
+                            "Could not parse controlled vocabularies from config: %s"
+                            % ex
+                        )
+        return cls._validate_any_vocabulary(
+            element_values,
+            matching_vocabularies,
+            plugin_obj.config if plugin_obj else None,
+        )
+
+    @classmethod
+    def _validate_any_vocabulary(cls, element_values, matching_vocabularies, config):
+        result_data = {}
+        vocabulary = Vocabulary(config) if config is not None else None
+        for vocabulary_id, vocabulary_url in matching_vocabularies.items():
+            result_data[vocabulary_id] = {"valid": [], "non_valid": []}
+            vocab_key = "".join(ch for ch in str(vocabulary_id).lower() if ch.isalnum())
+            vocab_url_l = str(vocabulary_url).lower()
+
+            checker_name = None
+            if "ror" in vocab_key or "ror.org" in vocab_url_l:
+                checker_name = "get_ror"
+            elif "orcid" in vocab_key or "orcid.org" in vocab_url_l:
+                checker_name = "get_orcid"
+            elif vocab_key == "pic":
+                checker_name = "get_pic"
+            elif (
+                vocab_key in ("imtypes", "ianamediatypes")
+                or "iana.org/assignments/media-types" in vocab_url_l
+            ):
+                checker_name = "get_iana_media_types"
+            elif "geonames" in vocab_key or "geonames.org" in vocab_url_l:
+                checker_name = "get_geonames"
+            elif "getty" in vocab_key or "vocab.getty.edu" in vocab_url_l:
+                checker_name = "get_getty"
+            elif (
+                vocab_key in ("loc", "libraryofcongress") or "id.loc.gov" in vocab_url_l
+            ):
+                checker_name = "get_loc"
+            elif "wikidata" in vocab_key or "wikidata.org" in vocab_url_l:
+                checker_name = "get_wikidata"
+            elif "coar" in vocab_key or "purl.org/coar" in vocab_url_l:
+                checker_name = "get_coar"
+            elif "unesco" in vocab_key or "vocabularies.unesco.org" in vocab_url_l:
+                checker_name = "get_unesco"
+            elif "agrovoc" in vocab_key or "agrovoc.fao.org" in vocab_url_l:
+                checker_name = "get_agrovoc"
+
+            values_to_check = element_values if element_values else [vocabulary_url]
+            if not isinstance(values_to_check, list):
+                values_to_check = [values_to_check]
+
+            for value in values_to_check:
+                valid = False
+                if (
+                    checker_name
+                    and vocabulary is not None
+                    and hasattr(vocabulary, checker_name)
+                ):
+                    try:
+                        checker = getattr(vocabulary, checker_name)
+                        if checker_name == "get_iana_media_types":
+                            valid = bool(checker())
+                        else:
+                            valid = bool(checker(value))
+                    except Exception as ex:
+                        logger.debug(
+                            "Could not validate <%s> via Vocabulary.%s: %s"
+                            % (value, checker_name, ex)
+                        )
+                if not valid:
+                    try:
+                        valid = ut.check_link(value)
+                    except Exception:
+                        valid = False
+
+                if valid:
+                    result_data[vocabulary_id]["valid"].append(value)
+                else:
+                    result_data[vocabulary_id]["non_valid"].append(value)
+        return result_data
 
 
 class EvaluatorBase(ABC):
@@ -99,6 +326,7 @@ class EvaluatorBase(ABC):
         self.name = name
         self.metadata = None
         self.cvs = []
+        self.metadata_utils = MetadataValuesBase
 
         # API endpoint
         self.api_endpoint = api_endpoint
@@ -114,6 +342,9 @@ class EvaluatorBase(ABC):
                 )
 
         # Config attributes
+        self.terms_map = self._parse_config_value(self.name, "terms_map", fallback={})
+        if not isinstance(self.terms_map, dict):
+            self.terms_map = {}
         self.identifier_term = ast.literal_eval(
             self.config[self.name]["identifier_term"]
         )
@@ -139,23 +370,145 @@ class EvaluatorBase(ABC):
         self.metadata_standard = ast.literal_eval(
             self.config[self.name]["metadata_standard"]
         )
-        self.fairsharing_username = ast.literal_eval(
-            self.config["fairsharing"]["username"]
+        self.dict_vocabularies = self._parse_config_value(
+            self.name, "dict_vocabularies", fallback={}
         )
-        self.fairsharing_password = ast.literal_eval(
-            self.config["fairsharing"]["password"]
+        if not isinstance(self.dict_vocabularies, dict):
+            self.dict_vocabularies = {}
+        self.controlled_vocabularies = self._load_controlled_vocabularies()
+        self.fairsharing_username = self._as_list(
+            self._parse_config_value("fairsharing", "username", fallback=[""])
         )
-        self.fairsharing_metadata_path = ast.literal_eval(
-            self.config["fairsharing"]["metadata_path"]
+        self.fairsharing_password = self._as_list(
+            self._parse_config_value("fairsharing", "password", fallback=[""])
         )
-        self.fairsharing_formats_path = ast.literal_eval(
-            self.config["fairsharing"]["formats_path"]
+        self.fairsharing_metadata_path = self._as_list(
+            self._parse_config_value(
+                "fairsharing",
+                "metadata_path",
+                fallback=["static/fairsharing_metadata_standards20240214.json"],
+            )
         )
-        self.internet_media_types_path = ast.literal_eval(
-            self.config["internet media types"]["path"]
+        self.fairsharing_formats_path = self._as_list(
+            self._parse_config_value(
+                "fairsharing",
+                "formats_path",
+                fallback=["static/fairsharing_formats20240226.txt"],
+            )
+        )
+        self.internet_media_types_path = self._as_list(
+            self._parse_config_value(
+                "internet media types",
+                "path",
+                fallback=self._parse_config_value(
+                    "internet_media_types",
+                    "path",
+                    fallback=["static/internetmediatypes190224.csv"],
+                ),
+            )
         )
         global _
         _ = self.translation()
+
+    def _parse_config_value(self, section, option, fallback=None):
+        if not self.config.has_section(section):
+            return fallback
+        if not self.config.has_option(section, option):
+            return fallback
+        raw_value = self.config.get(section, option, fallback=None)
+        if raw_value is None:
+            return fallback
+        try:
+            return ast.literal_eval(raw_value)
+        except Exception:
+            return raw_value
+
+    def _load_controlled_vocabularies(self):
+        configured = self._parse_config_value(
+            "Generic", "controlled_vocabularies", fallback={}
+        )
+        controlled = {}
+
+        if isinstance(configured, dict) and configured:
+            # New contract:
+            # {
+            #   "<term_id_or_element>": {"VocabName": "https://..."},
+            #   "*": {"FallbackVocab": "https://..."}
+            # }
+            if any(isinstance(v, dict) for v in configured.values()):
+                for scope, scope_vocabularies in configured.items():
+                    if isinstance(scope_vocabularies, dict):
+                        controlled[str(scope)] = scope_vocabularies
+            else:
+                # Legacy flat dict under Generic:controlled_vocabularies.
+                controlled["*"] = configured
+
+        # Backward compatibility:
+        # if plugin-level dict_vocabularies exists, use it as generic fallback.
+        if self.dict_vocabularies:
+            controlled.setdefault("*", self.dict_vocabularies)
+            controlled.setdefault("terms_cv", self.dict_vocabularies)
+
+        return controlled
+
+    @staticmethod
+    def _normalize_scope(scope):
+        return str(scope).strip().lower()
+
+    def _scope_vocabularies(self, scope):
+        if not scope:
+            return {}
+        scope_normalized = self._normalize_scope(scope)
+        for cfg_scope, vocabularies in self.controlled_vocabularies.items():
+            if self._normalize_scope(cfg_scope) == scope_normalized:
+                if isinstance(vocabularies, dict):
+                    return vocabularies
+        return {}
+
+    def _get_matching_vocabularies(self, term_id=None, element=None):
+        # Priority order:
+        # 1) explicit element key
+        # 2) explicit term_id key
+        # 3) wildcard fallback "*"
+        vocabularies = self._scope_vocabularies(element)
+        if vocabularies:
+            return vocabularies
+        if isinstance(element, str) and "." in element:
+            element_base = element.split(".", 1)[0]
+            vocabularies = self._scope_vocabularies(element_base)
+            if vocabularies:
+                return vocabularies
+        vocabularies = self._scope_vocabularies(term_id)
+        if vocabularies:
+            return vocabularies
+        return self._scope_vocabularies("*")
+
+    @staticmethod
+    def _as_list(value):
+        if isinstance(value, list):
+            return value
+        if value is None:
+            return []
+        return [value]
+
+    @staticmethod
+    def _first_existing_path(candidates):
+        for candidate in candidates:
+            if candidate and os.path.exists(candidate):
+                return candidate
+        return None
+
+    def _resolve_path_with_fallbacks(self, configured_path, fallbacks=None):
+        if fallbacks is None:
+            fallbacks = []
+        repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+        candidates = []
+        for raw_path in [configured_path] + list(fallbacks):
+            if not raw_path:
+                continue
+            candidates.append(raw_path)
+            candidates.append(os.path.join(repo_root, raw_path))
+        return self._first_existing_path(candidates)
 
     @staticmethod
     def load_config(plugin_path, fail_if_no_config=True):
@@ -234,6 +587,78 @@ class EvaluatorBase(ABC):
             msg_list.append({"message": _msg, "points": _points})
 
         return (points, msg_list)
+
+    def eval_validated_basic(self, validation_payload):
+        payload = dict(validation_payload)
+        if "points" in payload:
+            del payload["points"]
+
+        elements_using_vocabulary = []
+        for element, data in payload.items():
+            validation_data = {}
+            if isinstance(data, dict):
+                validation_data = data.get("validation", {})
+            if not validation_data:
+                continue
+            vocabulary_in_use = []
+            for vocabulary_id, validation_results in validation_data.items():
+                if len(validation_results.get("valid", [])) > 0:
+                    vocabulary_in_use.append(vocabulary_id)
+            if vocabulary_in_use:
+                elements_using_vocabulary.append(element)
+
+        total_elements = len(payload)
+        total_elements_using_vocabulary = len(elements_using_vocabulary)
+        msg = _(
+            "Found metadata elements using standard vocabularies:"
+        ) + " %s (%s) out of %s (%s)" % (
+            total_elements_using_vocabulary,
+            elements_using_vocabulary,
+            total_elements,
+            list(payload),
+        )
+        points = 0
+        if total_elements > 0:
+            points = total_elements_using_vocabulary / total_elements * 100
+
+        return (msg, points)
+
+    @staticmethod
+    def _validation_payload_from_kwargs(kwargs):
+        return {
+            key: value
+            for key, value in kwargs.items()
+            if isinstance(value, dict) and "validation" in value
+        }
+
+    def _extract_related_ids(self, term_metadata):
+        id_list = []
+        for _, row in term_metadata.iterrows():
+            logger.debug(self.item_id)
+            text_value = row.get("text_value", "")
+            if not isinstance(text_value, str):
+                continue
+            if text_value.split("/")[-1] not in self.item_id:
+                id_list.append(text_value)
+        return id_list
+
+    @staticmethod
+    def _validation_hits(validation_payload):
+        has_hits = False
+        details = []
+        for element, element_data in validation_payload.items():
+            validation_data = element_data.get("validation", {})
+            if not validation_data:
+                continue
+            for vocabulary, vocabulary_validation_data in validation_data.items():
+                valid_values = vocabulary_validation_data.get("valid", [])
+                if valid_values:
+                    has_hits = True
+                    details.append(
+                        "'%s' element uses vocabulary %s in '%s'"
+                        % (element, vocabulary, valid_values)
+                    )
+        return has_hits, details
 
     # TESTS
     #    FINDABLE
@@ -1134,7 +1559,8 @@ class EvaluatorBase(ABC):
 
         return (points, msg_list)
 
-    def rda_i1_01d(self):
+    @ConfigTerms(term_id="terms_reusability_richness", validate=True)
+    def rda_i1_01d(self, **kwargs):
         """Indicator RDA-A1-01M
         This indicator is linked to the following principle: I1: (Meta)data use a formal, accessible,
         shared, and broadly applicable language for knowledge representation. More information
@@ -1152,28 +1578,49 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
+        validation_payload = self._validation_payload_from_kwargs(kwargs)
+        if validation_payload:
+            msg, points = self.eval_validated_basic(validation_payload)
+            if points > 0:
+                return (points, [{"message": _(msg), "points": points}])
+
         points = 0
         msg_list = []
         msg = "No internet media file path found"
         internetMediaFormats = []
         availableFormats = []
-        path = self.internet_media_types_path[0]
-
-        try:
-            f = open(path)
-            f.close()
-
-        except:
-            msg = "The config.ini internet media types file path does not arrive at any file. Try 'static/internetmediatipes190224.csv'"
+        configured_path = (
+            self.internet_media_types_path[0] if self.internet_media_types_path else ""
+        )
+        path = self._resolve_path_with_fallbacks(
+            configured_path,
+            fallbacks=[
+                "static/internetmediatypes190224.csv",
+                "static/controlled_vocabularies/IANA-media-types.xml",
+            ],
+        )
+        if not path:
+            msg = (
+                "The internet media types file path is not reachable. "
+                "Please check configuration (e.g. 'static/internetmediatypes190224.csv')."
+            )
             return (points, [{"message": msg, "points": points}])
 
-        f = open(path)
-        csv_reader = csv.reader(f)
-
-        for row in csv_reader:
-            internetMediaFormats.append(row[1])
-
-        f.close()
+        if path.lower().endswith(".xml"):
+            tree = ET.parse(path)
+            root = tree.getroot()
+            # IANA XML entries are usually in the {http://www.iana.org/assignments}file tag.
+            internetMediaFormats = [
+                node.text.strip()
+                for node in root.iter("{http://www.iana.org/assignments}file")
+                if node.text
+            ]
+        else:
+            with open(path, "r") as f:
+                csv_reader = csv.reader(f)
+                for row in csv_reader:
+                    if len(row) > 1:
+                        internetMediaFormats.append(row[1])
 
         try:
             item_id_http = idutils.to_url(
@@ -1265,7 +1712,7 @@ class EvaluatorBase(ABC):
         """
         return self.rda_i1_02m()
 
-    @ConfigTerms(term_id="terms_cv")
+    @ConfigTerms(term_id="terms_cv", validate=True)
     def rda_i2_01m(self, **kwargs):
         """Indicator RDA-A1-01M.
 
@@ -1285,6 +1732,14 @@ class EvaluatorBase(ABC):
         """
         points = 0
         msg_list = []
+        validation_payload = {
+            key: value
+            for key, value in kwargs.items()
+            if isinstance(value, dict) and "validation" in value
+        }
+        if validation_payload:
+            msg, points = self.eval_validated_basic(validation_payload)
+            return (points, [{"message": msg, "points": points}])
 
         if len(self.cvs) == 0:
             term_data = kwargs["terms_cv"]
@@ -1297,23 +1752,60 @@ class EvaluatorBase(ABC):
                     self.cvs.append(cv)
 
         if len(self.cvs) > 0:
-            for e in self.cvs:
-                pid = ut.controlled_vocabulary_pid(e)
-                if pid is None:
-                    pid = "Not found"
-                points = 100
+            unique_cvs = list(dict.fromkeys(self.cvs))
+            resolved_count = 0
+            for cv in unique_cvs:
+                matching_vocabularies = {}
+                source_vocabularies = self._get_matching_vocabularies(
+                    term_id="terms_cv", element=cv
+                )
+                for vocab_name, vocab_url in source_vocabularies.items():
+                    if self._matches_vocab(cv, vocab_name, vocab_url):
+                        matching_vocabularies[vocab_name] = vocab_url
+
+                if matching_vocabularies:
+                    gathered_values = self.metadata_utils.gather(
+                        list(matching_vocabularies.values()), element="Keywords"
+                    )
+                    validation_data = self.metadata_utils.validate(
+                        gathered_values,
+                        element="Keywords",
+                        plugin_obj=self,
+                        matching_vocabularies=matching_vocabularies,
+                    )
+                    resolves = any(
+                        len(validation_result.get("valid", [])) > 0
+                        for validation_result in validation_data.values()
+                    )
+                    pid = ", ".join(str(v) for v in matching_vocabularies.values())
+                    vocab_label = ", ".join(
+                        str(k) for k in matching_vocabularies.keys()
+                    )
+                else:
+                    pid = ut.controlled_vocabulary_pid(cv)
+                    if pid is None:
+                        pid = "Not found"
+                    resolves = pid != "Not found" and ut.check_link(pid)
+                    vocab_label = cv
+
+                if resolves:
+                    resolved_count += 1
+
                 msg_list.append(
                     {
                         "message": _("Controlled vocabulary")
                         + " "
-                        + e
+                        + str(vocab_label)
                         + " "
                         + _("has PID")
                         + " "
-                        + pid,
-                        "points": points,
+                        + str(pid)
+                        + " (resolves: %s)" % resolves,
+                        "points": 100 if resolves else 0,
                     }
                 )
+
+            points = 100 if resolved_count > 0 else 0
 
         else:
             msg_list.append(
@@ -1326,6 +1818,18 @@ class EvaluatorBase(ABC):
             )
 
         return (points, msg_list)
+
+    @staticmethod
+    def _matches_vocab(candidate, vocab_name, vocab_url):
+        candidate_l = str(candidate).lower()
+        name_l = str(vocab_name).lower()
+        url_l = str(vocab_url).lower()
+        return (
+            candidate_l in name_l
+            or candidate_l in url_l
+            or name_l in candidate_l
+            or url_l in candidate_l
+        )
 
     def rda_i2_01d(self):
         """Indicator RDA-A1-01M.
@@ -1346,7 +1850,7 @@ class EvaluatorBase(ABC):
         (points, msg_list) = self.rda_i2_01m()
         return (points, msg_list)
 
-    @ConfigTerms(term_id="terms_qualified_references")
+    @ConfigTerms(term_id="terms_qualified_references", validate=True)
     def rda_i3_01m(self, **kwargs):
         """Indicator RDA-A1-01M.
 
@@ -1364,19 +1868,26 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
+        validation_payload = self._validation_payload_from_kwargs(kwargs)
+        has_qualified_references, details = self._validation_hits(validation_payload)
+        if has_qualified_references:
+            points = 100
+            msg = "Metadata has qualified references to other metadata: %s" % ", ".join(
+                details
+            )
+            return (points, [{"message": msg, "points": points}])
+
+        term_data = kwargs.get("terms_qualified_references", {})
+        term_metadata = term_data.get("metadata")
+        if isinstance(term_metadata, pd.DataFrame):
+            id_list = self._extract_related_ids(term_metadata)
+            points, msg_list = self.eval_persistency(id_list)
+            if points > 0:
+                return (points, msg_list)
+
         points = 0
-        msg_list = []
-
-        term_data = kwargs["terms_qualified_references"]
-        term_metadata = term_data["metadata"]
-        id_list = []
-        for index, row in term_metadata.iterrows():
-            logger.debug(self.item_id)
-
-            if row["text_value"].split("/")[-1] not in self.item_id:
-                id_list.append(row["text_value"])
-        points, msg_list = self.eval_persistency(id_list)
-        return (points, msg_list)
+        msg = "Metadata does not have qualified references to other metadata"
+        return (points, [{"message": msg, "points": points}])
 
     def rda_i3_01d(self):
         """Indicator RDA-A1-01M.
@@ -1396,7 +1907,7 @@ class EvaluatorBase(ABC):
         """
         return self.rda_i3_02m()
 
-    @ConfigTerms(term_id="terms_relations")
+    @ConfigTerms(term_id="terms_relations", validate=True)
     def rda_i3_02m(self, **kwargs):
         """Indicator RDA-I3-02M
         This indicator is linked to the following principle: I3: (Meta)data include qualified references
@@ -1414,18 +1925,29 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        term_data = kwargs["terms_relations"]
-        term_metadata = term_data["metadata"]
-        id_list = []
-        for index, row in term_metadata.iterrows():
-            logging.debug(self.item_id)
-            if row["text_value"].split("/")[-1] not in self.item_id:
-                id_list.append(row["text_value"])
+        validation_payload = self._validation_payload_from_kwargs(kwargs)
+        has_qualified_references, details = self._validation_hits(validation_payload)
+        if has_qualified_references:
+            points = 100
+            msg = "Metadata has qualified references to other data: %s" % ", ".join(
+                details
+            )
+            return (points, [{"message": msg, "points": points}])
 
-        points, msg_list = self.eval_persistency(id_list)
-        return (points, msg_list)
+        term_data = kwargs.get("terms_relations", {})
+        term_metadata = term_data.get("metadata")
+        if isinstance(term_metadata, pd.DataFrame):
+            id_list = self._extract_related_ids(term_metadata)
+            points, msg_list = self.eval_persistency(id_list)
+            if points > 0:
+                return (points, msg_list)
 
-    def rda_i3_02d(self):
+        points = 0
+        msg = "Metadata does not have qualified references to other data"
+        return (points, [{"message": msg, "points": points}])
+
+    @ConfigTerms(term_id="terms_relations", validate=True)
+    def rda_i3_02d(self, **kwargs):
         """Indicator RDA-A1-01M.
 
         This indicator is linked to the following principle: I3: (Meta)data include qualified references
@@ -1443,9 +1965,29 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        return self.rda_i3_03m()
+        validation_payload = self._validation_payload_from_kwargs(kwargs)
+        has_qualified_references, details = self._validation_hits(validation_payload)
+        if has_qualified_references:
+            points = 100
+            msg = "Metadata has qualified references to other data: %s" % ", ".join(
+                details
+            )
+            return (points, [{"message": msg, "points": points}])
 
-    def rda_i3_03m(self):
+        term_data = kwargs.get("terms_relations", {})
+        term_metadata = term_data.get("metadata")
+        if isinstance(term_metadata, pd.DataFrame):
+            id_list = self._extract_related_ids(term_metadata)
+            points, msg_list = self.eval_persistency(id_list)
+            if points > 0:
+                return (points, msg_list)
+
+        points = 0
+        msg = "Metadata does not have qualified references to other data"
+        return (points, [{"message": msg, "points": points}])
+
+    @ConfigTerms(term_id="terms_relations", validate=True)
+    def rda_i3_03m(self, **kwargs):
         """Indicator RDA-A1-01M.
 
         This indicator is linked to the following principle: I3: (Meta)data include qualified references
@@ -1462,7 +2004,26 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
-        return self.rda_i3_02m()
+        validation_payload = self._validation_payload_from_kwargs(kwargs)
+        has_qualified_references, details = self._validation_hits(validation_payload)
+        if has_qualified_references:
+            points = 100
+            msg = "Metadata has qualified references to other metadata: %s" % ", ".join(
+                details
+            )
+            return (points, [{"message": msg, "points": points}])
+
+        term_data = kwargs.get("terms_relations", {})
+        term_metadata = term_data.get("metadata")
+        if isinstance(term_metadata, pd.DataFrame):
+            id_list = self._extract_related_ids(term_metadata)
+            points, msg_list = self.eval_persistency(id_list)
+            if points > 0:
+                return (points, msg_list)
+
+        points = 0
+        msg = "Metadata does not have qualified references to other metadata"
+        return (points, [{"message": msg, "points": points}])
 
     def rda_i3_04m(self):
         """Indicator RDA-A1-01M.
@@ -1484,7 +2045,7 @@ class EvaluatorBase(ABC):
         return self.rda_i3_03m()
 
     # REUSABLE
-    @ConfigTerms(term_id="terms_reusability_richness")
+    @ConfigTerms(term_id="terms_reusability_richness", validate=True)
     def rda_r1_01m(self, **kwargs):
         """Indicator RDA-R1-01M: Plurality of accurate and relevant attributes are provided to allow reuse.
 
@@ -1502,6 +2063,11 @@ class EvaluatorBase(ABC):
         msg
             Message with the results or recommendations to improve this indicator
         """
+        validation_payload = self._validation_payload_from_kwargs(kwargs)
+        if validation_payload:
+            msg, points = self.eval_validated_basic(validation_payload)
+            return (points, [{"message": msg, "points": points}])
+
         points = 0
 
         terms_reusability_richness = kwargs["terms_reusability_richness"]
@@ -1754,12 +2320,22 @@ class EvaluatorBase(ABC):
         if self.metadata_standard == []:
             return (points, [{"message": msg, "points": points}])
 
-        try:
-            f = open(self.fairsharing_metadata_path[0])
-            f.close()
-
-        except:
-            msg = "The config.ini fairshraing metatdata_path does not arrive at any file. Try 'static/fairsharing_metadata_standards140224.json'"
+        configured_path = (
+            self.fairsharing_metadata_path[0] if self.fairsharing_metadata_path else ""
+        )
+        metadata_path = self._resolve_path_with_fallbacks(
+            configured_path,
+            fallbacks=[
+                "static/fairsharing_metadata_standards20240214.json",
+                "static/fairsharing_metadata_standards140224.json.template",
+                "static/controlled_vocabularies/fairsharing.json",
+            ],
+        )
+        if not metadata_path:
+            msg = (
+                "The FAIRsharing metadata path is not reachable. "
+                "Please check configuration for fairsharing metadata cache."
+            )
             return (points, [{"message": msg, "points": points}])
 
         if self.fairsharing_username != [""]:
@@ -1769,7 +2345,7 @@ class EvaluatorBase(ABC):
             offline,
             password=self.fairsharing_password[0],
             username=self.fairsharing_username[0],
-            path=self.fairsharing_metadata_path[0],
+            path=metadata_path,
         )
         for standard in fairsharing["data"]:
             if self.metadata_standard[0] == standard["attributes"]["abbreviation"]:
@@ -1796,7 +2372,15 @@ class EvaluatorBase(ABC):
         offline = True
         availableFormats = []
         fairformats = []
-        path = self.fairsharing_formats_path[0]
+        configured_path = (
+            self.fairsharing_formats_path[0] if self.fairsharing_formats_path else ""
+        )
+        path = self._resolve_path_with_fallbacks(
+            configured_path,
+            fallbacks=[
+                "static/fairsharing_formats20240226.txt",
+            ],
+        )
 
         if self.metadata_standard == []:
             return (points, [{"message": msg, "points": points}])
@@ -1814,13 +2398,16 @@ class EvaluatorBase(ABC):
             ].values[0]
             for form in element:
                 availableFormats.append(form["label"])
+        except Exception:
+            msg = "Could not parse availableFormats from metadata for FAIRsharing format matching."
+            return (points, [{"message": msg, "points": points}])
 
-            f = open(path)
-            f.close()
-
-        except:
-            msg = "The config.ini fairshraing metatdata_path does not arrive at any file. Try 'static/fairsharing_formats260224.txt'"
-            if offline == True:
+        if not path:
+            msg = (
+                "The FAIRsharing formats path is not reachable. "
+                "Please check configuration for fairsharing formats cache."
+            )
+            if offline:
                 return (points, [{"message": msg, "points": points}])
 
         if self.fairsharing_username != [""]:
@@ -1839,8 +2426,8 @@ class EvaluatorBase(ABC):
                 fairformats.append(q)
 
         else:
-            f = open(path, "r")
-            text = f.read()
+            with open(path, "r") as f:
+                text = f.read()
             fairformats = text.splitlines()
 
         for fform in fairformats:

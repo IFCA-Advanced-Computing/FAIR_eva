@@ -138,6 +138,7 @@ def endpoints(plugin=None):
 
 @load_plugin
 def rda_f1_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_f1_01m()
         result = {
@@ -166,6 +167,7 @@ def rda_f1_01m(body, eva):
 
 @load_plugin
 def rda_f1_01d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_f1_01d()
         result = {
@@ -194,6 +196,7 @@ def rda_f1_01d(body, eva):
 
 @load_plugin
 def rda_f1_02m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_f1_02m()
         result = {
@@ -222,6 +225,7 @@ def rda_f1_02m(body, eva):
 
 @load_plugin
 def rda_f1_02d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_f1_02d()
         result = {
@@ -250,6 +254,7 @@ def rda_f1_02d(body, eva):
 
 @load_plugin
 def rda_f2_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_f2_01m()
         result = {
@@ -278,6 +283,7 @@ def rda_f2_01m(body, eva):
 
 @load_plugin
 def rda_f3_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_f3_01m()
         result = {
@@ -306,6 +312,7 @@ def rda_f3_01m(body, eva):
 
 @load_plugin
 def rda_f4_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_f4_01m()
         result = {
@@ -334,6 +341,7 @@ def rda_f4_01m(body, eva):
 
 @load_plugin
 def rda_a1_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_01m()
         result = {
@@ -362,6 +370,7 @@ def rda_a1_01m(body, eva):
 
 @load_plugin
 def rda_a1_02m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_02m()
         result = {
@@ -390,6 +399,7 @@ def rda_a1_02m(body, eva):
 
 @load_plugin
 def rda_a1_02d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_02d()
         result = {
@@ -418,6 +428,7 @@ def rda_a1_02d(body, eva):
 
 @load_plugin
 def rda_a1_03m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_03m()
         result = {
@@ -446,6 +457,7 @@ def rda_a1_03m(body, eva):
 
 @load_plugin
 def rda_a1_03d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_03d()
         result = {
@@ -474,6 +486,7 @@ def rda_a1_03d(body, eva):
 
 @load_plugin
 def rda_a1_04m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_04m()
         result = {
@@ -502,6 +515,7 @@ def rda_a1_04m(body, eva):
 
 @load_plugin
 def rda_a1_04d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_04d()
         result = {
@@ -530,6 +544,7 @@ def rda_a1_04d(body, eva):
 
 @load_plugin
 def rda_a1_05d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_05d()
         result = {
@@ -558,6 +573,7 @@ def rda_a1_05d(body, eva):
 
 @load_plugin
 def rda_a1_1_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_1_01m()
         result = {
@@ -586,6 +602,7 @@ def rda_a1_1_01m(body, eva):
 
 @load_plugin
 def rda_a1_1_01d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_1_01d()
         result = {
@@ -614,6 +631,7 @@ def rda_a1_1_01d(body, eva):
 
 @load_plugin
 def rda_a1_2_01d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a1_2_01d()
         result = {
@@ -642,6 +660,7 @@ def rda_a1_2_01d(body, eva):
 
 @load_plugin
 def rda_a2_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_a2_01m()
         result = {
@@ -670,6 +689,7 @@ def rda_a2_01m(body, eva):
 
 @load_plugin
 def rda_i1_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i1_01m()
         result = {
@@ -698,6 +718,7 @@ def rda_i1_01m(body, eva):
 
 @load_plugin
 def rda_i1_01d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i1_01d()
         result = {
@@ -726,6 +747,7 @@ def rda_i1_01d(body, eva):
 
 @load_plugin
 def rda_i1_02m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i1_02m()
         result = {
@@ -754,6 +776,7 @@ def rda_i1_02m(body, eva):
 
 @load_plugin
 def rda_i1_02d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i1_02d()
         result = {
@@ -782,6 +805,7 @@ def rda_i1_02d(body, eva):
 
 @load_plugin
 def rda_i2_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i2_01m()
         result = {
@@ -810,6 +834,7 @@ def rda_i2_01m(body, eva):
 
 @load_plugin
 def rda_i2_01d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i2_01d()
         result = {
@@ -838,6 +863,7 @@ def rda_i2_01d(body, eva):
 
 @load_plugin
 def rda_i3_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i3_01m()
         result = {
@@ -866,6 +892,7 @@ def rda_i3_01m(body, eva):
 
 @load_plugin
 def rda_i3_01d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i3_01d()
         result = {
@@ -894,6 +921,7 @@ def rda_i3_01d(body, eva):
 
 @load_plugin
 def rda_i3_02m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i3_02m()
         result = {
@@ -922,6 +950,7 @@ def rda_i3_02m(body, eva):
 
 @load_plugin
 def rda_i3_02d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i3_02d()
         result = {
@@ -950,6 +979,7 @@ def rda_i3_02d(body, eva):
 
 @load_plugin
 def rda_i3_03m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i3_03m()
         result = {
@@ -978,6 +1008,7 @@ def rda_i3_03m(body, eva):
 
 @load_plugin
 def rda_i3_04m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_i3_04m()
         result = {
@@ -1006,6 +1037,7 @@ def rda_i3_04m(body, eva):
 
 @load_plugin
 def rda_r1_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_01m()
         result = {
@@ -1034,6 +1066,7 @@ def rda_r1_01m(body, eva):
 
 @load_plugin
 def rda_r1_1_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_1_01m()
         result = {
@@ -1062,6 +1095,7 @@ def rda_r1_1_01m(body, eva):
 
 @load_plugin
 def rda_r1_1_02m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_1_02m()
         result = {
@@ -1090,6 +1124,7 @@ def rda_r1_1_02m(body, eva):
 
 @load_plugin
 def rda_r1_1_03m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_1_03m()
         result = {
@@ -1118,6 +1153,7 @@ def rda_r1_1_03m(body, eva):
 
 @load_plugin
 def rda_r1_2_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_2_01m()
         result = {
@@ -1146,6 +1182,7 @@ def rda_r1_2_01m(body, eva):
 
 @load_plugin
 def rda_r1_2_02m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_2_02m()
         result = {
@@ -1174,6 +1211,7 @@ def rda_r1_2_02m(body, eva):
 
 @load_plugin
 def rda_r1_3_01m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_3_01m()
         result = {
@@ -1202,6 +1240,7 @@ def rda_r1_3_01m(body, eva):
 
 @load_plugin
 def rda_r1_3_01d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_3_01d()
         result = {
@@ -1230,6 +1269,7 @@ def rda_r1_3_01d(body, eva):
 
 @load_plugin
 def rda_r1_3_02m(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_3_02m()
         result = {
@@ -1258,6 +1298,7 @@ def rda_r1_3_02m(body, eva):
 
 @load_plugin
 def rda_r1_3_02d(body, eva):
+    points = 0
     try:
         points, msg = eva.rda_r1_3_02d()
         result = {
@@ -1286,6 +1327,7 @@ def rda_r1_3_02d(body, eva):
 
 @load_plugin
 def data_01(body, eva):
+    points = 0
     try:
         points, msg = eva.data_01()
         result = {
@@ -1314,6 +1356,7 @@ def data_01(body, eva):
 
 @load_plugin
 def data_02(body, eva):
+    points = 0
     try:
         points, msg = eva.data_02()
         result = {
@@ -1359,7 +1402,7 @@ def rda_all(body, eva):
     try:
         with open(api_config, "r") as f:
             documents = yaml.full_load(f)
-        logging.debug("API configuration successfully loaded: %s" % api_config)
+        logger.debug("API configuration successfully loaded: %s" % api_config)
     except Exception as e:
         message = "Could not find API config file: %s" % api_config
         logger.error(message)
@@ -1373,7 +1416,7 @@ def rda_all(body, eva):
             if documents["paths"][e]["x-indicator"]:
                 indi_code = e.split("/")
                 indi_code = indi_code[len(indi_code) - 1]
-                logger.debug("Running - %s" % indi_code)
+                logger.info("Running - %s" % indi_code)
                 points, msg = getattr(eva, indi_code)()
                 x_principle = documents["paths"][e]["x-principle"]
                 if "Findable" in x_principle:
