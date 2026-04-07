@@ -1,5 +1,38 @@
 # FAIR EVA (Evaluator, Validator & Advisor)
 
+## What FAIR EVA is (and is not)
+
+FAIR EVA is an **open, deployable software framework** to evaluate FAIRness in
+different operational contexts, such as:
+
+- institutional repositories
+- domain repositories
+- data portals
+- API-based data services
+
+Its core engine implements generic FAIR indicators, while plugins provide
+context-specific logic (metadata mappings, endpoints, vocabularies, and local
+rules). This design allows institutions and communities to instantiate FAIR EVA
+for their own infrastructure and policies.
+
+FAIR EVA is **not** a one-size-fits-all hosted assessment service. It is not
+intended as a single generic endpoint that evaluates every resource in exactly
+the same way.
+
+### Positioning vs Other tools
+
+FAIR EVA, FAIR-Checker, and F-UJI all support FAIR assessment, but they are not
+the same type of tool.
+
+- FAIR EVA focuses on **deployment and adaptation**: you run it and tailor it to
+  your repository or portal context through plugins and configuration.
+- FAIR-Checker and F-UJI are commonly used as **generic FAIR assessment tools**
+  with predefined checks that are broadly applicable across resources.
+
+In practice, they are complementary: FAIR EVA is especially useful when you
+need institution-specific or domain-specific evaluation behavior instead of only
+a generic out-of-the-box assessment.
+
 #### Achievements
 [![SQAaaS badge](https://github.com/IFCA-Advanced-Computing/SQAaaS/blob/master/badges/badges_120x93/badge_software_silver.png)](https://eu.badgr.com/public/assertions/VZzcTl6WTo-6r6yCKUFGpA "SQAaaS silver badge achieved")
 
