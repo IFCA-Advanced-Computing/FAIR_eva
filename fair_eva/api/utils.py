@@ -529,6 +529,9 @@ def check_controlled_vocabulary(value):
             value
         )
         cv = "geonames.org"
+    elif "ror.org" in value:
+        cv_msg = "ROR - Controlled vocabulary. Data: %s" % value
+        cv = "ROR"
     elif "vocab.getty.edu" in value:
         getty_check, getty_msg = getty_basic_info(value)
         if getty_check:
@@ -567,20 +570,23 @@ def controlled_vocabulary_pid(value):
 
 def orcid_basic_info(orcid):
     basic_info = None
-    orcid = idutils.normalize_orcid(orcid)
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT x.y; Win64; x64; rv:10.0) Gecko/20100101 Firefox/10.0",
         "Content-Type": "application/vdn.orcid+xml",
         "Authorization": "Bearer a354d82e-37fa-47de-b4a2-740dbe90f355",
     }
     try:
+        orcid = idutils.normalize_orcid(orcid)
+        if not idutils.is_orcid(orcid):
+            raise Exception("Malformed ORCID value: %s" % orcid)
         url = "https://pub.orcid.org/v3.0/" + orcid
         r = requests.get(url, verify=False, headers=headers)  # GET with headers
         xmlTree = ET.fromstring(r.text)
-        item = xmlTree.findall(
-            ".//{http://www.orcid.org/ns/common}assertion-origin-name"
-        )
-        basic_info = "ORCID Name: %s" % item[0].text
+        for prop in ["assertion-origin-name", "source-name"]:
+            item = xmlTree.findall(".//{http://www.orcid.org/ns/common}%s" % prop)
+            if item and item[0].text:
+                basic_info = "ORCID Name: %s" % item[0].text
+                break
     except Exception as e:
         logging.error(e)
         return basic_info
@@ -844,7 +850,21 @@ def resolve_handle(handle_id):
 
     Returns:
     """
-    handle_id_normalized = idutils.normalize_doi(handle_id)
+    handle_id_normalized = handle_id
+    try:
+        identifier_schemes = idutils.detect_identifier_schemes(handle_id)
+    except Exception:
+        identifier_schemes = []
+    try:
+        if "doi" in identifier_schemes:
+            handle_id_normalized = idutils.normalize_doi(handle_id)
+        elif "handle" in identifier_schemes:
+            handle_id_normalized = idutils.normalize_handle(handle_id)
+    except Exception as e:
+        logging.warning(
+            "Could not normalize identifier '%s' before Handle resolution: %s"
+            % (handle_id, e)
+        )
     endpoint = urljoin(
         "https://hdl.handle.net/api/", "handles/%s" % handle_id_normalized
     )
@@ -881,13 +901,35 @@ def resolve_handle(handle_id):
     return resolves, msg, values
 
 
-def check_link(address):
-    req = urllib.request.Request(url=address)
-    resp = urllib.request.urlopen(req)
-    if resp.status in [400, 404, 403, 408, 409, 501, 502, 503]:
-        return False
+def check_link(address, return_http_code=False):
+    resolves = False
+    try:
+        req = urllib.request.Request(url=address)
+        resp = urllib.request.urlopen(req, timeout=15)
+    except urllib.error.HTTPError as e:
+        logging.warning("Could not access resource %s (HTTP %s)" % (address, e.code))
+        if return_http_code:
+            return e.code
+    except urllib.error.URLError as e:
+        logging.warning("Could not access resource %s (%s)" % (address, e))
+        if return_http_code:
+            return None
+    except TimeoutError:
+        logging.warning("Timeout reached while trying to connect to '%s'" % address)
+        if return_http_code:
+            return None
+    except ValueError as e:
+        logging.warning("Invalid URL provided '%s' (%s)" % (address, e))
+        if return_http_code:
+            return None
     else:
-        return True
+        http_code = resp.status
+        logging.debug("Returned HTTP status from '%s': %s" % (address, http_code))
+        if return_http_code:
+            return http_code
+        if http_code not in [400, 404, 403, 408, 409, 501, 502, 503]:
+            resolves = True
+    return resolves
 
 
 def get_protocol_scheme(url):
@@ -1003,3 +1045,13 @@ def check_ror(ror):
         return (True, name)
     else:
         return (False, "")
+
+
+def validate_any_pid(value):
+    valid = False
+    schemas = idutils.detect_identifier_schemes(value)
+    for schema in schemas:
+        if check_link(idutils.to_url(value, schema)):
+            valid = True
+            logger.info("Valid PID: %s (type: %s)" % (value, schema))
+    return valid

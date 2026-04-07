@@ -64,6 +64,9 @@ When metadata fields are hierarchical (for example, in DataCite records), it is 
 
 Each plugin ships with a `config.ini` file that describes how the evaluator should map repository-specific metadata into FAIR EVA’s canonical concepts. Below is a breakdown of the main sections, based on a real example.
 
+Note: plugins are maintained in independent repositories. Configuration snippets
+in this document are illustrative examples to be applied in each plugin repo.
+
 ### `[Generic]`
 ```ini
 [Generic]
@@ -163,6 +166,59 @@ supported_data_formats = [".txt", ".pdf", ".csv", ".nc", ...]
 ```
 
 Extensions that are considered “standard” within the community.
+
+---
+
+### `[Generic]` – controlled vocabularies contract (recommended)
+
+```ini
+[Generic]
+controlled_vocabularies = {
+  "terms_cv": {
+    "ROR": "https://ror.org/",
+    "ORCID": "https://orcid.org/",
+    "spdx": "https://spdx.org/licenses/"
+  },
+  "terms_license": {
+    "spdx": "https://spdx.org/licenses/"
+  },
+  "*": {
+    "ORCID": "https://orcid.org/"
+  }
+}
+```
+
+Scope resolution order in core evaluator is:
+1. by metadata element label
+2. by `term_id` (e.g. `terms_cv`, `terms_license`)
+3. wildcard `*`
+
+Backward compatibility is preserved: if this block is missing, legacy plugin key
+`dict_vocabularies` is still used as fallback.
+
+---
+
+### `[<plugin>]` – `terms_map` contract (recommended)
+
+`terms_map` lets plugins define a harmonization layer between local metadata
+fields and FAIR-EVA logical terms consumed by decorators such as
+`@ConfigTerms(..., validate=True)`.
+
+```ini
+[oai-pmh]
+terms_cv = ["Person Identifier", "Keywords"]
+terms_map = {
+  "Person Identifier": [["person", "uid"], ["contributor", "orcid"]],
+  "Keywords": [["subject", ""], ["tags", ""]]
+}
+```
+
+Rules:
+1. Keys in `terms_map` are harmonized labels used by evaluator logic.
+2. Values are local field mappings in the form `[element, qualifier]`.
+3. A key can map to one or many local fields.
+4. If `terms_map` is not present, evaluator falls back to direct term tuples
+configured in each `terms_*` key.
 
 ---
 
