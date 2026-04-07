@@ -4,5 +4,30 @@ version: 2
 formats:
   - epub
   - pdf
+
+# Python version
+python:
+  version: "3.11"
+  install:
+    - requirements: docs/requirements.txt
+    - method: pip
+      path: .
+
+# Sphinx configuration
 sphinx:
   configuration: docs/conf.py
+
+# Build settings
+build:
+  os: ubuntu-20.04
+  tools:
+    python: "3.11"
+
+# Subprojects (if needed in the future)
+# subprojects:
+#   - name: plugin-oai-pmh
+#     url: https://github.com/IFCA-Advanced-Computing/fair-eva-plugin-oai-pmh
+
+# Redirects (optional, for handling moved pages)
+# redirects:
+#   old-page: new-page
