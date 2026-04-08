@@ -96,7 +96,9 @@ def load_plugin(wrapped_func):
 
         try:
             # Load configuration
-            config_data = plugin_module.Plugin.load_config(f"{PLUGIN_PATH}.{plugin_name}")
+            config_data = plugin_module.Plugin.load_config(
+                f"{PLUGIN_PATH}.{plugin_name}"
+            )
 
             # Collect FAIR checks per metadata identifier
             result = {}
@@ -104,7 +106,11 @@ def load_plugin(wrapped_func):
             for item_id in ids:
                 try:
                     eva = plugin_module.Plugin(
-                        item_id, api_endpoint, lang, name=plugin_name, config=config_data
+                        item_id,
+                        api_endpoint,
+                        lang,
+                        name=plugin_name,
+                        config=config_data,
                     )
                 except Exception as e:
                     message = f"Error while initiating {plugin_name} plugin: {e}"
@@ -125,6 +131,7 @@ def load_plugin(wrapped_func):
             return result, exit_code
         finally:
             # remove the handler from the downstream logger to avoid leak
+            logger.debug("Removing handler from downstream_logger")
             downstream_logger.removeHandler(evaluator_handler)
 
     return wrapper
