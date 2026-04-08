@@ -1,20 +1,24 @@
-FROM ubuntu:20.04
-
-MAINTAINER Fernando Aguilar "aguilarf@ifca.unican.es"
+FROM python:3.11-slim AS base
 
 RUN apt-get update -y && \
     apt-get install -y curl python3-pip python3-dev git vim lsof
 
-RUN git clone https://github.com/ifca-advanced-computing/FAIR_eva.git
-
+COPY . /FAIR_eva
 WORKDIR /FAIR_eva
-
+RUN chmod +x scripts/entrypoint.sh
+RUN pip3 install git+https://github.com/IFCA-Advanced-Computing/fair-eva-plugin-oai-pmh
 RUN pip3 install -r requirements.txt
+RUN pip3 install .
 
-EXPOSE 5000 9090
-RUN ls
-RUN mv /FAIR_eva/config.ini.template /FAIR_eva/config.ini
-RUN cd /FAIR_eva
-RUN chmod 777 start.sh
-RUN cat start.sh
-CMD /FAIR_eva/start.sh
+ARG FAIR_EVA_HOST=0.0.0.0
+ARG FAIR_EVA_PORT=9090
+ARG FAIR_EVA_LOGLEVEL=info
+ARG START_CMD="fair-eva"
+
+ENV FAIR_EVA_HOST=${FAIR_EVA_HOST} \
+    FAIR_EVA_PORT=${FAIR_EVA_PORT} \
+    FAIR_EVA_LOGLEVEL=${FAIR_EVA_LOGLEVEL} \
+    START_CMD=${START_CMD}
+
+EXPOSE ${FAIR_EVA_PORT}
+ENTRYPOINT ["/FAIR_eva/scripts/entrypoint.sh"]
