@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import pkgutil
+
 __path__ = pkgutil.extend_path(__path__, __name__)
 import argparse
 
@@ -13,6 +14,7 @@ app.add_api(
     arguments={"title": "FAIR evaluator"},
     resolver=RestyResolver("fair_eva.api"),
 )
+
 
 def set_parser():
     parser = argparse.ArgumentParser(description="FAIR EVA API server")
