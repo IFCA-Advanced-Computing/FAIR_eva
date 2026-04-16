@@ -1,6 +1,6 @@
 [build-system]
-requires = ["flit_core<4"]
-build-backend = "flit_core.buildapi"
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "fair_eva"
@@ -43,6 +43,10 @@ fair-eva = "fair_eva.__main__:main"
 
 [tool.setuptools.package-data]
 "fair_eva" = ["*.ini"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["fair_eva*"]
 
 [tool.docformatter]
 black = true
