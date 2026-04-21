@@ -15,3 +15,82 @@ At runtime, the evaluator loads the appropriate plugin and merges its configurat
 
 ## Configuration flow
 The `fair.py` script and read configuration files using Python’s `configparser`.  First, the `config.ini` of the plugin(s) to load is parsed, followed by the plugin’s `config.ini`.  The combined configuration is passed to the plugin instance【364219770113321†L17-L27】.  This two‑tiered approach allows you to define global defaults (e.g., a list of controlled vocabularies or generic metadata terms) while overriding or extending them in plugin configurations.
+
+### Proposal A: stick to the original implementation
+1. Specific config parameters `terms_*` MUST be defined with the nested keys to get to the metadata value
+    - Current notation (in `config.ini`) tightly aligned with Pandas DataFrame &rarr; list of lists (e.g.: `terms_quali_generic = [['paths', 'serviceSpatial'],['serviceDescription', None]`)
+
+#### Use of config parameters per implementation (table)
+
+| FAIR test  | Severity | @ConfigTerms (`main`) | @ConfigTerms (`epos`) | @ConfigTerms (`digitalcsic`) | validate |
+| ---------- | -------- | --------------------- | --------------------- | ---------------------------- | -------- |
+| rda_f1_01m | Essential| `identifier_term` | `identifier_term` | N/A | |
+| rda_f1_01d | Essential | `identifier_term_data` | `identifier_term_data` | N/A | |
+| rda_f1_02m | Essential| `identifier_term` | `identifier_term` | N/A | |
+| rda_f1_02d | Essential| `identifier_term_data` | `identifier_term_data` | N/A | |
+| rda_f2_01m | Essential| None, `terms_quali_generic` &rarr; rda_f2_01m_generic, `terms_quali_disciplinar` &rarr; rda_f2_01m_disciplinar | `terms_findability_richness` | N/A | |
+| rda_f3_01m | Essential| `identifier_term_data` | `identifier_term_data` | N/A | |
+| rda_f4_01m | Essential| None | None | None | |
+| rda_a1_01m | Important | `terms_access` | `terms_access` | `terms_access` | yes |
+| rda_a1_02m | Essential| None | None | None | |
+| rda_a1_02d | Essential | `terms_access` | None | N/A | |
+| rda_a1_03m | Essential| None | None | None | |
+| rda_a1_03d | Essential| None | `terms_access` | None | |
+| rda_a1_04m | Essential| None | None | None | |
+| rda_a1_04d | Essential| None | `terms_access` | N/A | |
+| rda_a1_05d | Important| None | `terms_access` | None | |
+| rda_a1_1_01m | Essential| None | None | N/A | |
+| rda_a1_1_01d | Important| None | None | N/A | |
+| rda_a1_2_01d | Useful | None | None | None | |
+| rda_a2_01m | Essential | None | `terms_access` | None | |
+| rda_i1_01m  | Important | `terms_cv` | `terms_cv` | | yes |
+| rda_i1_01d | Important | None | `terms_reusability_richness` | None | yes |
+| rda_i1_02m | Important | None | None | None | |
+| rda_i1_02d | Important | None | `terms_data_model` | N/A | |
+| rda_i2_01m | Important | `terms_cv` | None | N/A | |
+| rda_i2_01d | Useful | None | None | N/A | |
+| rda_i3_01m | Important | `terms_qualified_references` | None | `terms_qualified_references` | |
+| rda_i3_01d | Useful | None | None | N/A | |
+| rda_i3_02m | Useful | `terms_relations` | None | `terms_relations` | |
+| rda_i3_02d | Useful | None | None | `terms_relations` | |
+| rda_i3_03m | Important | None | `terms_relations` | `terms_relations` | yes |
+| rda_i3_04m | Useful | None | N/A | N/A | |
+| rda_r1_01m | Essential | `terms_reusability_richness` | `terms_reusability_richness` | N/A | |
+| rda_r1_1_01m | Essential | `terms_license` | `terms_license` | N/A | |
+| rda_r1_1_02m | Important | `terms_license` | `terms_license` | `terms_license` | |
+| rda_r1_1_03m | Important | `terms_license` | `terms_license` | None | |
+| rda_r1_2_01m | Important | None | `terms_provenance` | `prov_terms` | |
+| rda_r1_2_02m | Useful | None | N/A | | |
+| rda_r1_3_01m | Essential | None | None | None | |
+| rda_r1_3_01d | Essential | `terms_reusability_richness` | `terms_reusability_richness` | None | yes |
+| rda_r1_3_02m | Essential | None | None | None | |
+| rda_r1_3_02d | Important | None | None | N/A | |
+
+### Proposal B: internal schema for the metadata terms
+1. Each plugin MUST define the mappings &rarr; `terms_map`
+
+#### Metadata terms mapping
+```python
+terms_map = {
+    'id': 'Metadata Identifier',
+    'identifiers': 'Data Identifier',
+    'availableFormats': 'Format',
+    'dataFormat': 'Format',
+    'temporalCoverage': 'Temporal Coverage',
+    'serviceTemporalCoverage': 'Temporal Coverage',
+    'endDate': 'Temporal Coverage',
+    'license': 'License',
+    'contactPoints': 'Person Identifier',
+    'dataProvider': 'Organisation Identifier',
+    'title': 'Title',
+    'description': 'Description',
+    'type': 'Type',
+    'keywords': 'Keywords',
+    'paths': 'Paths',
+    'downloadURL': 'Download Link',
+    'version': 'Version',
+    'securityConstraints': 'Security',
+    'securityDataStorage': 'Security',
+    'securityDataTransfer': 'Security',
+    'privacy': 'Privacy'}
+```
