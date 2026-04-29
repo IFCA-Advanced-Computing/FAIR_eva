@@ -30,6 +30,15 @@ terms_qualified_references = []
 terms_relations = []
 terms_access_protocols = ['https']
 metadata_standard = []
+
+[fairsharing]
+username = ['']
+password = ['']
+metadata_path = ['static/fairsharing_metadata_standards20240214.json']
+formats_path = ['static/fairsharing_formats20240226.txt']
+
+[internet media types]
+path = ['static/internetmediatypes190224.csv']
 """
         )
         super().__init__(
