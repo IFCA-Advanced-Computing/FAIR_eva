@@ -94,3 +94,6 @@ terms_map = {
     'securityDataTransfer': 'Security',
     'privacy': 'Privacy'}
 ```
+
+### Proposal B2: New implementation with internal vocabulary compliant with DCAT-AP (standardized vocabulary)
+See [proposal B2](./architecture_proposal.md)
