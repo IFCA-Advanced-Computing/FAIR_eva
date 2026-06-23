@@ -1,0 +1,677 @@
+{
+  "configuration" : { },
+  "description" : "Decoupled architecture for FAIR principles assessment with unified DCAT-AP internal model",
+  "documentation" : { },
+  "id" : 1,
+  "lastModifiedDate" : "2026-06-24T08:28:38Z",
+  "model" : {
+    "people" : [ {
+      "description" : "A user requesting a FAIR maturity assessment for a dataset or repository.",
+      "id" : "1",
+      "name" : "Researcher / Auditor",
+      "properties" : {
+        "structurizr.dsl.identifier" : "user"
+      },
+      "relationships" : [ {
+        "description" : "Requests evaluation of a repository using",
+        "destinationId" : "2",
+        "id" : "18",
+        "sourceId" : "1",
+        "tags" : "Relationship"
+      } ],
+      "tags" : "Element,Person"
+    } ],
+    "softwareSystems" : [ {
+      "containers" : [ {
+        "components" : [ {
+          "description" : "Configures translation routes (XPath, JsonPath) and plugin metadata.",
+          "documentation" : { },
+          "id" : "4",
+          "name" : "Manifest (manifest.yaml)",
+          "properties" : {
+            "structurizr.dsl.identifier" : "manifest"
+          },
+          "relationships" : [ {
+            "description" : "Provides JSONPath translation maps to",
+            "destinationId" : "11",
+            "id" : "28",
+            "sourceId" : "4",
+            "tags" : "Relationship"
+          }, {
+            "description" : "Provides JSONPath translation maps to",
+            "destinationId" : "6",
+            "id" : "29",
+            "linkedRelationshipId" : "28",
+            "sourceId" : "4"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "YAML"
+        }, {
+          "description" : "Optional extensions for specific scientific community requirements.",
+          "documentation" : { },
+          "id" : "5",
+          "name" : "Community Code",
+          "properties" : {
+            "structurizr.dsl.identifier" : "communityCode"
+          },
+          "tags" : "Element,Component",
+          "technology" : "Python"
+        } ],
+        "description" : "Contains declarative configurations and optional custom scientific community code.",
+        "documentation" : { },
+        "id" : "3",
+        "name" : "Layer 1: Plugin Ecosystem",
+        "properties" : {
+          "structurizr.dsl.identifier" : "pluginEcosystem"
+        },
+        "relationships" : [ {
+          "description" : "Provides JSONPath translation maps to",
+          "destinationId" : "11",
+          "id" : "30",
+          "linkedRelationshipId" : "28",
+          "sourceId" : "3"
+        }, {
+          "description" : "Provides JSONPath translation maps to",
+          "destinationId" : "6",
+          "id" : "31",
+          "linkedRelationshipId" : "28",
+          "sourceId" : "3"
+        } ],
+        "tags" : "Element,Container",
+        "technology" : "YAML & Python 3.11+"
+      }, {
+        "components" : [ {
+          "description" : "Reusable network infrastructure handles HTTP REST, OAI-PMH, and Signposting HTTP headers.",
+          "documentation" : { },
+          "id" : "7",
+          "name" : "Protocol Clients",
+          "properties" : {
+            "structurizr.dsl.identifier" : "protocolClient"
+          },
+          "relationships" : [ {
+            "description" : "Sends raw payload and headers to",
+            "destinationId" : "8",
+            "id" : "23",
+            "sourceId" : "7",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "HTTPX / OAI-PMH Lib"
+        }, {
+          "description" : "Analyzes raw bytes / headers to determine if the payload is a Native RDF Graph or a flat format.",
+          "documentation" : { },
+          "id" : "8",
+          "name" : "Metadata Format Detector",
+          "properties" : {
+            "structurizr.dsl.identifier" : "metadataDetector"
+          },
+          "relationships" : [ {
+            "description" : "Forwards native RDF formats (Turtle, JSON-LD, RDF/XML) to",
+            "destinationId" : "9",
+            "id" : "24",
+            "sourceId" : "8",
+            "tags" : "Relationship"
+          }, {
+            "description" : "Forwards non-RDF flat formats (XML, HTML, JSON) to",
+            "destinationId" : "10",
+            "id" : "26",
+            "sourceId" : "8",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Python Core Logic"
+        }, {
+          "description" : "Forces native JSON-LD/RDF to use unified internal keys.",
+          "documentation" : { },
+          "id" : "9",
+          "name" : "PyLD Compactor",
+          "properties" : {
+            "structurizr.dsl.identifier" : "pyldCompactor"
+          },
+          "relationships" : [ {
+            "description" : "Maps compacted structures to",
+            "destinationId" : "12",
+            "id" : "25",
+            "sourceId" : "9",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "PyLD"
+        }, {
+          "description" : "Converts raw XML (OAI-PMH), HTML (Signposting), or JSON into a unified Python Dictionary (dict).",
+          "documentation" : { },
+          "id" : "10",
+          "name" : "Format Parsers",
+          "properties" : {
+            "structurizr.dsl.identifier" : "formatParser"
+          },
+          "relationships" : [ {
+            "description" : "Passes the unmapped Python Dictionary (dict) to",
+            "destinationId" : "11",
+            "id" : "27",
+            "sourceId" : "10",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "xmltodict / extruct / json"
+        }, {
+          "description" : "Applies JSONPath expressions over the unified Python Dictionary.",
+          "documentation" : { },
+          "id" : "11",
+          "name" : "Schema Mappers",
+          "properties" : {
+            "structurizr.dsl.identifier" : "schemaMapper"
+          },
+          "relationships" : [ {
+            "description" : "Populates mapped data into",
+            "destinationId" : "12",
+            "id" : "32",
+            "sourceId" : "11",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "jsonpath-ng"
+        }, {
+          "description" : "Validates the harmonized dictionary and instantiates the internal data structure.",
+          "documentation" : { },
+          "id" : "12",
+          "name" : "Internal Model DCAT-AP",
+          "properties" : {
+            "structurizr.dsl.identifier" : "internalModel"
+          },
+          "relationships" : [ {
+            "description" : "Exposes validated data model as RDF triples to",
+            "destinationId" : "13",
+            "id" : "33",
+            "sourceId" : "12",
+            "tags" : "Relationship"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "Pydantic V2 Data Model"
+        }, {
+          "description" : "Stores and processes the final unifiable semantic graph in memory.",
+          "documentation" : { },
+          "id" : "13",
+          "name" : "RDF Graph Engine",
+          "properties" : {
+            "structurizr.dsl.identifier" : "graphEngine"
+          },
+          "relationships" : [ {
+            "description" : "Delivers the unified RDF graph to",
+            "destinationId" : "15",
+            "id" : "34",
+            "sourceId" : "13",
+            "tags" : "Relationship"
+          }, {
+            "description" : "Delivers the unified RDF graph to",
+            "destinationId" : "14",
+            "id" : "35",
+            "linkedRelationshipId" : "34",
+            "sourceId" : "13"
+          } ],
+          "tags" : "Element,Component",
+          "technology" : "RDFlib (In-Memory Graph)"
+        } ],
+        "description" : "Manages network infrastructure, normalization, and semantic processing.",
+        "documentation" : { },
+        "id" : "6",
+        "name" : "Layer 2: CORE (Ingestion Engine)",
+        "properties" : {
+          "structurizr.dsl.identifier" : "coreSystem"
+        },
+        "relationships" : [ {
+          "description" : "Delivers the unified RDF graph to",
+          "destinationId" : "15",
+          "id" : "36",
+          "linkedRelationshipId" : "34",
+          "sourceId" : "6"
+        }, {
+          "description" : "Delivers the unified RDF graph to",
+          "destinationId" : "14",
+          "id" : "37",
+          "linkedRelationshipId" : "34",
+          "sourceId" : "6"
+        } ],
+        "tags" : "Element,Container",
+        "technology" : "Python (FastAPI)"
+      }, {
+        "components" : [ {
+          "description" : "Executes shape validation rules and constraints against the graph.",
+          "documentation" : { },
+          "id" : "15",
+          "name" : "Metric Validator",
+          "properties" : {
+            "structurizr.dsl.identifier" : "metricValidator"
+          },
+          "tags" : "Element,Component",
+          "technology" : "SHACL (PySHACL)"
+        }, {
+          "description" : "Extracts specific quantitative indicators from the graph.",
+          "documentation" : { },
+          "id" : "16",
+          "name" : "Query Engine",
+          "properties" : {
+            "structurizr.dsl.identifier" : "queryEngine"
+          },
+          "tags" : "Element,Component",
+          "technology" : "SPARQL 1.1"
+        } ],
+        "description" : "Executes FAIR metrics over the standardized RDF graph.",
+        "documentation" : { },
+        "id" : "14",
+        "name" : "Layer 3: Evaluation Engine",
+        "properties" : {
+          "structurizr.dsl.identifier" : "evalEngine"
+        },
+        "tags" : "Element,Container",
+        "technology" : "Python & PySHACL"
+      } ],
+      "description" : "Assesses the FAIR maturity of scientific repositories using a semantic core engine.",
+      "documentation" : { },
+      "id" : "2",
+      "name" : "FAIR Evaluator System",
+      "properties" : {
+        "structurizr.dsl.identifier" : "fairSystem"
+      },
+      "relationships" : [ {
+        "description" : "Consumes metadata via API from",
+        "destinationId" : "17",
+        "id" : "19",
+        "sourceId" : "2",
+        "tags" : "Relationship"
+      } ],
+      "tags" : "Element,Software System"
+    }, {
+      "description" : "External scientific repository hosting data and metadata to be evaluated.",
+      "documentation" : { },
+      "id" : "17",
+      "name" : "Remote Repository",
+      "properties" : {
+        "structurizr.dsl.identifier" : "remoteRepo"
+      },
+      "relationships" : [ {
+        "description" : "Returns raw bytes / strings (REST, OAI-PMH XML, or Signposting HTML) as a response to",
+        "destinationId" : "7",
+        "id" : "20",
+        "sourceId" : "17",
+        "tags" : "Relationship"
+      }, {
+        "description" : "Returns raw bytes / strings (REST, OAI-PMH XML, or Signposting HTML) as a response to",
+        "destinationId" : "6",
+        "id" : "21",
+        "linkedRelationshipId" : "20",
+        "sourceId" : "17"
+      }, {
+        "description" : "Returns raw bytes / strings (REST, OAI-PMH XML, or Signposting HTML) as a response to",
+        "destinationId" : "2",
+        "id" : "22",
+        "linkedRelationshipId" : "20",
+        "sourceId" : "17"
+      } ],
+      "tags" : "Element,Software System,External System,ExternalSystem"
+    } ]
+  },
+  "name" : "FAIR Evaluator",
+  "properties" : {
+    "structurizr.inspection.error" : "27",
+    "structurizr.dsl" : "d29ya3NwYWNlICJGQUlSIEV2YWx1YXRvciIgIkRlY291cGxlZCBhcmNoaXRlY3R1cmUgZm9yIEZBSVIgcHJpbmNpcGxlcyBhc3Nlc3NtZW50IHdpdGggdW5pZmllZCBEQ0FULUFQIGludGVybmFsIG1vZGVsIiB7CgogICAgbW9kZWwgewogICAgICAgIHVzZXIgPSBwZXJzb24gIlJlc2VhcmNoZXIgLyBBdWRpdG9yIiAiQSB1c2VyIHJlcXVlc3RpbmcgYSBGQUlSIG1hdHVyaXR5IGFzc2Vzc21lbnQgZm9yIGEgZGF0YXNldCBvciByZXBvc2l0b3J5LiIKICAgICAgICAKICAgICAgICBmYWlyU3lzdGVtID0gc29mdHdhcmVTeXN0ZW0gIkZBSVIgRXZhbHVhdG9yIFN5c3RlbSIgIkFzc2Vzc2VzIHRoZSBGQUlSIG1hdHVyaXR5IG9mIHNjaWVudGlmaWMgcmVwb3NpdG9yaWVzIHVzaW5nIGEgc2VtYW50aWMgY29yZSBlbmdpbmUuIiB7CiAgICAgICAgICAgIAogICAgICAgICAgICAjIExheWVyIDE6IFBsdWdpbnMKICAgICAgICAgICAgcGx1Z2luRWNvc3lzdGVtID0gY29udGFpbmVyICJMYXllciAxOiBQbHVnaW4gRWNvc3lzdGVtIiAiQ29udGFpbnMgZGVjbGFyYXRpdmUgY29uZmlndXJhdGlvbnMgYW5kIG9wdGlvbmFsIGN1c3RvbSBzY2llbnRpZmljIGNvbW11bml0eSBjb2RlLiIgIllBTUwgJiBQeXRob24gMy4xMSsiIHsKICAgICAgICAgICAgICAgIG1hbmlmZXN0ID0gY29tcG9uZW50ICJNYW5pZmVzdCAobWFuaWZlc3QueWFtbCkiICJDb25maWd1cmVzIHRyYW5zbGF0aW9uIHJvdXRlcyAoWFBhdGgsIEpzb25QYXRoKSBhbmQgcGx1Z2luIG1ldGFkYXRhLiIgIllBTUwiCiAgICAgICAgICAgICAgICBjb21tdW5pdHlDb2RlID0gY29tcG9uZW50ICJDb21tdW5pdHkgQ29kZSIgIk9wdGlvbmFsIGV4dGVuc2lvbnMgZm9yIHNwZWNpZmljIHNjaWVudGlmaWMgY29tbXVuaXR5IHJlcXVpcmVtZW50cy4iICJQeXRob24iCiAgICAgICAgICAgIH0KICAgICAgICAgICAgCiAgICAgICAgICAgICMgTGF5ZXIgMjogQ29yZQogICAgICAgICAgICBjb3JlU3lzdGVtID0gY29udGFpbmVyICJMYXllciAyOiBDT1JFIChJbmdlc3Rpb24gRW5naW5lKSIgIk1hbmFnZXMgbmV0d29yayBpbmZyYXN0cnVjdHVyZSwgbm9ybWFsaXphdGlvbiwgYW5kIHNlbWFudGljIHByb2Nlc3NpbmcuIiAiUHl0aG9uIChGYXN0QVBJKSIgewogICAgICAgICAgICAgICAgcHJvdG9jb2xDbGllbnQgPSBjb21wb25lbnQgIlByb3RvY29sIENsaWVudHMiICJSZXVzYWJsZSBuZXR3b3JrIGluZnJhc3RydWN0dXJlIGhhbmRsZXMgSFRUUCBSRVNULCBPQUktUE1ILCBhbmQgU2lnbnBvc3RpbmcgSFRUUCBoZWFkZXJzLiIgIkhUVFBYIC8gT0FJLVBNSCBMaWIiCiAgICAgICAgICAgICAgICBtZXRhZGF0YURldGVjdG9yID0gY29tcG9uZW50ICJNZXRhZGF0YSBGb3JtYXQgRGV0ZWN0b3IiICJBbmFseXplcyByYXcgYnl0ZXMgLyBoZWFkZXJzIHRvIGRldGVybWluZSBpZiB0aGUgcGF5bG9hZCBpcyBhIE5hdGl2ZSBSREYgR3JhcGggb3IgYSBmbGF0IGZvcm1hdC4iICJQeXRob24gQ29yZSBMb2dpYyIKICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgIyBTZW1hbnRpYyBOYXRpdmUgRmxvdyBjb21wb25lbnRzCiAgICAgICAgICAgICAgICBweWxkQ29tcGFjdG9yID0gY29tcG9uZW50ICJQeUxEIENvbXBhY3RvciIgIkZvcmNlcyBuYXRpdmUgSlNPTi1MRC9SREYgdG8gdXNlIHVuaWZpZWQgaW50ZXJuYWwga2V5cy4iICJQeUxEIgogICAgICAgICAgICAgICAgCiAgICAgICAgICAgICAgICAjIFRyYW5zbGF0aW9uIEZsb3cgY29tcG9uZW50cyAoQ29ycmVjdGVkIFBpcGVsaW5lKQogICAgICAgICAgICAgICAgZm9ybWF0UGFyc2VyID0gY29tcG9uZW50ICJGb3JtYXQgUGFyc2VycyIgIkNvbnZlcnRzIHJhdyBYTUwgKE9BSS1QTUgpLCBIVE1MIChTaWducG9zdGluZyksIG9yIEpTT04gaW50byBhIHVuaWZpZWQgUHl0aG9uIERpY3Rpb25hcnkgKGRpY3QpLiIgInhtbHRvZGljdCAvIGV4dHJ1Y3QgLyBqc29uIgogICAgICAgICAgICAgICAgc2NoZW1hTWFwcGVyID0gY29tcG9uZW50ICJTY2hlbWEgTWFwcGVycyIgIkFwcGxpZXMgSlNPTlBhdGggZXhwcmVzc2lvbnMgb3ZlciB0aGUgdW5pZmllZCBQeXRob24gRGljdGlvbmFyeS4iICJqc29ucGF0aC1uZyIKICAgICAgICAgICAgICAgIAogICAgICAgICAgICAgICAgIyBDb252ZXJnZW5jZSBQb2ludAogICAgICAgICAgICAgICAgaW50ZXJuYWxNb2RlbCA9IGNvbXBvbmVudCAiSW50ZXJuYWwgTW9kZWwgRENBVC1BUCIgIlZhbGlkYXRlcyB0aGUgaGFybW9uaXplZCBkaWN0aW9uYXJ5IGFuZCBpbnN0YW50aWF0ZXMgdGhlIGludGVybmFsIGRhdGEgc3RydWN0dXJlLiIgIlB5ZGFudGljIFYyIERhdGEgTW9kZWwiCiAgICAgICAgICAgICAgICBncmFwaEVuZ2luZSA9IGNvbXBvbmVudCAiUkRGIEdyYXBoIEVuZ2luZSIgIlN0b3JlcyBhbmQgcHJvY2Vzc2VzIHRoZSBmaW5hbCB1bmlmaWFibGUgc2VtYW50aWMgZ3JhcGggaW4gbWVtb3J5LiIgIlJERmxpYiAoSW4tTWVtb3J5IEdyYXBoKSIKICAgICAgICAgICAgfQogICAgICAgICAgICAKICAgICAgICAgICAgIyBMYXllciAzOiBFdmFsdWF0aW9uCiAgICAgICAgICAgIGV2YWxFbmdpbmUgPSBjb250YWluZXIgIkxheWVyIDM6IEV2YWx1YXRpb24gRW5naW5lIiAiRXhlY3V0ZXMgRkFJUiBtZXRyaWNzIG92ZXIgdGhlIHN0YW5kYXJkaXplZCBSREYgZ3JhcGguIiAiUHl0aG9uICYgUHlTSEFDTCIgewogICAgICAgICAgICAgICAgbWV0cmljVmFsaWRhdG9yID0gY29tcG9uZW50ICJNZXRyaWMgVmFsaWRhdG9yIiAiRXhlY3V0ZXMgc2hhcGUgdmFsaWRhdGlvbiBydWxlcyBhbmQgY29uc3RyYWludHMgYWdhaW5zdCB0aGUgZ3JhcGguIiAiU0hBQ0wgKFB5U0hBQ0wpIgogICAgICAgICAgICAgICAgcXVlcnlFbmdpbmUgPSBjb21wb25lbnQgIlF1ZXJ5IEVuZ2luZSIgIkV4dHJhY3RzIHNwZWNpZmljIHF1YW50aXRhdGl2ZSBpbmRpY2F0b3JzIGZyb20gdGhlIGdyYXBoLiIgIlNQQVJRTCAxLjEiCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICAgICAgCiAgICAgICAgcmVtb3RlUmVwbyA9IHNvZnR3YXJlU3lzdGVtICJSZW1vdGUgUmVwb3NpdG9yeSIgIkV4dGVybmFsIHNjaWVudGlmaWMgcmVwb3NpdG9yeSBob3N0aW5nIGRhdGEgYW5kIG1ldGFkYXRhIHRvIGJlIGV2YWx1YXRlZC4iICJFeHRlcm5hbCBTeXN0ZW0iIHsKICAgICAgICAgICAgdGFncyAiRXh0ZXJuYWxTeXN0ZW0iCiAgICAgICAgfQoKICAgICAgICAjIFN0YXRpYyBCYXNlIFJlbGF0aW9uc2hpcHMKICAgICAgICB1c2VyIC0+IGZhaXJTeXN0ZW0gIlJlcXVlc3RzIGV2YWx1YXRpb24gb2YgYSByZXBvc2l0b3J5IHVzaW5nIgogICAgICAgIGZhaXJTeXN0ZW0gLT4gcmVtb3RlUmVwbyAiQ29uc3VtZXMgbWV0YWRhdGEgdmlhIEFQSSBmcm9tIgogICAgICAgIHJlbW90ZVJlcG8gLT4gcHJvdG9jb2xDbGllbnQgIlJldHVybnMgcmF3IGJ5dGVzIC8gc3RyaW5ncyAoUkVTVCwgT0FJLVBNSCBYTUwsIG9yIFNpZ25wb3N0aW5nIEhUTUwpIGFzIGEgcmVzcG9uc2UgdG8iCiAgICAgICAgcHJvdG9jb2xDbGllbnQgLT4gbWV0YWRhdGFEZXRlY3RvciAiU2VuZHMgcmF3IHBheWxvYWQgYW5kIGhlYWRlcnMgdG8iCiAgICAgICAgCiAgICAgICAgIyBOYXRpdmUgUGF0aAogICAgICAgIG1ldGFkYXRhRGV0ZWN0b3IgLT4gcHlsZENvbXBhY3RvciAiRm9yd2FyZHMgbmF0aXZlIFJERiBmb3JtYXRzIChUdXJ0bGUsIEpTT04tTEQsIFJERi9YTUwpIHRvIgogICAgICAgIHB5bGRDb21wYWN0b3IgLT4gaW50ZXJuYWxNb2RlbCAiTWFwcyBjb21wYWN0ZWQgc3RydWN0dXJlcyB0byIKICAgICAgICAKICAgICAgICAjIFRyYW5zbGF0aW9uIFBhdGggKFVwZGF0ZWQgc2VxdWVuY2UgbWFwcGluZykKICAgICAgICBtZXRhZGF0YURldGVjdG9yIC0+IGZvcm1hdFBhcnNlciAiRm9yd2FyZHMgbm9uLVJERiBmbGF0IGZvcm1hdHMgKFhNTCwgSFRNTCwgSlNPTikgdG8iCiAgICAgICAgZm9ybWF0UGFyc2VyIC0+IHNjaGVtYU1hcHBlciAiUGFzc2VzIHRoZSB1bm1hcHBlZCBQeXRob24gRGljdGlvbmFyeSAoZGljdCkgdG8iCiAgICAgICAgbWFuaWZlc3QgLT4gc2NoZW1hTWFwcGVyICJQcm92aWRlcyBKU09OUGF0aCB0cmFuc2xhdGlvbiBtYXBzIHRvIgogICAgICAgIHNjaGVtYU1hcHBlciAtPiBpbnRlcm5hbE1vZGVsICJQb3B1bGF0ZXMgbWFwcGVkIGRhdGEgaW50byIKICAgICAgICAKICAgICAgICAjIFVuaWZpZWQgQ29udmVyZ2VuY2UKICAgICAgICBpbnRlcm5hbE1vZGVsIC0+IGdyYXBoRW5naW5lICJFeHBvc2VzIHZhbGlkYXRlZCBkYXRhIG1vZGVsIGFzIFJERiB0cmlwbGVzIHRvIgogICAgICAgIGdyYXBoRW5naW5lIC0+IG1ldHJpY1ZhbGlkYXRvciAiRGVsaXZlcnMgdGhlIHVuaWZpZWQgUkRGIGdyYXBoIHRvIgogICAgfQoKICAgIHZpZXdzIHsKICAgICAgICBzeXN0ZW1Db250ZXh0IGZhaXJTeXN0ZW0gIkNvbnRleHQiIHsKICAgICAgICAgICAgaW5jbHVkZSAqCiAgICAgICAgICAgIGF1dG9sYXlvdXQgbHIKICAgICAgICB9CgogICAgICAgIGNvbnRhaW5lciBmYWlyU3lzdGVtICJDb250YWluZXJzIiB7CiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgICAgICBhdXRvbGF5b3V0IHRiCiAgICAgICAgfQoKICAgICAgICBjb21wb25lbnQgY29yZVN5c3RlbSAiQ29yZV9Db21wb25lbnRzIiB7CiAgICAgICAgICAgIGluY2x1ZGUgKgogICAgICAgICAgICBhdXRvbGF5b3V0IHRiCiAgICAgICAgfQoKICAgICAgICAjID09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KICAgICAgICAjIERZTkFNSUMgVklFVyAxOiBTRU1BTlRJQyBOQVRJVkUgRkxPVwogICAgICAgICMgPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PQogICAgICAgIGR5bmFtaWMgY29yZVN5c3RlbSAiU2VtYW50aWNfTmF0aXZlX0Zsb3ciICJFeGVjdXRpb24gcGF0aCB3aGVuIHJhdyBtZXRhZGF0YSBpcyBhbHJlYWR5IGEgTmF0aXZlIFJERiBHcmFwaCBmb3JtYXQuIiB7CiAgICAgICAgICAgIHByb3RvY29sQ2xpZW50IC0+IHJlbW90ZVJlcG8gIlJlcXVlc3RzIG1ldGFkYXRhIHBheWxvYWQgZnJvbSIKICAgICAgICAgICAgcmVtb3RlUmVwbyAtPiBwcm90b2NvbENsaWVudCAiUmV0dXJucyByYXcgUkRGIGJ5dGVzIChlLmcuLCBKU09OLUxEIG9yIFR1cnRsZSkgdG8iCiAgICAgICAgICAgIHByb3RvY29sQ2xpZW50IC0+IG1ldGFkYXRhRGV0ZWN0b3IgIlBhc3NlcyBwYXlsb2FkIHRvIgogICAgICAgICAgICBtZXRhZGF0YURldGVjdG9yIC0+IHB5bGRDb21wYWN0b3IgIkV2YWx1YXRlcyBmb3JtYXQgYXMgTmF0aXZlIFJERiAoWUVTKSBhbmQgZm9yd2FyZHMgdG8iCiAgICAgICAgICAgIHB5bGRDb21wYWN0b3IgLT4gaW50ZXJuYWxNb2RlbCAiRm9yY2VzIEpTT04tTEQgdG8gdXNlIGludGVybmFsIGtleXMgYW5kIGluc3RhbnRpYXRlcyIKICAgICAgICAgICAgaW50ZXJuYWxNb2RlbCAtPiBncmFwaEVuZ2luZSAiTG9hZHMgdGhlIHZhbGlkYXRlZCBEQ0FULUFQIG9iamVjdCBpbnRvIHRoZSIKICAgICAgICAgICAgZ3JhcGhFbmdpbmUgLT4gbWV0cmljVmFsaWRhdG9yICJUcmlnZ2VycyBGQUlSIHJ1bGUgZXZhbHVhdGlvbiBhZ2FpbnN0IHRoZSBmaW5hbCIKICAgICAgICAgICAgYXV0b2xheW91dCBscgogICAgICAgIH0KCiAgICAgICAgIyA9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09CiAgICAgICAgIyBEWU5BTUlDIFZJRVcgMjogVFJBTlNMQVRJT04gRkxPVyAoVVBEQVRFRCkKICAgICAgICAjID09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0KICAgICAgICBkeW5hbWljIGNvcmVTeXN0ZW0gIlRyYW5zbGF0aW9uX0Zsb3ciICJFeGVjdXRpb24gcGF0aCB3aGVuIHJhdyBtZXRhZGF0YSByZXF1aXJlcyBzeW50YWN0aWMgcGFyc2luZyBhbmQgSlNPTlBhdGggc2NoZW1hIG1hcHBpbmcuIiB7CiAgICAgICAgICAgIHByb3RvY29sQ2xpZW50IC0+IHJlbW90ZVJlcG8gIlJlcXVlc3RzIG1ldGFkYXRhIHBheWxvYWQgdmlhIFJFU1QsIE9BSS1QTUgsIG9yIFNpZ25wb3N0aW5nIGZyb20iCiAgICAgICAgICAgIHJlbW90ZVJlcG8gLT4gcHJvdG9jb2xDbGllbnQgIlJldHVybnMgcmF3IG5vbi1SREYgYnl0ZXMgKGUuZy4sIFJhdyBYTUwsIEhUTUwsIG9yIGZsYXQgSlNPTikgdG8iCiAgICAgICAgICAgIHByb3RvY29sQ2xpZW50IC0+IG1ldGFkYXRhRGV0ZWN0b3IgIlBhc3NlcyByYXcgcGF5bG9hZCBhbmQgaGVhZGVycyB0byIKICAgICAgICAgICAgbWV0YWRhdGFEZXRlY3RvciAtPiBmb3JtYXRQYXJzZXIgIkV2YWx1YXRlcyBmb3JtYXQgYXMgTmF0aXZlIFJERiAoTk8pIGFuZCBmb3J3YXJkcyB0byIKICAgICAgICAgICAgZm9ybWF0UGFyc2VyIC0+IHNjaGVtYU1hcHBlciAiQ29udmVydHMgcGh5c2ljYWwgZm9ybWF0IChYTUwvSFRNTC9KU09OKSBpbnRvIGEgY29tbW9uIFB5dGhvbiBEaWN0IGFuZCBwYXNzZXMgaXQgdG8iCiAgICAgICAgICAgIG1hbmlmZXN0IC0+IHNjaGVtYU1hcHBlciAiU3VwcGxpZXMgZnJpZW5kbHkgWUFNTCBtZXRhZGF0YSBtYXBwaW5nIChKU09OUGF0aCBleHByZXNzaW9ucykgdG8iCiAgICAgICAgICAgIHNjaGVtYU1hcHBlciAtPiBpbnRlcm5hbE1vZGVsICJFeHRyYWN0cyBmaWVsZHMgdmlhIEpTT05QYXRoIGFuZCBwYXNzZXMgdGhlIGhhcm1vbml6ZWQgZGljdGlvbmFyeSB0byIKICAgICAgICAgICAgaW50ZXJuYWxNb2RlbCAtPiBncmFwaEVuZ2luZSAiVmFsaWRhdGVzIGZpZWxkcywgZW5mb3JjZXMgRENBVC1BUCBzY2hlbWFzLCBhbmQgaW5zdGFudGlhdGVzIHRoZSB0cmlwbGVzIGludG8iCiAgICAgICAgICAgIGdyYXBoRW5naW5lIC0+IG1ldHJpY1ZhbGlkYXRvciAiVHJpZ2dlcnMgRkFJUiBydWxlIGV2YWx1YXRpb24gYWdhaW5zdCB0aGUgZmluYWwiCiAgICAgICAgICAgIGF1dG9sYXlvdXQgbHIKICAgICAgICB9CgogICAgICAgIHN0eWxlcyB7CiAgICAgICAgICAgIGVsZW1lbnQgIkVsZW1lbnQiIHsKICAgICAgICAgICAgICAgIGNvbG9yICNmZmZmZmYKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJQZXJzb24iIHsKICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzBmNGM4MQogICAgICAgICAgICAgICAgc2hhcGUgUGVyc29uCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiU29mdHdhcmUgU3lzdGVtIiB7CiAgICAgICAgICAgICAgICBiYWNrZ3JvdW5kICMyMjZmYmUKICAgICAgICAgICAgICAgIHNoYXBlIFJvdW5kZWRCb3gKICAgICAgICAgICAgfQogICAgICAgICAgICBlbGVtZW50ICJDb250YWluZXIiIHsKICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzQzOGRkNQogICAgICAgICAgICB9CiAgICAgICAgICAgIGVsZW1lbnQgIkNvbXBvbmVudCIgewogICAgICAgICAgICAgICAgYmFja2dyb3VuZCAjODViYmYwCiAgICAgICAgICAgICAgICBjb2xvciAjMDAwMDAwCiAgICAgICAgICAgIH0KICAgICAgICAgICAgZWxlbWVudCAiRXh0ZXJuYWxTeXN0ZW0iIHsKICAgICAgICAgICAgICAgIGJhY2tncm91bmQgIzk5OTk5OQogICAgICAgICAgICAgICAgc2hhcGUgRm9sZGVyCiAgICAgICAgICAgIH0KICAgICAgICB9CiAgICB9Cn0=",
+    "structurizr.inspection.info" : "0",
+    "structurizr.inspection.ignore" : "0",
+    "structurizr.inspection.warning" : "0"
+  },
+  "views" : {
+    "componentViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "containerId" : "6",
+      "elements" : [ {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "11",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "12",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "13",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "14",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalContainerBoundariesVisible" : false,
+      "key" : "Core_Components",
+      "name" : "Component View: FAIR Evaluator System - Layer 2: CORE (Ingestion Engine)",
+      "order" : 3,
+      "relationships" : [ {
+        "id" : "20"
+      }, {
+        "id" : "23"
+      }, {
+        "id" : "24"
+      }, {
+        "id" : "25"
+      }, {
+        "id" : "26"
+      }, {
+        "id" : "27"
+      }, {
+        "id" : "30"
+      }, {
+        "id" : "32"
+      }, {
+        "id" : "33"
+      }, {
+        "id" : "35"
+      } ]
+    } ],
+    "configuration" : {
+      "styles" : {
+        "elements" : [ {
+          "background" : "#85bbf0",
+          "color" : "#000000",
+          "tag" : "Component"
+        }, {
+          "background" : "#438dd5",
+          "tag" : "Container"
+        }, {
+          "color" : "#ffffff",
+          "tag" : "Element"
+        }, {
+          "background" : "#999999",
+          "shape" : "Folder",
+          "tag" : "ExternalSystem"
+        }, {
+          "background" : "#0f4c81",
+          "shape" : "Person",
+          "tag" : "Person"
+        }, {
+          "background" : "#226fbe",
+          "shape" : "RoundedBox",
+          "tag" : "Software System"
+        } ]
+      },
+      "terminology" : { }
+    },
+    "containerViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "TopBottom",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "elements" : [ {
+        "id" : "3",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "6",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "14",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalSoftwareSystemBoundariesVisible" : false,
+      "key" : "Containers",
+      "name" : "Container View: FAIR Evaluator System",
+      "order" : 2,
+      "relationships" : [ {
+        "id" : "21"
+      }, {
+        "id" : "31"
+      }, {
+        "id" : "37"
+      } ],
+      "softwareSystemId" : "2"
+    } ],
+    "dynamicViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "description" : "Execution path when raw metadata is already a Native RDF Graph format.",
+      "elementId" : "6",
+      "elements" : [ {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "9",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "12",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "13",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "15",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalBoundariesVisible" : false,
+      "key" : "Semantic_Native_Flow",
+      "name" : "Dynamic View: FAIR Evaluator System - Layer 2: CORE (Ingestion Engine)",
+      "order" : 4,
+      "relationships" : [ {
+        "description" : "Requests metadata payload from",
+        "id" : "20",
+        "order" : "1",
+        "response" : true
+      }, {
+        "description" : "Returns raw RDF bytes (e.g., JSON-LD or Turtle) to",
+        "id" : "20",
+        "order" : "2",
+        "response" : false
+      }, {
+        "description" : "Passes payload to",
+        "id" : "23",
+        "order" : "3",
+        "response" : false
+      }, {
+        "description" : "Evaluates format as Native RDF (YES) and forwards to",
+        "id" : "24",
+        "order" : "4",
+        "response" : false
+      }, {
+        "description" : "Forces JSON-LD to use internal keys and instantiates",
+        "id" : "25",
+        "order" : "5",
+        "response" : false
+      }, {
+        "description" : "Loads the validated DCAT-AP object into the",
+        "id" : "33",
+        "order" : "6",
+        "response" : false
+      }, {
+        "description" : "Triggers FAIR rule evaluation against the final",
+        "id" : "34",
+        "order" : "7",
+        "response" : false
+      } ]
+    }, {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "description" : "Execution path when raw metadata requires syntactic parsing and JSONPath schema mapping.",
+      "elementId" : "6",
+      "elements" : [ {
+        "id" : "4",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "7",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "8",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "10",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "11",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "12",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "13",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "15",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "externalBoundariesVisible" : false,
+      "key" : "Translation_Flow",
+      "name" : "Dynamic View: FAIR Evaluator System - Layer 2: CORE (Ingestion Engine)",
+      "order" : 5,
+      "relationships" : [ {
+        "description" : "Requests metadata payload via REST, OAI-PMH, or Signposting from",
+        "id" : "20",
+        "order" : "1",
+        "response" : true
+      }, {
+        "description" : "Returns raw non-RDF bytes (e.g., Raw XML, HTML, or flat JSON) to",
+        "id" : "20",
+        "order" : "2",
+        "response" : false
+      }, {
+        "description" : "Passes raw payload and headers to",
+        "id" : "23",
+        "order" : "3",
+        "response" : false
+      }, {
+        "description" : "Evaluates format as Native RDF (NO) and forwards to",
+        "id" : "26",
+        "order" : "4",
+        "response" : false
+      }, {
+        "description" : "Converts physical format (XML/HTML/JSON) into a common Python Dict and passes it to",
+        "id" : "27",
+        "order" : "5",
+        "response" : false
+      }, {
+        "description" : "Supplies friendly YAML metadata mapping (JSONPath expressions) to",
+        "id" : "28",
+        "order" : "6",
+        "response" : false
+      }, {
+        "description" : "Extracts fields via JSONPath and passes the harmonized dictionary to",
+        "id" : "32",
+        "order" : "7",
+        "response" : false
+      }, {
+        "description" : "Validates fields, enforces DCAT-AP schemas, and instantiates the triples into",
+        "id" : "33",
+        "order" : "8",
+        "response" : false
+      }, {
+        "description" : "Triggers FAIR rule evaluation against the final",
+        "id" : "34",
+        "order" : "9",
+        "response" : false
+      } ]
+    } ],
+    "systemContextViews" : [ {
+      "automaticLayout" : {
+        "edgeSeparation" : 50,
+        "nodeSeparation" : 50,
+        "rankDirection" : "LeftRight",
+        "rankSeparation" : 100,
+        "vertices" : true
+      },
+      "elements" : [ {
+        "id" : "1",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "2",
+        "x" : 0,
+        "y" : 0
+      }, {
+        "id" : "17",
+        "x" : 0,
+        "y" : 0
+      } ],
+      "enterpriseBoundaryVisible" : true,
+      "key" : "Context",
+      "name" : "System Context View: FAIR Evaluator System",
+      "order" : 1,
+      "relationships" : [ {
+        "id" : "18"
+      }, {
+        "id" : "19"
+      }, {
+        "id" : "22"
+      } ],
+      "softwareSystemId" : "2"
+    } ]
+  }
+}
