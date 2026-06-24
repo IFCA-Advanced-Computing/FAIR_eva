@@ -7,7 +7,7 @@ workspace "FAIR Evaluator" "Decoupled architecture for FAIR principles assessmen
             
             # Layer 1: Plugins
             pluginEcosystem = container "Layer 1: Plugin Ecosystem" "Contains declarative configurations and optional custom scientific community code." "YAML & Python 3.11+" {
-                manifest = component "Manifest (manifest.yaml)" "Configures translation routes (XPath, JsonPath) and plugin metadata." "YAML"
+                manifest = component "Manifest (config.yaml)" "Configures translation routes (XPath, JsonPath) and plugin metadata." "YAML"
                 communityCode = component "Community Code" "Optional extensions for specific scientific community requirements." "Python"
             }
             
@@ -63,17 +63,14 @@ workspace "FAIR Evaluator" "Decoupled architecture for FAIR principles assessmen
     views {
         systemContext fairSystem "Context" {
             include *
-            autolayout lr
         }
 
         container fairSystem "Containers" {
             include *
-            autolayout tb
         }
 
         component coreSystem "Core_Components" {
             include *
-            autolayout tb
         }
 
         # =========================================================================
@@ -87,11 +84,10 @@ workspace "FAIR Evaluator" "Decoupled architecture for FAIR principles assessmen
             pyldCompactor -> internalModel "Forces JSON-LD to use internal keys and instantiates"
             internalModel -> graphEngine "Loads the validated DCAT-AP object into the"
             graphEngine -> metricValidator "Triggers FAIR rule evaluation against the final"
-            autolayout lr
         }
 
         # =========================================================================
-        # DYNAMIC VIEW 2: TRANSLATION FLOW (UPDATED)
+        # DYNAMIC VIEW 2: TRANSLATION FLOW (UPDATED & FIXED)
         # =========================================================================
         dynamic coreSystem "Translation_Flow" "Execution path when raw metadata requires syntactic parsing and JSONPath schema mapping." {
             protocolClient -> remoteRepo "Requests metadata payload via REST, OAI-PMH, or Signposting from"
@@ -103,7 +99,6 @@ workspace "FAIR Evaluator" "Decoupled architecture for FAIR principles assessmen
             schemaMapper -> internalModel "Extracts fields via JSONPath and passes the harmonized dictionary to"
             internalModel -> graphEngine "Validates fields, enforces DCAT-AP schemas, and instantiates the triples into"
             graphEngine -> metricValidator "Triggers FAIR rule evaluation against the final"
-            autolayout lr
         }
 
         styles {
