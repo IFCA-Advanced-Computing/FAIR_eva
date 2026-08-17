@@ -32,6 +32,8 @@ dependencies = [
     "Babel",
     "flask_babel",
     "reportlab",
+    "jsonpath-ng>=1.6.1",
+    "pydantic>=2.7.0",
 ]
 
 [project.scripts]
