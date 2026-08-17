@@ -12,7 +12,7 @@ authors = [
 ]
 description = "FAIR EVA: Evaluator, Validator & Advisor"
 readme = "README.md"
-requires-python = ">=3.6"
+requires-python = ">=3.8"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: Apache License 2.0",
@@ -41,6 +41,11 @@ fair-eva = "fair_eva.__main__:main"
 "Homepage" = "https://github.com/ifca-advanced-computing/FAIR_eva"
 "Bug Tracker" = "https://github.com/ifca-advanced-computing/FAIR_eva/issues"
 
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+
 [tool.setuptools.package-data]
 "fair_eva" = ["*.ini"]
 
@@ -52,3 +57,7 @@ in-place = true
 
 [tool.isort]
 profile = "black"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
