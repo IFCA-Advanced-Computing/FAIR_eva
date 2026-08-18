@@ -1,5 +1,8 @@
+import logging
 from typing import Any, Dict
 from jsonpath_ng.ext import parse
+
+logger = logging.getLogger("core.mapper")
 
 class SchemaMapper:
     """Handles the transformation of raw parsed metadata into internal standard terms
@@ -25,6 +28,9 @@ class SchemaMapper:
                 # If jsonpath matched a literal empty list [], 'values' is empty but the path exists.
                 # We fetch the raw path string to verify if it was an explicit empty list match.
                 # Otherwise, it's a missing field, so we default safely to None.
+                logger.warning(
+                    f"No matches found for key '{internal_key}' using expression: {jsonpath_expr}"
+                )
                 internal_data[internal_key] = None
             elif len(values) == 1:
                 # Unpack unique results (like single strings, ints or targeted dicts)
