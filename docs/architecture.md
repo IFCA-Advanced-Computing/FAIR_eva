@@ -15,3 +15,16 @@ At runtime, the evaluator loads the appropriate plugin and merges its configurat
 
 ## Configuration flow
 The `fair.py` script and read configuration files using Python’s `configparser`.  First, the `config.ini` of the plugin(s) to load is parsed, followed by the plugin’s `config.ini`.  The combined configuration is passed to the plugin instance【364219770113321†L17-L27】.  This two‑tiered approach allows you to define global defaults (e.g., a list of controlled vocabularies or generic metadata terms) while overriding or extending them in plugin configurations.
+
+## System Workflow Pipeline
+
+### Core components
+The evaluation pipeline processes raw metadata exposed by data repositories and normalizes it into an internal semantic model through 5 sequential steps:
+
+1. **Protocol Clients**: Connects to external repositories and fetches raw payloads (e.g., XML via OAI-PMH, HTML/JSON-LD via Signposting).
+2. **Metadata Format Detector**: Inspects the payload format. If an "RDF" path is detected, it strictly identifies and validates its MIME type.
+3. **Format Parser**: Sanitizes and converts raw syntax into a standard python dictionary (`dict`), bypassing old structural limitations.
+4. **Schema Mapper**: Evaluates dynamic declarative rules (`config.yaml`) written by researchers using advanced JSONPath expressions. It outputs flat internal standard terms.
+5. **Internal Model DCAT**: Validates the flat terms against a Pydantic data model and exports a standard semantically-mapped JSON-LD graph packed in an RO-Crate.
+
+Check out the [Core components's documentation].
