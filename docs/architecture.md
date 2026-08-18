@@ -27,4 +27,24 @@ The evaluation pipeline processes raw metadata exposed by data repositories and 
 4. **Schema Mapper**: Evaluates dynamic declarative rules (`config.yaml`) written by researchers using advanced JSONPath expressions. It outputs flat internal standard terms.
 5. **Internal Model DCAT**: Validates the flat terms against a Pydantic data model and exports a standard semantically-mapped JSON-LD graph packed in an RO-Crate.
 
-Check out the [Core components's documentation].
+For additional details refer to the [Core components's documentation].
+
+## Technology Stack & Semantic Standards Matrix
+
+To guarantee absolute compliance, reproducibility, and prevent architectural drift, the FAIR Evaluator Core enforces strict versioning constraints across both the software execution environment and the metadata standards utilized.
+
+### 1. Semantic Web & Metadata Standards
+
+| Standard / Vocabulary | Target Version | Namespace URI / Context Reference | Purpose in Core |
+| :--- | :--- | :--- | :--- |
+| **DCAT** | **Version 3 (W3C)** | `http://w3.org` | Core internal semantic representation for data catalogs, resource versions, and relationships. |
+| **Dublin Core Terms** | **DCMI Terms** | `http://purl.org` | High-level descriptive properties utilizing typed object/URI predicates instead of legacy plain-text elements. |
+| **JSON-LD** | **Version 1.1** | W3C Recommendation | Serialized transmission format for evaluation output graphs. Enables scoped and nested contexts. |
+
+### 2. Software Runtime Environment (Engine)
+
+These baselines are explicitly defined in `pyproject.toml` and deterministic states are locked via `uv.lock`:
+
+- **Pydantic Data Engine (`>=2.7.0`)**: Enforces **Pydantic V2** architecture. Validation logic is executed via Rust core, utilizing the new `serialization_alias` pipeline to cleanly map Python attributes into RDF-compliant keys.
+- **JSONPath Engine (`jsonpath-ng >=1.6.1`)**: Uses the extended syntax compiler (`jsonpath-ng.ext`) enabling inline evaluation filtering operations (`[?(@.property == 'value')]`) to dynamically traverse deep nested repository taxonomies.
+- **Testing Framework (`pytest >=8.0.0`)**: Provides strict fixture isolation and native log capturing capabilities (`caplog`) required for our TDD loop.
