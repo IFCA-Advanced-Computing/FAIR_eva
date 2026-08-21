@@ -1,14 +1,30 @@
-# Component 4: Schema Mapper (Technical Specification)
+## Component: Plugin Loader (Dynamic Discovery)
+
+The Core discovers and communicates with external repositories through a dynamic namespace mechanism. Plugins must be published under the `fair_eva.plugins` package hierarchy.
+
+### Discovery Protocol
+
+The `PluginLoader` utilizes Python's standard `pkgutil` layout to scan the namespace at runtime without hardcoding imports. This allows researchers to deploy third-party plugins as standalone pip-installable repositories.
+
+### Manifest Retrieval
+
+Every valid plugin must bundle a `config.yaml` resource at its root level. The Core accesses this file using `importlib.resources`, decoupling the physical storage location (zip files, virtual environments, site-packages) from the parsing engine.
+
+- **Dependency Added**: `pyyaml` (for safe declarative decoding).
+- **Error States Handled**: Non-existent packages raise `ValueError`; missing manifests raise `FileNotFoundError`.
+
+
+## Component: Schema Mapper (Technical Specification)
 
 The `SchemaMapper` is responsible for translating third-party repository data structures into the internal Python dict-based representation required by FAIR-eva.
 
-## Design Principles
+### Design Principles
 
 - **Simplification of the plugin structure**: Researchers do not write Python code, FAIR-eva plugins are only required to provide JSONPath rules available through a YAML configuration file (`config.yaml`).
 - **Deep nesting support**: JSONPath enables deep graph navigation via `jsonpath_ng`.
 - **Better error handling**: Missing keys or failed paths do not crash the evaluation pipeline, fallbacking to `None`.
 
-## Configuration Structure (`config.yaml`)
+#### Configuration Structure (`config.yaml`)
 
 Every plugin inside the `fair_eva.plugins.*` namespace MUST expose a configuration containing the `metadata_mappings` block:
 
@@ -19,11 +35,11 @@ metadata_mappings:
   publication_year: "\$.meta.dates[?(@.type=='accepted')].value"
 ```
 
-## Internal Logging & Edge Cases
+### Internal Logging & Edge Cases
 
 The component defines a local tracker under the `fair_eva.core.mapper` hierarchy:
 
-## Running Tests
+### Running Tests
 
 To run the isolated test suite:
 
