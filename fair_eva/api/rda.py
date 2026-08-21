@@ -152,8 +152,21 @@ def endpoints(plugin=None):
 
 @load_plugin
 def rda_f1_01m(body, eva):
+    """Evaluates RDA Indicator F1-01M using standardized Core metadata."""
     try:
-        points, msg = eva.rda_f1_01m()
+        # 1. Extraemos el metadato estandarizado por el SchemaMapper del Core
+        metadata = getattr(eva, "mapped_metadata", {})
+        title = metadata.get("title")
+
+        # 2. Lógica del indicador: En este caso, evalúa si existe un título/identificador válido
+        if title:
+            points = 100
+            msg = f"Indicator passed! Standardized title found via JSONPath: '{title}'"
+        else:
+            points = 0
+            msg = "Indicator failed. 'title' could not be resolved from repository payload."
+
+        # 3. Mantenemos exactamente tu misma estructura de salida para la API
         result = {
             "name": "RDA_F1_01M",
             "msg": msg,
@@ -163,15 +176,18 @@ def rda_f1_01m(body, eva):
             "score": {"earned": points, "total": 100},
         }
         exit_code = 200
+
     except Exception as e:
         logger.error(e)
+        # Inicializamos points a 0 de forma segura por si la excepción ocurre antes del bloque IF
+        fallback_points = 0
         result = {
             "name": "ERROR",
-            "msg": "Exception: %s" % e,
-            "points": 0,
-            "color": ut.get_color(0),
-            "test_status": ut.test_status(points),
-            "score": {"earned": points, "total": 100},
+            "msg": f"Exception: {e}",
+            "points": fallback_points,
+            "color": ut.get_color(fallback_points),
+            "test_status": ut.test_status(fallback_points),
+            "score": {"earned": fallback_points, "total": 100},
         }
         exit_code = 422
 
