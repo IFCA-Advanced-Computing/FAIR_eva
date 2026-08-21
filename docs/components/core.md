@@ -105,3 +105,63 @@ To guarantee that the evaluator produces valid Linked Data, the model requires s
 
 - **Data Absence**: If the `SchemaMapper` fails to locate an expression, it falls back to `None` and triggers a system warning. This state will intentionally cause a `ValidationError` when fed into the `DCATDatasetModel`, stopping downstream compilation if a **Required** field is absent.
 - **Type Mismatch**: Supplying any data type that fails Pydantic's structural conversion (e.g., an `int` for an array field) aborts execution safely, protecting the integrity of the evaluation graph.
+
+## API & Core Connection (Connexion & Decorator Integration)
+
+The application utilizes **Connexion** (with a `RestyResolver` targeting `fair_eva.api`) to orchestrate incoming HTTP evaluation payloads via `fair-api.yaml`. To implement the refactored semantic pipeline without breaking existing endpoints or executing a high-risk big-bang rewrite, the core engine hooks into the system via a revised `@load_plugin` decorator pattern in `fair_eva/api/rda.py`.
+
+### Architectural Hybrid Flow
+
+```mermaid
+graph TD
+    A[Client HTTP Request] --> B[Connexion App Router]
+    B --> C[@load_plugin Decorator]
+
+    subgraph Core_Declarative_Pipeline [Core Declarative Actions]
+        C --> D1[PluginLoader: Scan & Verify Namespace]
+        D1 --> D2[PluginLoader: Parse 'config.yaml']
+    end
+
+    subgraph Legacy_Fallback_Pipeline [Legacy Fallback Actions]
+        C --> L1[Dynamic import_module]
+        L1 --> L2[Execute Plugin.get_ids via Query]
+    end
+
+    D2 --> E[Instantiate Evaluation Context 'eva']
+    L2 --> E
+
+    E --> F[Extract 'eva.metadata_raw' Repository Payload]
+    F --> G[SchemaMapper: Execute JSONPath Transformations]
+    G --> H[Injected State: 'eva.mapped_metadata' Property]
+    H --> I[Execute Targeted Indicator Function e.g., rda_f1_01m]
+
+    style Core_Declarative_Pipeline fill:#edf7ed,stroke:#2e7d32,stroke-width:2px
+    style Legacy_Fallback_Pipeline fill:#fff3e0,stroke:#ef6c00,stroke-width:1px
+    style H fill:#e3f2fd,stroke:#1565c0,stroke-width:2px
+```
+
+### Injected Context Specification
+
+The refactored decorator intercepts the execution loop right before invoking any concrete RDA indicator function. It injects a standardized, flat state into the active evaluation context:
+
+- **Target Property**: `eva.mapped_metadata`
+- **Data Structure**: A flat Python `dict` containing internal standard terms resolved via advanced JSONPath expressions.
+- **Graceful Lifecycle**: If a plugin has not yet migrated its local structure, the loader dynamically falls back to looking for legacy layout pathways, preventing server crashes (`500 Internal Server Error`) and logging granular namespace alerts instead.
+
+### Migrating Individual Indicators
+
+With this integration active, indicator implementations inside `fair_eva/api/rda.py` can be refactored incrementally. Instead of relying on manual dictionary lookups or deep nested indexing, they must consume the unified state as shown below:
+
+```python
+# Refactored indicator example
+@load_plugin
+def rda_f1_01m(body, eva):
+    # Access the clean, core-mapped semantic variables directly
+    metadata = getattr(eva, "mapped_metadata", {})
+    title = metadata.get("title")
+
+    if not title:
+        return {"status": "failed", "reason": "dcterms:title could not be resolved via JSONPath"}, 400
+
+    return {"status": "passed", "resolved_term": title}, 200
+```

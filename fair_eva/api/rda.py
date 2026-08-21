@@ -10,13 +10,17 @@ from connexion import NoContent
 
 import fair_eva.api.utils as ut
 from fair_eva.api import evaluator
+from fair_eva.core.plugin_loader import PluginLoader
+from fair_eva.core.mapper import SchemaMapper
 
 PLUGIN_PATH = "fair_eva.plugin"  # FIXME get it from main config.ini
 
 logging.basicConfig(
     stream=sys.stdout, level=logging.DEBUG, format="'%(name)s:%(lineno)s' | %(message)s"
 )
-logger = logging.getLogger("api")
+logger = logging.getLogger("api.plugin.evaluation_steps")
+
+plugin_loader = PluginLoader()
 
 
 def collect_plugins():
@@ -33,11 +37,10 @@ def collect_plugins():
 
 
 def load_plugin(wrapped_func):
-    """Loads the plugin module passed in the JSON payload."""
+    """Loads the plugin configuration and applies the Core SchemaMapper before evaluation."""
 
     @wraps(wrapped_func)
     def wrapper(body, **kwargs):
-        plugin_module = None
         plugin_name = body.get("repo")
         item_id = body.get("id", "")
         api_endpoint = body.get("api_endpoint")
@@ -45,34 +48,34 @@ def load_plugin(wrapped_func):
         pattern_to_query = body.get("q", "")
 
         logger.debug("JSON payload received: %s" % body)
-        # Exit if there is no way to obtain the identifier/s: either (i) provided through "id" or (ii) by a search query term
+
         if not (item_id or pattern_to_query):
             msg = "Neither the identifier nor the pattern to query was provided. Exiting.."
             logger.error(msg)
             return msg, 400
 
-        # Load the plugin module
-        plugin_import_error = True
-        plugin_error_message = ""
-        plugin_list = collect_plugins()
-        if plugin_name in plugin_list:
-            try:
-                plugin_module = import_module(f"{PLUGIN_PATH}.{plugin_name}.plugin")
-                plugin_import_error = False
-                logger.debug(
-                    f"Successfully imported plugin module from {PLUGIN_PATH}.{plugin_name}.plugin"
-                )
-            except ImportError as e:
-                plugin_error_message = f"Could not import plugin <{plugin_name}>!: {e}"
-        else:
-            plugin_error_message = f"Could not find plugin module <{plugin_name}>! Current list of plugins available in '{PLUGIN_PATH}' namespace: {plugin_list}"
-        if plugin_import_error:
-            logger.error(plugin_error_message)
-            return plugin_error_message, 400
+        # 1. Validación de existencia del Plugin mediante el Core
+        full_plugin_namespace = f"fair_eva.plugins.{plugin_name}"
+        available_plugins = plugin_loader.list_plugins()
+
+        if full_plugin_namespace not in available_plugins:
+            # Fallback temporal: comprobar si usa el namespace antiguo sin prefijo completo
+            if plugin_name not in available_plugins:
+                plugin_error_message = f"Could not find plugin module <{plugin_name}>! Available: {available_plugins}"
+                logger.error(plugin_error_message)
+                return plugin_error_message, 400
+
+        # 2. Carga dinámica del código antiguo (Mantenido temporalmente para get_ids e instanciación)
+        try:
+            # Intentamos importar usando el nuevo estándar de la arquitectura
+            plugin_module = import_module(f"fair_eva.plugins.{plugin_name}.plugin")
+        except ImportError:
+            # Fallback por si los plugins instalados todavía usan el namespace antiguo puro
+            plugin_module = import_module(f"fair_eva.plugin.{plugin_name}.plugin")
 
         downstream_logger = plugin_module.logger
 
-        # Get the identifiers through a search query
+        # Resolvemos identificadores mediante Query (Lógica legacy intacta)
         ids = [item_id]
         if pattern_to_query:
             try:
@@ -80,57 +83,57 @@ def load_plugin(wrapped_func):
                     api_endpoint=api_endpoint, pattern_to_query=pattern_to_query
                 )
             except Exception as e:
-                message = (
-                    f"Error in {plugin_name} plugin while getting the identifiers: {e}"
-                )
+                message = f"Error in {plugin_name} plugin while getting the identifiers: {e}"
                 logger.error(message)
                 return message, 400
-            else:
-                logger.debug(
-                    f"Successfully obtained the identifiers through a search query: {ids}"
-                )
 
-        # Set handler for evaluator logs
+        # Configuración de logs
         evaluator_handler = ut.EvaluatorLogHandler()
         downstream_logger.addHandler(evaluator_handler)
 
         try:
-            # Load configuration
-            config_data = plugin_module.Plugin.load_config(
-                f"{PLUGIN_PATH}.{plugin_name}"
-            )
+            # 3. CONEXIÓN CON EL CORE: Cargamos el manifiesto declarativo yaml
+            plugin_config = plugin_loader.load_plugin_config(full_plugin_namespace)
+            mapper = SchemaMapper(config=plugin_config)
 
-            # Collect FAIR checks per metadata identifier
             result = {}
             exit_code = 200
+
             for item_id in ids:
                 try:
+                    # Instanciación legacy del plugin
                     eva = plugin_module.Plugin(
                         item_id,
                         api_endpoint,
                         lang,
                         name=plugin_name,
-                        config=config_data,
+                        config=plugin_config, # Pasamos el nuevo config diccionario
                     )
+
+                    # Extraemos el payload crudo del repositorio (Componente 3)
+                    # Asumimos que la clase Plugin vieja expone los metadatos descargados en una propiedad (ej. 'metadata_raw' o similar)
+                    # Si tu plugin antiguo usa otro nombre de variable, cámbialo aquí:
+                    raw_payload = getattr(eva, "metadata_raw", {})
+
+                    # Ejecutamos el SchemaMapper con JSONPath (Componente 4)
+                    # Esto inyecta los términos estándar planos directamente en la instancia evaluadora
+                    eva.mapped_metadata = mapper.transform(raw_payload)
+
                 except Exception as e:
-                    message = f"Error while initiating {plugin_name} plugin: {e}"
+                    message = f"Error while initiating {plugin_name} plugin with Core Mapper: {e}"
                     logger.error(message)
                     return message, 400
+
+                # Llamada a la función original de la RDA (ej: rda_f1_01m)
                 _result, _exit_code = wrapped_func(body, eva=eva)
-                logger.debug(
-                    "Raw result returned for indicator ID '%s': %s" % (item_id, _result)
-                )
                 result[item_id] = _result
                 if _exit_code != 200:
                     exit_code = _exit_code
 
-            # Append evaluator logs to the final results
             result["evaluator_logs"] = evaluator_handler.logs
-            logger.debug("Evaluator logs appended through 'evaluator_logs' property")
-
             return result, exit_code
+
         finally:
-            # remove the handler from the downstream logger to avoid leak
             logger.debug("Removing handler from downstream_logger")
             downstream_logger.removeHandler(evaluator_handler)
 

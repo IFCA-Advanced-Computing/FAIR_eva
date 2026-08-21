@@ -41,3 +41,51 @@ def test_pipeline_integration_from_payload_to_json_ld(mock_repo_payload):
     assert json_ld_graph["dcterms:issued"] == "2026-08-18"
     assert json_ld_graph["dcterms:license"] == "https://creativecommons.org"
     assert "@context" in json_ld_graph
+
+
+####################################
+### Integration with legacy code ###
+####################################
+# tests/test_integration.py
+from unittest.mock import patch, mock_open
+
+def test_legacy_decorator_integration_with_new_core():
+    """Verifies that the legacy decorator pattern can fetch metadata via the new Core."""
+    # Simulamos el config.yaml del plugin
+    mock_yaml_content = """
+    metadata_mappings:
+      title: "$.repository.title"
+    """
+
+    # Payload simulado que enviaría la API web
+    mock_api_body = {
+        "repo": "mock_repo",
+        "id": "10.1234/dataset_test"
+    }
+
+    # Simulamos el payload crudo que devolvió el repositorio externo tras descargarlo
+    mock_fetched_payload = {
+        "repository": {
+            "title": "FAIR Dataset Integrated Successfully"
+        }
+    }
+
+    # Parcheamos el loader para simular que el plugin 'mock_repo' está instalado
+    with patch("fair_eva.core.plugin_loader.PluginLoader._discover_modules", return_value=["fair_eva.plugins.mock_repo"]), \
+         patch("importlib.resources.files") as mock_files:
+
+        mock_files.return_value.joinpath.return_value.read_text.return_value = mock_yaml_content
+
+        # Simulamos la nueva lógica que meteremos dentro del decorador @load_plugin
+        from fair_eva.core.plugin_loader import PluginLoader
+        from fair_eva.core.mapper import SchemaMapper
+
+        loader = PluginLoader()
+        plugin_config = loader.load_plugin_config("fair_eva.plugins.mock_repo")
+        mapper = SchemaMapper(config=plugin_config)
+
+        # El Core procesa el payload crudo del repositorio
+        standardized_metadata = mapper.transform(mock_fetched_payload)
+
+        # La función de evaluación legacy (ej: rda_f1_01m) consume el metadato estandarizado
+        assert standardized_metadata["title"] == "FAIR Dataset Integrated Successfully"
