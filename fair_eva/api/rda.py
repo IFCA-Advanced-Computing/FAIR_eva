@@ -55,25 +55,30 @@ def load_plugin(wrapped_func):
             return msg, 400
 
         # 1. Validación de existencia del Plugin mediante el Core
-        full_plugin_namespace = f"fair_eva.plugins.{plugin_name}"
         available_plugins = plugin_loader.list_plugins()
-
-        if full_plugin_namespace not in available_plugins:
-            # Fallback temporal: comprobar si usa el namespace antiguo sin prefijo completo
-            if plugin_name not in available_plugins:
-                plugin_error_message = f"Could not find plugin module <{plugin_name}>! Available: {available_plugins}"
-                logger.error(plugin_error_message)
-                return plugin_error_message, 400
+        if plugin_name not in available_plugins:
+            plugin_error_message = (
+                f"Could not find plugin module <{plugin_name}> in the current "
+                f"{os.getenv('FAIR_EVA_ENV', 'production')} environment! "
+                f"Available plugins: {available_plugins}"
+            )
+            logger.error(plugin_error_message)
+            return plugin_error_message, 400
 
         # 2. Carga dinámica del código antiguo (Mantenido temporalmente para get_ids e instanciación)
+        env = os.getenv("FAIR_EVA_ENV", "production").lower()
         try:
-            # Intentamos importar usando el nuevo estándar de la arquitectura
-            plugin_module = import_module(f"fair_eva.plugins.{plugin_name}.plugin")
+            if env == "development":
+                plugin_module = import_module(f"plugins_dev.{plugin_name}.fair_eva.plugins_dev.{plugin_name}.plugin")
+            else:
+                plugin_module = import_module(f"fair_eva.plugins.{plugin_name}.plugin")
         except ImportError:
             # Fallback por si los plugins instalados todavía usan el namespace antiguo puro
+            logger.debug(f"Namespace import failed, falling back to legacy layout: {e}")
             plugin_module = import_module(f"fair_eva.plugin.{plugin_name}.plugin")
 
-        downstream_logger = plugin_module.logger
+        # If the target plugin does not define a logger, then fallback API's default logger
+        downstream_logger = getattr(plugin_module, "logger", logging.getLogger("api.plugin.evaluation_steps"))
 
         # Resolvemos identificadores mediante Query (Lógica legacy intacta)
         ids = [item_id]
@@ -93,7 +98,7 @@ def load_plugin(wrapped_func):
 
         try:
             # 3. CONEXIÓN CON EL CORE: Cargamos el manifiesto declarativo yaml
-            plugin_config = plugin_loader.load_plugin_config(full_plugin_namespace)
+            plugin_config = plugin_loader.load_plugin_config(plugin_name)
             mapper = SchemaMapper(config=plugin_config)
 
             result = {}

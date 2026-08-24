@@ -13,8 +13,47 @@ Every valid plugin must bundle a `config.yaml` resource at its root level. The C
 - **Dependency Added**: `pyyaml` (for safe declarative decoding).
 - **Error States Handled**: Non-existent packages raise `ValueError`; missing manifests raise `FileNotFoundError`.
 
+---
 
-## Component: Schema Mapper (Technical Specification)
+## Component 2: Protocol Resolution (Dynamic Factory Layout)
+
+To avoid hardcoded conditional flows (`if/elif` branching blocks) when a single data repository exposes attributes across different endpoints, network transmission clients are decoupled using a registry strategy.
+
+### Component Design Specifications
+- **Registry Matrix**: Handled via `ProtocolClientFactory._registry`.
+- **String Token Identification**: Maps intuitive, non-typed protocol tokens declared by researchers in their `manifest.yaml` to strict underlying execution classes inside the core core architecture:
+  - `"http_rest"` -> Maps to `HttpClient`
+  - `"oai_pmh"` -> Maps to `OaiPmhClient`
+
+---
+
+## Component: Legacy Transition Contracts (Plugin Class Architecture)
+
+During the iterative migration toward a 100% declarative evaluation engine, community plugins under the local development workspace (`plugins_dev/`) must maintain an architectural transition skeleton. This satisfies the runtime hooks expected by the legacy API evaluation wrappers.
+
+### Structural Blueprint (`plugins_dev/{community}/fair_eva/plugins_dev/{community}/plugin.py`)
+
+Every new declarative plugin package requires a skeleton `plugin.py` to prevent server runtime allocation errors (`AttributeError`):
+
+```python
+import logging
+
+logger = logging.getLogger("fair_eva.plugins_dev.{community_name}")
+
+class Plugin:
+    """Provides a zero-logic skeleton class ensuring backward compatibility."""
+    def __init__(self, item_id, api_endpoint=None, lang="en", name=None, config=None):
+        self.item_id = item_id
+        self.api_endpoint = api_endpoint
+        self.lang = lang
+        self.name = name
+        self.config = config
+        self.metadata_raw = {}  # Injected payload endpoint target
+```
+
+---
+
+## Component 3: Schema Mapper (Technical Specification)
 
 The `SchemaMapper` is responsible for translating third-party repository data structures into the internal Python dict-based representation required by FAIR-eva.
 
@@ -46,6 +85,8 @@ To run the isolated test suite:
 ```bash
 uv run pytest tests/test_schema_mapper.py -vv
 ```
+
+---
 
 ## Component 4 & 5 Integration: The Semantic Transformation Pipeline
 The `DCATDatasetModel` (Component 5) operates in tandem with the `SchemaMapper` (Component 4) to transform raw unstructured Python dict-based payloads into JSON-LD graphs that use DCAT vocabulary.

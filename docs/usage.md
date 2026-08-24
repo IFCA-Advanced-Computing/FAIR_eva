@@ -1,16 +1,48 @@
-# Using FAIR EVA
+# FAIR EVA API - End-to-End Usage & Testing Guide
 
-FAIR EVA can be used through a browser, via its REST API or directly from the command line.  This section provides step‑by‑step guides for common tasks.
+This document describes how to launch the FAIR Evaluator API server to execute live evaluations.
 
-## Perform an evaluation
-Once FAIR EVA is running in port 9090, you can make a request via HTTP, with at least one plugin loaded:
+## Environment Routing (`FAIR_EVA_ENV`)
+
+The `PluginLoader` utilizes explicit system environment context flags through the environment variable `FAIR_EVA_ENV`:
+
+- **`FAIR_EVA_ENV=development`**: Directs the Core engine to scan the physical `plugins_dev/` folder at the repository root level.
+- **`FAIR_EVA_ENV=production`** (**Default**): Sources manifests exclusively from `.venv/site-packages/` via `importlib.resources`.
+
+## Execution Workflow (`development` mode)
+
+### 1. Booting the Server in Development Mode
+Execute the server runner from the root of your repository using `uv` while injecting the target environment flag to activate local physical folder resolution:
 
 ```bash
-curl -X POST "http://localhost:9090/v1.0/rda/rda_all" -H  "accept: application/json" -H  "Content-Type: application/json" -d '{"id":"8435696","lang":"es","api_endpoint": "https://zenodo.org/oai2d","repo":"oai_pmh"}'
+FAIR_EVA_ENV=development uv run fair-eva
+```
+*The API gateway will initialize, reading routes via `fair-api.yaml` and listening on port `9090`.*
+
+### 2. Triggering an E2E Evaluation Client Call
+Open a second terminal and send a real REST payload. The `"repo"` key must explicitly target a short name matching a directory token inside your local `plugins_dev/` space (e.g., `zenodo`):
+
+```bash
+curl -X POST "http://localhost:9090/v1.0/rda/rda_f1_01m" \
+  -H "accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "10648780",
+    "lang": "en",
+    "repo": "zenodo"
+  }'
 ```
 
-The data section in the request should include at least the id of the item to evaluate and the "repo" or plugin to invoque. Api_endpoint is optional, since it can be described in config file.
+### 3. Expected Successful JSON Response Layout
+The console will return the calculated FAIR metrics:
 
-```
-'{"id":"8435696","lang":"es","api_endpoint": "https://zenodo.org/oai2d","repo":"oai_pmh"}'
+```json
+{
+  "name": "RDA_F1_01M",
+  "points": 100,
+  "test_status": "passed",
+  "color": "green",
+  "score": {"earned": 100, "total": 100},
+  "msg": "Indicator passed! Standardized title found via JSONPath: '...'"
+}
 ```

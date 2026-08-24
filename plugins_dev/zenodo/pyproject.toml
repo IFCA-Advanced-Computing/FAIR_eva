@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=61.0.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "fair-eva-plugin-zenodo"
+version = "0.1.0"
+description = "Zenodo community plugin for FAIR Evaluator"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools]
+# Declaramos la ruta exacta del paquete dentro de la jerarquía
+packages = ["fair_eva.plugins_dev.zenodo"]
+
+[tool.setuptools.package-data]
+# Forzamos la inclusión del manifiesto como recurso del paquete
+"fair_eva.plugins_dev.zenodo" = ["manifest.yaml"]

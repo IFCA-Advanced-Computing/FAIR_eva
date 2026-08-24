@@ -35,6 +35,8 @@ dependencies = [
     "jsonpath-ng>=1.6.1",
     "pydantic>=2.7.0",
     "pyyaml>=6.0.3",
+    # Local dev plugin
+    "fair-eva-plugin-zenodo",
 ]
 
 [project.scripts]
@@ -64,3 +66,11 @@ profile = "black"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+# HACK DURING DEV: define 'plugins_dev/zenodo' as member of our current workspace
+[tool.uv.workspace]
+members = ["plugins_dev/zenodo"]
+
+[tool.uv.sources]
+# Le indicamos a uv de dónde tiene que sacar el paquete de forma local
+fair-eva-plugin-zenodo = { workspace = true }
