@@ -41,5 +41,6 @@ def test_plugin_loader_should_discover_and_load_plugin_mapping():
 def test_plugin_loader_should_raise_error_when_plugin_not_found():
     """Verifies that loading a non-existent plugin raises a ValueError."""
     loader = PluginLoader()
-    with pytest.raises(ValueError, match="Plugin fair_eva.plugins.unknown not found"):
+    expected_regex = r"Plugin 'fair_eva\.plugins\.unknown' not found inside fair_eva\.plugins_dev"
+    with pytest.raises(ValueError, match=expected_regex):
         loader.load_plugin_config("fair_eva.plugins.unknown")

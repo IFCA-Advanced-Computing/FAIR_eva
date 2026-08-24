@@ -165,3 +165,13 @@ def rda_f1_01m(body, eva):
 
     return {"status": "passed", "resolved_term": title}, 200
 ```
+
+### Namespace Parameterization & Environment Isolation
+
+To ensure seamless transitions between development sandboxes and production distribution pipelines, the `PluginLoader` implements package-root parameterization via its constructor:
+
+```python
+loader = PluginLoader(base_package="fair_eva.plugins_dev")
+```
+
+By abstracting the package root target as a variable (`self.base_package`), the system remains decouple-isolated. Developers can iterate on local community drafts inside `plugins_dev` without risk of dependency pollution, while production deployment shifts namespace targets instantly via a single configuration injector argument without code modifications.

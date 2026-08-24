@@ -1,0 +1,17 @@
+plugin_id: "zenodo_standalone_connector"
+community: "General Open Science Community"
+version: "0.1.0"
+
+connection:
+  protocol: "http_rest"
+  base_endpoint: "zenodo.org/api"
+  timeout_seconds: 30
+
+parsing:
+  format: "JSON"
+
+metadata_mapping:
+  identifier: "$.id"
+  title: "$.metadata.title"
+  publication_date: "$.metadata.publication_date"
+  license: "$.metadata.license"

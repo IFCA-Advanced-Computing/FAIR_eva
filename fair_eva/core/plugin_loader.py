@@ -1,42 +1,43 @@
 # fair_eva/core/plugin_loader.py
 import pkgutil
 import yaml
-from typing import List, Dict, Any
 import importlib.resources
-import fair_eva.plugins
+from typing import List, Dict, Any
 
 class PluginLoader:
-    """Dynamically discovers and loads configuration manifests from plugins
+    """Loads community manifests from a parameterized plugins folder namespace.
 
-    installed under the `fair_eva.plugins` namespace.
+    Defaults to development layout, but can be switched easily for production.
     """
-    def __init__(self):
+    def __init__(self, base_package: str = "fair_eva.plugins_dev"):
+        # Guardamos la ruta base parametrizada
+        self.base_package = base_package
         self.discovered_plugins = self._discover_modules()
 
     def _discover_modules(self) -> List[str]:
-        """Inspects the fair_eva.plugins namespace to find installed packages."""
-        # pkgutil.iter_modules inspecciona los paths del namespace de forma dinámica
-        plugins_path = fair_eva.plugins.__path__
-        return [
-            f"fair_eva.plugins.{info.name}"
-            for info in pkgutil.iter_modules(plugins_path)
-        ]
+        """Scans the configured base directory to list available plugin folders."""
+        try:
+            # Usamos la variable parametrizada en lugar de un string cableado
+            plugins_path = importlib.resources.files(self.base_package)
+            return [
+                item.name for item in plugins_path.iterdir()
+                if item.is_dir() and item.joinpath("manifest.yaml").exists()
+            ]
+        except Exception:
+            return []
 
     def list_plugins(self) -> List[str]:
-        """Returns a list of all discovered plugin module names."""
+        """Returns a list of all discovered plugin short names."""
         return self.discovered_plugins
 
-    def load_plugin_config(self, plugin_module_name: str) -> Dict[str, Any]:
-        """Reads and parses the config.yaml file from inside the target plugin package."""
-        if plugin_module_name not in self.discovered_plugins:
-            raise ValueError(f"Plugin {plugin_module_name} not found or not installed.")
-
+    def load_plugin_config(self, plugin_name: str) -> Dict[str, Any]:
+        """Reads the single manifest.yaml file from the target directory."""
+        if plugin_name not in self.discovered_plugins:
+            raise ValueError(f"Plugin '{plugin_name}' not found inside {self.base_package}.")
         try:
-            # importlib.resources.files accede de forma segura al config.yaml dentro del paquete
-            config_resource = importlib.resources.files(plugin_module_name).joinpath("config.yaml")
+            # Volvemos a usar el namespace dinámico aquí
+            config_resource = importlib.resources.files(self.base_package).joinpath(plugin_name, "manifest.yaml")
             yaml_content = config_resource.read_text(encoding="utf-8")
             return yaml.safe_load(yaml_content) or {}
         except FileNotFoundError:
-            raise FileNotFoundError(
-                f"The plugin '{plugin_module_name}' is installed but lacks a 'config.yaml' manifest."
-            )
+            raise FileNotFoundError(f"Plugin '{plugin_name}' lacks a 'manifest.yaml' inside {self.base_package}.")
