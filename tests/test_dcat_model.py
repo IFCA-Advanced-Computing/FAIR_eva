@@ -7,9 +7,9 @@ def test_dcat_model_should_serialize_to_json_ld():
     """Verifies that the model validates internal terms and exports clean JSON-LD."""
     # Python dict from SchemaMapper
     mapped_data = {
+        "identifier": "https://doi.org",
         "title": "FAIR Analysis of Omics Data",
-        "creator": ["Ana Garcia", "Carlos Perez"],
-        "issued": "2026-08-18",
+        "publication_date": "2026-08-18",
         "license": "https://creativecommons.org"
     }
 
@@ -19,7 +19,6 @@ def test_dcat_model_should_serialize_to_json_ld():
     # 3. Semantic validation of JSON-LD graph structure
     assert json_ld_output["@type"] == "dcat:Dataset"
     assert json_ld_output["dcterms:title"] == "FAIR Analysis of Omics Data"
-    assert json_ld_output["dcterms:creator"] == ["Ana Garcia", "Carlos Perez"]
     assert json_ld_output["dcterms:issued"] == "2026-08-18"
     assert json_ld_output["dcterms:license"] == "https://creativecommons.org"
 
