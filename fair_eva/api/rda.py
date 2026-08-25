@@ -54,7 +54,7 @@ def load_plugin(wrapped_func):
             logger.error(msg)
             return msg, 400
 
-        # 1. Validación de existencia del Plugin mediante el Core
+        # 1. Validation of plugin accessibility
         available_plugins = plugin_loader.list_plugins()
         if plugin_name not in available_plugins:
             plugin_error_message = (
@@ -65,7 +65,7 @@ def load_plugin(wrapped_func):
             logger.error(plugin_error_message)
             return plugin_error_message, 400
 
-        # 2. Carga dinámica del código antiguo (Mantenido temporalmente para get_ids e instanciación)
+        # 2. Load plugin
         env = os.getenv("FAIR_EVA_ENV", "production").lower()
         try:
             if env == "development":
@@ -73,14 +73,14 @@ def load_plugin(wrapped_func):
             else:
                 plugin_module = import_module(f"fair_eva.plugins.{plugin_name}.plugin")
         except ImportError:
-            # Fallback por si los plugins instalados todavía usan el namespace antiguo puro
+            # Fallback for namespace legacy layout (e.g., fair_eva.plugin.<plugin_name>.plugin)
             logger.debug(f"Namespace import failed, falling back to legacy layout: {e}")
             plugin_module = import_module(f"fair_eva.plugin.{plugin_name}.plugin")
 
         # If the target plugin does not define a logger, then fallback API's default logger
         downstream_logger = getattr(plugin_module, "logger", logging.getLogger("api.plugin.evaluation_steps"))
 
-        # Resolvemos identificadores mediante Query (Lógica legacy intacta)
+        # Query identifiers
         ids = [item_id]
         if pattern_to_query:
             try:
@@ -92,12 +92,12 @@ def load_plugin(wrapped_func):
                 logger.error(message)
                 return message, 400
 
-        # Configuración de logs
+        # Log configuration
         evaluator_handler = ut.EvaluatorLogHandler()
         downstream_logger.addHandler(evaluator_handler)
 
         try:
-            # 3. CONEXIÓN CON EL CORE: Cargamos el manifiesto declarativo yaml
+            # 3. Load plugin configuration
             plugin_config = plugin_loader.load_plugin_config(plugin_name)
             mapper = SchemaMapper(config=plugin_config)
 
@@ -106,30 +106,33 @@ def load_plugin(wrapped_func):
 
             for item_id in ids:
                 try:
-                    # Instanciación legacy del plugin
                     eva = plugin_module.Plugin(
                         item_id,
                         api_endpoint,
                         lang,
                         name=plugin_name,
-                        config=plugin_config, # Pasamos el nuevo config diccionario
+                        config=plugin_config,
                     )
-
-                    # Extraemos el payload crudo del repositorio (Componente 3)
-                    # Asumimos que la clase Plugin vieja expone los metadatos descargados en una propiedad (ej. 'metadata_raw' o similar)
-                    # Si tu plugin antiguo usa otro nombre de variable, cámbialo aquí:
                     raw_payload = getattr(eva, "metadata_raw", {})
 
-                    # Ejecutamos el SchemaMapper con JSONPath (Componente 4)
-                    # Esto inyecta los términos estándar planos directamente en la instancia evaluadora
-                    eva.mapped_metadata = mapper.transform(raw_payload)
+                    # 1. SchemaMapper transforms raw payload into standardized metadata
+                    standardized_metadata = mapper.transform(raw_payload)
+                    eva.mapped_metadata = standardized_metadata
+
+                    # 2. The Pydantic Model (DCATDatasetModel) validates and generates the DCAT 3 JSON-LD Graph
+                    from fair_eva.core.dcat_model import DCATDatasetModel
+                    dcat_dataset = DCATDatasetModel(**standardized_metadata)
+
+                    # Attach the semantic JSON-LD graph to the 'eva' context for accessibility
+                    eva.dcat_graph = dcat_dataset.to_json_ld()
+                    logger.info(f"Semantic DCAT 3 graph generated for ID {item_id}")
 
                 except Exception as e:
-                    message = f"Error while initiating {plugin_name} plugin with Core Mapper: {e}"
+                    message = f"Validation or Mapping error in Core pipeline: {e}"
                     logger.error(message)
                     return message, 400
 
-                # Llamada a la función original de la RDA (ej: rda_f1_01m)
+                # Call to FAIR RDA validation (ej: rda_f1_01m)
                 _result, _exit_code = wrapped_func(body, eva=eva)
                 result[item_id] = _result
                 if _exit_code != 200:

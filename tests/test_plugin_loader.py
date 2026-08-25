@@ -12,7 +12,7 @@ def test_plugin_loader_should_discover_and_load_plugin_mapping():
     plugin:
       name: "Mock Repository Plugin"
       version: "1.0.0"
-    metadata_mappings:
+    metadata_mapping:
       title: "$.repository.title"
       creator: "$.repository.author"
     """
@@ -35,8 +35,8 @@ def test_plugin_loader_should_discover_and_load_plugin_mapping():
 
         # 3. ASSERT
         assert "fair_eva.plugins.mock_repo" in available_plugins
-        assert plugin_config["metadata_mappings"]["title"] == "$.repository.title"
-        assert plugin_config["metadata_mappings"]["creator"] == "$.repository.author"
+        assert plugin_config["metadata_mapping"]["title"] == "$.repository.title"
+        assert plugin_config["metadata_mapping"]["creator"] == "$.repository.author"
 
 def test_plugin_loader_should_raise_error_when_plugin_not_found():
     """Verifies that loading a non-existent plugin raises a ValueError."""

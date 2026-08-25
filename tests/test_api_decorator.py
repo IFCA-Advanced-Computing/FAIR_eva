@@ -23,7 +23,7 @@ def test_load_plugin_decorator_injects_mapped_metadata():
 
     # Contenido de configuración YAML simulado para el plugin
     mock_yaml_config = {
-        "metadata_mappings": {
+        "metadata_mapping": {
             "title": "$.repository.title"
         }
     }

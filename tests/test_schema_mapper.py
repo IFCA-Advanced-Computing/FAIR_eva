@@ -29,7 +29,7 @@ def test_schema_mapper_extractions(mock_repo_payload, jsonpath_expr, expected_va
 
     # Simulate the dynamic plugin's config.yaml mapping an internal standard key
     plugin_config = {
-        "metadata_mappings": {
+        "metadata_mapping": {
             "target_key": jsonpath_expr
         }
     }

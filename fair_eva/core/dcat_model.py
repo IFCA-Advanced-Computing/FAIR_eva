@@ -1,32 +1,37 @@
-from typing import Any, Dict, List
+# fair_eva/core/dcat_model.py
+from typing import Any, Dict, Optional
 from pydantic import BaseModel, Field
 
 class DCATDatasetModel(BaseModel):
-    """Internal Pydantic V2 model representing a dcat:Dataset.
+    """Internal Pydantic V2 model representing a dcat:Dataset (DCAT 3 compliant).
 
-    Maps flat internal evaluator terms into standard Dublin Core and DCAT properties.
+    Maps community-extracted metadata fields directly into official RDF predicates.
     """
+    identifier: str = Field(..., serialization_alias="dcterms:identifier")
     title: str = Field(..., serialization_alias="dcterms:title")
-    creator: List[str] = Field(..., serialization_alias="dcterms:creator")
-    issued: str = Field(..., serialization_alias="dcterms:issued")
+
+    # Usamos validation_alias para aceptar 'publication_date' del mapper e issued como alias semántico
+    publication_date: str = Field(
+        ...,
+        validation_alias="publication_date",
+        serialization_alias="dcterms:issued"
+    )
+
     license: str = Field(..., serialization_alias="dcterms:license")
 
     def to_json_ld(self) -> Dict[str, Any]:
-        """Serializes the Pydantic model into a valid JSON-LD graph structure."""
-        # Generamos el diccionario utilizando los alias semánticos definidos arriba
+        """Serializes the validated properties into a standard JSON-LD 1.1 Graph."""
         serialized_data = self.model_dump(by_alias=True)
 
-        # Inyectamos el bloque estructural de JSON-LD
         json_ld = {
             "@context": {
                 "dcat": "http://w3.org",
                 "dcterms": "http://purl.org",
                 "xsd": "http://w3.org"
             },
-            "@id": "./dataset",  # Identificador local relativo dentro del RO-Crate
+            "@id": f"./dataset_{self.identifier}",
             "@type": "dcat:Dataset"
         }
 
-        # Mezclamos las propiedades del modelo
         json_ld.update(serialized_data)
         return json_ld
