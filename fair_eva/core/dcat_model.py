@@ -1,16 +1,15 @@
 # fair_eva/core/dcat_model.py
-from typing import Any, Dict, Optional
-from pydantic import BaseModel, Field
+from typing import Any, Dict, Union
+from pydantic import BaseModel, Field, field_validator
 
 class DCATDatasetModel(BaseModel):
     """Internal Pydantic V2 model representing a dcat:Dataset (DCAT 3 compliant).
 
-    Maps community-extracted metadata fields directly into official RDF predicates.
+    Enforces data typing and structure transformations on real-world repository metadata.
     """
     identifier: str = Field(..., serialization_alias="dcterms:identifier")
     title: str = Field(..., serialization_alias="dcterms:title")
 
-    # Usamos validation_alias para aceptar 'publication_date' del mapper e issued como alias semántico
     publication_date: str = Field(
         ...,
         validation_alias="publication_date",
@@ -18,6 +17,22 @@ class DCATDatasetModel(BaseModel):
     )
 
     license: str = Field(..., serialization_alias="dcterms:license")
+
+    @field_validator("identifier", mode="before")
+    @classmethod
+    def coerce_identifier_to_string(cls, v: Any) -> str:
+        """Coerces numeric unique identifiers (like Zenodo's integer IDs) into strings."""
+        if isinstance(v, (int, float)):
+            return str(v)
+        return v
+
+    @field_validator("license", mode="before")
+    @classmethod
+    def extract_license_string(cls, v: Any) -> str:
+        """Safely extracts the license URI/token string if the repository returns a nested object."""
+        if isinstance(v, dict):
+            return v.get("id", str(v))
+        return v
 
     def to_json_ld(self) -> Dict[str, Any]:
         """Serializes the validated properties into a standard JSON-LD 1.1 Graph."""
