@@ -113,26 +113,44 @@ def load_plugin(wrapped_func):
                         name=plugin_name,
                         config=plugin_config,
                     )
-                    raw_payload = getattr(eva, "metadata_raw", {})
 
-                    # 1. SchemaMapper transforms raw payload into standardized metadata
-                    standardized_metadata = mapper.transform(raw_payload)
+                    # 1. Read connection parameters declared in the plugin manifest
+                    connection_info = plugin_config.get("connection", {})
+                    protocol_id = connection_info.get("protocol", "http_rest")
+                    base_endpoint = connection_info.get("base_endpoint")
+
+                    # 2. The Core factory automatically instantiates the specialized client
+                    from fair_eva.core.protocol_clients import ProtocolClientFactory
+                    factory = ProtocolClientFactory()
+                    client = factory.get_client(protocol_id)
+
+                    # 3. Automatic fetching and parsing
+                    if hasattr(client, "fetch_and_parse"):
+                        parsed_payload = client.fetch_and_parse(base_endpoint, item_id)
+                    else:
+                        # Generic fallback for traditional clients that only implement fetch_raw_data (e.g., HttpClient, OaiPmhClient)
+                        import json
+                        raw_str = client.fetch_raw_data(base_endpoint, item_id)
+                        parsed_payload = json.loads(raw_str)
+
+                    # Store payload in the legacy object for compatibility
+                    eva.metadata_raw = parsed_payload
+
+                    # 4. The SchemaMapper filters using the JSONPath rules from the manifest.yaml
+                    standardized_metadata = mapper.transform(parsed_payload)
                     eva.mapped_metadata = standardized_metadata
 
-                    # 2. The Pydantic Model (DCATDatasetModel) validates and generates the DCAT 3 JSON-LD Graph
+                    # 5. The Pydantic Model generates the Semantic Graph of DCAT 3
                     from fair_eva.core.dcat_model import DCATDatasetModel
                     dcat_dataset = DCATDatasetModel(**standardized_metadata)
-
-                    # Attach the semantic JSON-LD graph to the 'eva' context for accessibility
                     eva.dcat_graph = dcat_dataset.to_json_ld()
-                    logger.info(f"Semantic DCAT 3 graph generated for ID {item_id}")
 
                 except Exception as e:
-                    message = f"Validation or Mapping error in Core pipeline: {e}"
+                    message = f"Core pipeline transmission or mapping failed: {e}"
                     logger.error(message)
                     return message, 400
 
-                # Call to FAIR RDA validation (ej: rda_f1_01m)
+                # Call to FAIR RDA validation (e.g.: rda_f1_01m)
                 _result, _exit_code = wrapped_func(body, eva=eva)
                 result[item_id] = _result
                 if _exit_code != 200:
