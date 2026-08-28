@@ -8,14 +8,14 @@ class DCATDatasetModel(BaseModel):
     Enforces data typing and structure transformations on real-world repository metadata.
     """
     identifier: str = Field(..., serialization_alias="dcterms:identifier")
-    title: str = Field(..., serialization_alias="dcterms:title")
+    metadata_identifier: str = Field(..., serialization_alias="dcterms:source")
 
+    title: str = Field(..., serialization_alias="dcterms:title")
     publication_date: str = Field(
         ...,
         validation_alias="publication_date",
         serialization_alias="dcterms:issued"
     )
-
     license: str = Field(..., serialization_alias="dcterms:license")
 
     @field_validator("identifier", mode="before")

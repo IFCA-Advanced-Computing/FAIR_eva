@@ -12,6 +12,7 @@ parsing:
 
 metadata_mapping:
   identifier: "$.id"
+  metadata_identifier: "$.links.self"
   title: "$.metadata.title"
   publication_date: "$.metadata.publication_date"
   license: "$.metadata.license"

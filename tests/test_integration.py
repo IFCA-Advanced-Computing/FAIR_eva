@@ -23,6 +23,7 @@ def test_pipeline_integration_from_payload_to_json_ld(mock_repo_payload):
     plugin_config = {
         "metadata_mapping": {
             "identifier": "$.repository.metadata.id",
+            "metadata_identifier": "$.repository.links.self",
             "title": "$.repository.metadata.title",
             "publication_date": "$.repository.metadata.issued",
             "license": "$.repository.metadata.rights"
@@ -31,6 +32,7 @@ def test_pipeline_integration_from_payload_to_json_ld(mock_repo_payload):
 
     # Sincronizamos los datos de la fixture mock_repo_payload con las rutas de arriba
     mock_repo_payload["repository"]["metadata"]["id"] = "10.1234/dataset_mock"
+    mock_repo_payload["repository"]["links"] = {"self": "https://zenodo.org/api/records/10648780"}
     mock_repo_payload["repository"]["metadata"]["title"] = "FAIR Analysis of Omics Data"
     mock_repo_payload["repository"]["metadata"]["issued"] = "2026-08-18"
     mock_repo_payload["repository"]["metadata"]["rights"] = "https://creativecommons.org"
@@ -47,6 +49,7 @@ def test_pipeline_integration_from_payload_to_json_ld(mock_repo_payload):
     assert json_ld_graph["@type"] == "dcat:Dataset"
     assert json_ld_graph["@id"] == "./dataset_10.1234/dataset_mock"
     assert json_ld_graph["dcterms:identifier"] == "10.1234/dataset_mock"
+    assert json_ld_graph["dcterms:source"] == "https://zenodo.org/api/records/10648780"
     assert json_ld_graph["dcterms:title"] == "FAIR Analysis of Omics Data"
     assert json_ld_graph["dcterms:issued"] == "2026-08-18"
     assert json_ld_graph["dcterms:license"] == "https://creativecommons.org"
