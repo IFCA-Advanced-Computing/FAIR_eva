@@ -58,3 +58,10 @@ def test_load_plugin_decorator_injects_mapped_metadata():
         assert exit_code == 200
         assert result["10.1234/test_dataset"] == {"status": "success"}
         mock_loader.load_plugin_config.assert_called_once_with("mock_repo")
+        mock_factory_class.return_value.get_client.assert_called_once_with(
+            "http_rest", connection={}
+        )
+        mock_dcat_class.assert_called_once_with(
+            title="FAIR Dataset Integrated Successfully",
+            requested_identifier="10.1234/test_dataset",
+        )

@@ -66,6 +66,9 @@ profile = "black"
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+    "live: opt-in tests that access external services",
+]
 
 # HACK DURING DEV: define 'plugins_dev/zenodo' as member of our current workspace
 [tool.uv.workspace]

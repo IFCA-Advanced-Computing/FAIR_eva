@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/">
+  <responseDate>2026-08-28T10:00:00Z</responseDate>
+  <request verb="GetRecord" identifier="oai:zenodo.org:10648780" metadataPrefix="oai_dc">https://zenodo.org/oai2d</request>
+  <GetRecord>
+    <record>
+      <header>
+        <identifier>oai:zenodo.org:10648780</identifier>
+        <datestamp>2026-08-18T12:00:00Z</datestamp>
+        <setSpec>openaire_data</setSpec>
+        <setSpec>user-example</setSpec>
+      </header>
+      <metadata>
+        <oai_dc:dc
+          xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/"
+          xmlns:dc="http://purl.org/dc/elements/1.1/"
+          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+          xsi:schemaLocation="http://www.openarchives.org/OAI/2.0/oai_dc/ https://www.openarchives.org/OAI/2.0/oai_dc.xsd">
+          <dc:identifier>10.5281/zenodo.10648780</dc:identifier>
+          <dc:identifier>https://zenodo.org/records/10648780</dc:identifier>
+          <dc:title xml:lang="en">FAIR Analysis of Omics Data</dc:title>
+          <dc:creator>Ana Garcia</dc:creator>
+          <dc:creator>Carlos Perez</dc:creator>
+          <dc:date>2026-08-18</dc:date>
+          <dc:rights>info:eu-repo/semantics/openAccess</dc:rights>
+          <dc:rights>https://creativecommons.org/licenses/by/4.0/</dc:rights>
+        </oai_dc:dc>
+      </metadata>
+    </record>
+  </GetRecord>
+</OAI-PMH>

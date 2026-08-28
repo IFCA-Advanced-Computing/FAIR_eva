@@ -42,7 +42,10 @@ def test_pipeline_integration_from_payload_to_json_ld(mock_repo_payload):
     mapped_flat_data = mapper.transform(mock_repo_payload)
 
     # 2. ACT: Paso 2 - Hidratar y validar en el DCAT Model (Componente 5)
-    dcat_model = DCATDatasetModel(**mapped_flat_data)
+    dcat_model = DCATDatasetModel(
+        **mapped_flat_data,
+        requested_identifier="10.1234/dataset_mock",
+    )
     json_ld_graph = dcat_model.to_json_ld()
 
     # 3. ASSERT: Verificaciones estructurales del grafo semántico final DCAT 3
@@ -54,6 +57,41 @@ def test_pipeline_integration_from_payload_to_json_ld(mock_repo_payload):
     assert json_ld_graph["dcterms:issued"] == "2026-08-18"
     assert json_ld_graph["dcterms:license"] == "https://creativecommons.org"
     assert "@context" in json_ld_graph
+
+
+def test_pipeline_integration_preserves_multiple_identifiers():
+    payload = {
+        "repository": {
+            "identifiers": [
+                "local-id",
+                "https://hdl.handle.net/10261/12345",
+            ],
+            "metadata": {
+                "title": "Dataset with multiple identifiers",
+                "issued": "2026-08-18",
+                "rights": "https://creativecommons.org/licenses/by/4.0/",
+            },
+        }
+    }
+    config = {
+        "metadata_mapping": {
+            "identifier": "$.repository.identifiers[*]",
+            "metadata_identifier": "$.repository.identifiers[*]",
+            "title": "$.repository.metadata.title",
+            "publication_date": "$.repository.metadata.issued",
+            "license": "$.repository.metadata.rights",
+        }
+    }
+
+    mapped_data = SchemaMapper(config).transform(payload)
+    json_ld = DCATDatasetModel(
+        **mapped_data,
+        requested_identifier="10261/12345",
+    ).to_json_ld()
+
+    assert json_ld["@id"] == "./dataset_https://hdl.handle.net/10261/12345"
+    assert json_ld["dcterms:identifier"] == payload["repository"]["identifiers"]
+    assert json_ld["dcterms:source"] == payload["repository"]["identifiers"]
 
 
 ####################################

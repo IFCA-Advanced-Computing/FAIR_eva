@@ -3,16 +3,18 @@ community: "General Open Science Community"
 version: "0.1.0"
 
 connection:
-  protocol: "zenodo_rest"
-  base_endpoint: "zenodo.org/api"
+  protocol: "oai_pmh"
+  base_endpoint: "https://data.rijksmuseum.nl/oai"
+  metadata_prefix: "oai_dc"
+  identifier_template: "https://id.rijksmuseum.nl/{id}"
   timeout_seconds: 30
 
 parsing:
-  format: "JSON"
+  format: "XML"
 
 metadata_mapping:
-  identifier: "$.id"
-  metadata_identifier: "$.links.self"
-  title: "$.metadata.title"
-  publication_date: "$.metadata.publication_date"
-  license: "$.metadata.license"
+  identifier: "$.metadata.identifier[*]['#text']"
+  metadata_identifier: "$.metadata.identifier[*]['#text']"
+  title: "$.metadata.title[0]['#text']"
+  publication_date: "$.metadata.date[0]['#text']"
+  license: "$.metadata.rights[-1]['#text']"

@@ -122,13 +122,13 @@ def load_plugin(wrapped_func):
                     # 2. The Core factory automatically instantiates the specialized client
                     from fair_eva.core.protocol_clients import ProtocolClientFactory
                     factory = ProtocolClientFactory()
-                    client = factory.get_client(protocol_id)
+                    client = factory.get_client(protocol_id, connection=connection_info)
 
                     # 3. Automatic fetching and parsing
                     if hasattr(client, "fetch_and_parse"):
                         parsed_payload = client.fetch_and_parse(base_endpoint, item_id)
                     else:
-                        # Generic fallback for traditional clients that only implement fetch_raw_data (e.g., HttpClient, OaiPmhClient)
+                        # Generic fallback for clients that only implement fetch_raw_data (e.g., HttpClient)
                         import json
                         raw_str = client.fetch_raw_data(base_endpoint, item_id)
                         parsed_payload = json.loads(raw_str)
@@ -142,7 +142,10 @@ def load_plugin(wrapped_func):
 
                     # 5. The Pydantic Model generates the Semantic Graph of DCAT 3
                     from fair_eva.core.dcat_model import DCATDatasetModel
-                    dcat_dataset = DCATDatasetModel(**standardized_metadata)
+                    dcat_dataset = DCATDatasetModel(
+                        **standardized_metadata,
+                        requested_identifier=item_id,
+                    )
                     eva.dcat_graph = dcat_dataset.to_json_ld()
 
                 except Exception as e:
@@ -176,19 +179,47 @@ def endpoints(plugin=None):
     return plugin_list
 
 
+def _normalize_identifier_candidates(value):
+    """Return non-empty string identifier candidates with stable cardinality."""
+    values = value if isinstance(value, list) else [value]
+    return [
+        candidate.strip()
+        for candidate in values
+        if isinstance(candidate, str) and candidate.strip()
+    ]
+
+
+def _partition_persistent_identifiers(value):
+    candidates = _normalize_identifier_candidates(value)
+    persistent = []
+    rejected = []
+    for candidate in candidates:
+        if ut.is_persistent_id(candidate):
+            persistent.append(candidate)
+        else:
+            rejected.append(candidate)
+    return persistent, rejected
+
+
 @load_plugin
 def rda_f1_01m(body, eva):
     """Evaluates RDA Indicator F1-01M: Metadata identifies itself with a unique persistent identifier."""
     try:
         metadata = getattr(eva, "mapped_metadata", {})
-        metadata_id = metadata.get("metadata_identifier")
+        persistent, rejected = _partition_persistent_identifiers(
+            metadata.get("metadata_identifier")
+        )
 
-        if metadata_id and "http" in str(metadata_id): # Validamos que sea una URL/URI persistente
+        if persistent:
             points = 100
-            msg = f"Indicator passed! Metadata record identifies itself via persistent URI: '{metadata_id}'"
+            msg = f"Persistent metadata identifier(s) found: {persistent}."
+            if rejected:
+                msg += f" Rejected candidate(s): {rejected}."
         else:
             points = 0
-            msg = "Indicator failed. Distinct 'metadata_identifier' URI could not be resolved from repository."
+            msg = "No persistent metadata identifier could be resolved."
+            if rejected:
+                msg += f" Rejected candidate(s): {rejected}."
 
         result = {
             "name": "RDA_F1_01M",
@@ -220,14 +251,20 @@ def rda_f1_01d(body, eva):
     """Evaluates RDA Indicator F1-01D: Metadata identifies the digital object with a unique identifier."""
     try:
         metadata = getattr(eva, "mapped_metadata", {})
-        identifier = metadata.get("identifier")
+        persistent, rejected = _partition_persistent_identifiers(
+            metadata.get("identifier")
+        )
 
-        if identifier:
+        if persistent:
             points = 100
-            msg = f"Indicator passed! Unique identifier found via JSONPath: '{identifier}'"
+            msg = f"Persistent data identifier(s) found: {persistent}."
+            if rejected:
+                msg += f" Rejected candidate(s): {rejected}."
         else:
             points = 0
-            msg = "Indicator failed. 'identifier' could not be resolved from repository metadata."
+            msg = "No persistent data identifier could be resolved."
+            if rejected:
+                msg += f" Rejected candidate(s): {rejected}."
 
         result = {
             "name": "RDA_F1_01D",
