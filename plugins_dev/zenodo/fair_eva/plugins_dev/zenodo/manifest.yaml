@@ -3,7 +3,7 @@ community: "General Open Science Community"
 version: "0.1.0"
 
 connection:
-  protocol: "http_rest"
+  protocol: "zenodo_rest"
   base_endpoint: "zenodo.org/api"
   timeout_seconds: 30
 
@@ -12,6 +12,7 @@ parsing:
 
 metadata_mapping:
   identifier: "$.id"
+  metadata_identifier: "$.links.self"
   title: "$.metadata.title"
   publication_date: "$.metadata.publication_date"
   license: "$.metadata.license"

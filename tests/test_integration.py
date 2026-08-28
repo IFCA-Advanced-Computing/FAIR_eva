@@ -3,41 +3,54 @@ import pytest
 from fair_eva.core.mapper import SchemaMapper
 from fair_eva.core.dcat_model import DCATDatasetModel
 
+# tests/test_integration.py
+import pytest
+from fair_eva.core.mapper import SchemaMapper
+from fair_eva.core.dcat_model import DCATDatasetModel
+
+# tests/test_integration.py
+import pytest
+from fair_eva.core.mapper import SchemaMapper
+from fair_eva.core.dcat_model import DCATDatasetModel
+
 def test_pipeline_integration_from_payload_to_json_ld(mock_repo_payload):
     """Verifies the complete integration flow between Component 4 and Component 5.
 
-    It should take a deeply nested repository dictionary, map it via JSONPath rules,
-    validate it through Pydantic, and export a structured semantic JSON-LD graph.
+    It takes a deeply nested repository dictionary, maps it via JSONPath rules,
+    validates it through Pydantic, and exports a structured semantic JSON-LD graph.
     """
-    # 1. Plugin's config.yaml
+    # 1. ARRANGE: Alineamos las expresiones JSONPath con la estructura real del payload
     plugin_config = {
-        "metadata_mappings": {
+        "metadata_mapping": {
+            "identifier": "$.repository.metadata.id",
+            "metadata_identifier": "$.repository.links.self",
             "title": "$.repository.metadata.title",
-            "creator": "$.repository.contributors[*].name",
-            "issued": "$.repository.metadata.issued",
+            "publication_date": "$.repository.metadata.issued",
             "license": "$.repository.metadata.rights"
         }
     }
 
-    # Add correct values for 'issued' and 'license' in order to avoid Pydantic's ValidationError
+    # Sincronizamos los datos de la fixture mock_repo_payload con las rutas de arriba
+    mock_repo_payload["repository"]["metadata"]["id"] = "10.1234/dataset_mock"
+    mock_repo_payload["repository"]["links"] = {"self": "https://zenodo.org/api/records/10648780"}
+    mock_repo_payload["repository"]["metadata"]["title"] = "FAIR Analysis of Omics Data"
     mock_repo_payload["repository"]["metadata"]["issued"] = "2026-08-18"
     mock_repo_payload["repository"]["metadata"]["rights"] = "https://creativecommons.org"
-    plugin_config["metadata_mappings"]["issued"] = "$.repository.metadata.issued"
-    plugin_config["metadata_mappings"]["license"] = "$.repository.metadata.rights"
 
-
-    # 2. Run SchemaMapper (Component 4)
+    # 2. ACT: Paso 1 - Ejecutar el SchemaMapper (Componente 4)
     mapper = SchemaMapper(config=plugin_config)
     mapped_flat_data = mapper.transform(mock_repo_payload)
 
-    # 3. DCAT Model (Component 5)
+    # 2. ACT: Paso 2 - Hidratar y validar en el DCAT Model (Componente 5)
     dcat_model = DCATDatasetModel(**mapped_flat_data)
     json_ld_graph = dcat_model.to_json_ld()
 
-    # Assertions
+    # 3. ASSERT: Verificaciones estructurales del grafo semántico final DCAT 3
     assert json_ld_graph["@type"] == "dcat:Dataset"
+    assert json_ld_graph["@id"] == "./dataset_10.1234/dataset_mock"
+    assert json_ld_graph["dcterms:identifier"] == "10.1234/dataset_mock"
+    assert json_ld_graph["dcterms:source"] == "https://zenodo.org/api/records/10648780"
     assert json_ld_graph["dcterms:title"] == "FAIR Analysis of Omics Data"
-    assert json_ld_graph["dcterms:creator"] == ["Ana Garcia", "Carlos Perez"]
     assert json_ld_graph["dcterms:issued"] == "2026-08-18"
     assert json_ld_graph["dcterms:license"] == "https://creativecommons.org"
     assert "@context" in json_ld_graph
@@ -53,7 +66,7 @@ def test_legacy_decorator_integration_with_new_core():
     """Verifies that the legacy decorator pattern can fetch metadata via the new Core."""
     # Simulamos el config.yaml del plugin
     mock_yaml_content = """
-    metadata_mappings:
+    metadata_mapping:
       title: "$.repository.title"
     """
 

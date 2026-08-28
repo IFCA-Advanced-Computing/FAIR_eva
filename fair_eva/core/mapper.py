@@ -10,7 +10,7 @@ class SchemaMapper:
     using JSONPath expressions defined in the plugin configuration.
     """
     def __init__(self, config: Dict[str, Any]):
-        self.mappings = config.get("metadata_mappings", {})
+        self.mappings = config.get("metadata_mapping", {})
 
     def transform(self, parsed_payload: Dict[str, Any]) -> Dict[str, Any]:
         """Maps payload fields to internal keys using JSONPath expressions."""

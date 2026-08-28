@@ -54,7 +54,7 @@ def load_plugin(wrapped_func):
             logger.error(msg)
             return msg, 400
 
-        # 1. Validación de existencia del Plugin mediante el Core
+        # 1. Validation of plugin accessibility
         available_plugins = plugin_loader.list_plugins()
         if plugin_name not in available_plugins:
             plugin_error_message = (
@@ -65,7 +65,7 @@ def load_plugin(wrapped_func):
             logger.error(plugin_error_message)
             return plugin_error_message, 400
 
-        # 2. Carga dinámica del código antiguo (Mantenido temporalmente para get_ids e instanciación)
+        # 2. Load plugin
         env = os.getenv("FAIR_EVA_ENV", "production").lower()
         try:
             if env == "development":
@@ -73,14 +73,14 @@ def load_plugin(wrapped_func):
             else:
                 plugin_module = import_module(f"fair_eva.plugins.{plugin_name}.plugin")
         except ImportError:
-            # Fallback por si los plugins instalados todavía usan el namespace antiguo puro
+            # Fallback for namespace legacy layout (e.g., fair_eva.plugin.<plugin_name>.plugin)
             logger.debug(f"Namespace import failed, falling back to legacy layout: {e}")
             plugin_module = import_module(f"fair_eva.plugin.{plugin_name}.plugin")
 
         # If the target plugin does not define a logger, then fallback API's default logger
         downstream_logger = getattr(plugin_module, "logger", logging.getLogger("api.plugin.evaluation_steps"))
 
-        # Resolvemos identificadores mediante Query (Lógica legacy intacta)
+        # Query identifiers
         ids = [item_id]
         if pattern_to_query:
             try:
@@ -92,12 +92,12 @@ def load_plugin(wrapped_func):
                 logger.error(message)
                 return message, 400
 
-        # Configuración de logs
+        # Log configuration
         evaluator_handler = ut.EvaluatorLogHandler()
         downstream_logger.addHandler(evaluator_handler)
 
         try:
-            # 3. CONEXIÓN CON EL CORE: Cargamos el manifiesto declarativo yaml
+            # 3. Load plugin configuration
             plugin_config = plugin_loader.load_plugin_config(plugin_name)
             mapper = SchemaMapper(config=plugin_config)
 
@@ -106,30 +106,51 @@ def load_plugin(wrapped_func):
 
             for item_id in ids:
                 try:
-                    # Instanciación legacy del plugin
                     eva = plugin_module.Plugin(
                         item_id,
                         api_endpoint,
                         lang,
                         name=plugin_name,
-                        config=plugin_config, # Pasamos el nuevo config diccionario
+                        config=plugin_config,
                     )
 
-                    # Extraemos el payload crudo del repositorio (Componente 3)
-                    # Asumimos que la clase Plugin vieja expone los metadatos descargados en una propiedad (ej. 'metadata_raw' o similar)
-                    # Si tu plugin antiguo usa otro nombre de variable, cámbialo aquí:
-                    raw_payload = getattr(eva, "metadata_raw", {})
+                    # 1. Read connection parameters declared in the plugin manifest
+                    connection_info = plugin_config.get("connection", {})
+                    protocol_id = connection_info.get("protocol", "http_rest")
+                    base_endpoint = connection_info.get("base_endpoint")
 
-                    # Ejecutamos el SchemaMapper con JSONPath (Componente 4)
-                    # Esto inyecta los términos estándar planos directamente en la instancia evaluadora
-                    eva.mapped_metadata = mapper.transform(raw_payload)
+                    # 2. The Core factory automatically instantiates the specialized client
+                    from fair_eva.core.protocol_clients import ProtocolClientFactory
+                    factory = ProtocolClientFactory()
+                    client = factory.get_client(protocol_id)
+
+                    # 3. Automatic fetching and parsing
+                    if hasattr(client, "fetch_and_parse"):
+                        parsed_payload = client.fetch_and_parse(base_endpoint, item_id)
+                    else:
+                        # Generic fallback for traditional clients that only implement fetch_raw_data (e.g., HttpClient, OaiPmhClient)
+                        import json
+                        raw_str = client.fetch_raw_data(base_endpoint, item_id)
+                        parsed_payload = json.loads(raw_str)
+
+                    # Store payload in the legacy object for compatibility
+                    eva.metadata_raw = parsed_payload
+
+                    # 4. The SchemaMapper filters using the JSONPath rules from the manifest.yaml
+                    standardized_metadata = mapper.transform(parsed_payload)
+                    eva.mapped_metadata = standardized_metadata
+
+                    # 5. The Pydantic Model generates the Semantic Graph of DCAT 3
+                    from fair_eva.core.dcat_model import DCATDatasetModel
+                    dcat_dataset = DCATDatasetModel(**standardized_metadata)
+                    eva.dcat_graph = dcat_dataset.to_json_ld()
 
                 except Exception as e:
-                    message = f"Error while initiating {plugin_name} plugin with Core Mapper: {e}"
+                    message = f"Core pipeline transmission or mapping failed: {e}"
                     logger.error(message)
                     return message, 400
 
-                # Llamada a la función original de la RDA (ej: rda_f1_01m)
+                # Call to FAIR RDA validation (e.g.: rda_f1_01m)
                 _result, _exit_code = wrapped_func(body, eva=eva)
                 result[item_id] = _result
                 if _exit_code != 200:
@@ -157,21 +178,18 @@ def endpoints(plugin=None):
 
 @load_plugin
 def rda_f1_01m(body, eva):
-    """Evaluates RDA Indicator F1-01M using standardized Core metadata."""
+    """Evaluates RDA Indicator F1-01M: Metadata identifies itself with a unique persistent identifier."""
     try:
-        # 1. Extraemos el metadato estandarizado por el SchemaMapper del Core
         metadata = getattr(eva, "mapped_metadata", {})
-        title = metadata.get("title")
+        metadata_id = metadata.get("metadata_identifier")
 
-        # 2. Lógica del indicador: En este caso, evalúa si existe un título/identificador válido
-        if title:
+        if metadata_id and "http" in str(metadata_id): # Validamos que sea una URL/URI persistente
             points = 100
-            msg = f"Indicator passed! Standardized title found via JSONPath: '{title}'"
+            msg = f"Indicator passed! Metadata record identifies itself via persistent URI: '{metadata_id}'"
         else:
             points = 0
-            msg = "Indicator failed. 'title' could not be resolved from repository payload."
+            msg = "Indicator failed. Distinct 'metadata_identifier' URI could not be resolved from repository."
 
-        # 3. Mantenemos exactamente tu misma estructura de salida para la API
         result = {
             "name": "RDA_F1_01M",
             "msg": msg,
@@ -181,10 +199,8 @@ def rda_f1_01m(body, eva):
             "score": {"earned": points, "total": 100},
         }
         exit_code = 200
-
     except Exception as e:
         logger.error(e)
-        # Inicializamos points a 0 de forma segura por si la excepción ocurre antes del bloque IF
         fallback_points = 0
         result = {
             "name": "ERROR",
@@ -201,8 +217,18 @@ def rda_f1_01m(body, eva):
 
 @load_plugin
 def rda_f1_01d(body, eva):
+    """Evaluates RDA Indicator F1-01D: Metadata identifies the digital object with a unique identifier."""
     try:
-        points, msg = eva.rda_f1_01d()
+        metadata = getattr(eva, "mapped_metadata", {})
+        identifier = metadata.get("identifier")
+
+        if identifier:
+            points = 100
+            msg = f"Indicator passed! Unique identifier found via JSONPath: '{identifier}'"
+        else:
+            points = 0
+            msg = "Indicator failed. 'identifier' could not be resolved from repository metadata."
+
         result = {
             "name": "RDA_F1_01D",
             "msg": msg,
@@ -212,15 +238,17 @@ def rda_f1_01d(body, eva):
             "score": {"earned": points, "total": 100},
         }
         exit_code = 200
+
     except Exception as e:
         logger.error(e)
+        fallback_points = 0
         result = {
             "name": "ERROR",
-            "msg": "Exception: %s" % e,
-            "points": 0,
-            "color": ut.get_color(0),
-            "test_status": ut.test_status(points),
-            "score": {"earned": points, "total": 100},
+            "msg": f"Exception: {e}",
+            "points": fallback_points,
+            "color": ut.get_color(fallback_points),
+            "test_status": ut.test_status(fallback_points),
+            "score": {"earned": fallback_points, "total": 100},
         }
         exit_code = 422
 
